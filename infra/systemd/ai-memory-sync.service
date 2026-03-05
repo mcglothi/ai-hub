@@ -1,0 +1,12 @@
+[Unit]
+Description=AI Hub session log ingest to AIKB Memory Core
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-%h/.config/ai-memory-sync.env
+ExecStart=/usr/bin/env bash -lc 'REPO=""; if [ -d "$HOME/Code/ai-hub" ]; then REPO="$HOME/Code/ai-hub"; elif [ -d "$HOME/code/ai-hub" ]; then REPO="$HOME/code/ai-hub"; else echo "ai-hub repo not found" >&2; exit 1; fi; exec python3 "$REPO/apps/sessions/sync_agent.py" --device "$(hostname)"'
+
+[Install]
+WantedBy=default.target
