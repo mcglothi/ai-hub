@@ -40,6 +40,9 @@
 
   <g transform="translate(230,72)">
     <text x="0" y="62" font-size="72" font-family="Sora, Segoe UI, Arial, sans-serif" font-weight="700" fill="url(#wordGrad)">AI Hub</text>
-    <text x="3" y="98" font-size="20" font-family="Inter, Segoe UI, Arial, sans-serif" font-weight="500" fill="#9BC1E8">Unified chat, session, and tooling control plane</text>
+    <text x="3" y="96" font-size="16" font-family="Inter, Segoe UI, Arial, sans-serif" font-weight="500" fill="#9BC1E8">
+      <tspan x="3" dy="0">Unified chat, sessions, and tooling</tspan>
+      <tspan x="3" dy="20">control plane</tspan>
+    </text>
   </g>
 </svg>
