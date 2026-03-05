@@ -3,1834 +3,453 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AI Hub</title>
+  <title>Turing Desktop v2.0</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/xterm/css/xterm.css" />
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
       --bg-0: #071221;
       --bg-1: #0f1f34;
-      --surface: rgba(10, 18, 30, 0.78);
-      --surface-2: rgba(16, 28, 43, 0.9);
-      --border: rgba(130, 175, 220, 0.24);
+      --surface: rgba(10, 18, 30, 0.85);
+      --surface-2: rgba(16, 28, 43, 0.95);
+      --border: rgba(130, 175, 220, 0.2);
       --accent: #53d8b5;
       --accent-2: #57a6ff;
       --text: #eef5ff;
       --text-dim: #9cb0c8;
-      --user-bubble: linear-gradient(135deg, #26508f 0%, #2f739c 100%);
-      --assistant-bubble: rgba(12, 24, 38, 0.9);
-      --radius: 20px;
-      --shadow-lg: 0 22px 56px rgba(3, 10, 21, 0.55);
-      --header-h: 74px;
-      --input-h: 64px;
+      --radius: 12px;
+      --header-h: 60px;
+      --sidebar-w: 260px;
+      --cmd-h: 70px;
     }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Sora', sans-serif; background: var(--bg-0); color: var(--text); overflow: hidden; }
 
-    html, body {
-      height: 100%;
-      color: var(--text);
-      font-family: 'Sora', sans-serif;
-      font-size: 16px;
-      line-height: 1.55;
-      overflow: hidden;
-      background:
-        radial-gradient(1300px 900px at 12% -18%, #225693 0%, transparent 55%),
-        radial-gradient(1100px 900px at 88% 8%, #1f6d5b 0%, transparent 54%),
-        linear-gradient(150deg, var(--bg-0), var(--bg-1));
-    }
-
-    body::before,
-    body::after {
-      content: '';
-      position: fixed;
-      z-index: 0;
-      pointer-events: none;
-      border-radius: 999px;
-      filter: blur(40px);
-      opacity: 0.34;
-      animation: drift 15s ease-in-out infinite alternate;
-    }
-
-    body::before {
-      width: 280px;
-      height: 280px;
-      top: -70px;
-      right: -60px;
-      background: #57a6ff;
-    }
-
-    body::after {
-      width: 250px;
-      height: 250px;
-      left: -65px;
-      bottom: -55px;
-      background: #53d8b5;
-      animation-delay: -5s;
-    }
-
-    @keyframes drift {
-      from { transform: translateY(-10px) translateX(0); }
-      to { transform: translateY(14px) translateX(9px); }
-    }
-
-    #app {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      height: 100dvh;
-      backdrop-filter: saturate(1.08);
-    }
-
-    header {
-      min-height: var(--header-h);
-      background: var(--surface);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      flex-wrap: wrap;
-      flex-shrink: 0;
-    }
-
-    .header-title {
-      font-weight: 700;
-      font-size: 1rem;
-      color: #f2f8ff;
-      letter-spacing: 0.01em;
-      padding: 0 4px;
-    }
-
-    .tab-switch {
-      display: inline-flex;
-      gap: 6px;
-      padding: 4px;
-      border: 1px solid var(--border);
-      background: rgba(10, 18, 29, 0.74);
-      border-radius: 12px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    }
-
-    .provider-switch {
-      display: inline-flex;
-      gap: 6px;
-      padding: 4px;
-      border: 1px solid var(--border);
-      background: rgba(10, 18, 29, 0.74);
-      border-radius: 12px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    }
-
-    .tab-btn,
-    .provider-btn,
-    .chip-btn {
-      border: 0;
-      border-radius: 9px;
-      background: transparent;
-      color: var(--text-dim);
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      padding: 8px 12px;
-      cursor: pointer;
-      min-height: 34px;
-      transition: all 0.18s ease;
-    }
-
-    .tab-btn.active {
-      color: #06253a;
-      background: linear-gradient(120deg, var(--accent), #88ead3);
-      box-shadow: 0 8px 18px rgba(83, 216, 181, 0.35);
-    }
-
-    .provider-btn.active {
-      color: #06253a;
-      background: linear-gradient(120deg, #73d7ff, #99e7ff);
-      box-shadow: 0 8px 18px rgba(115, 215, 255, 0.35);
-    }
-
-    .tab-btn:not(.active):hover,
-    .provider-btn:not(.active):hover,
-    .chip-btn:hover,
-    .setting-select:hover,
-    .setting-range:hover {
-      color: #d7e9ff;
-      background: rgba(87, 166, 255, 0.14);
-    }
-
-    .header-tools {
-      display: inline-flex;
-      gap: 6px;
-      margin-left: auto;
-    }
-
-    .chip-btn {
-      border: 1px solid var(--border);
-      background: rgba(10, 18, 29, 0.74);
-      color: #d8e9ff;
-    }
-
-    .chip-btn.active {
-      color: #062235;
-      background: linear-gradient(120deg, #73d7ff, #99e7ff);
-      border-color: transparent;
-    }
-
-    #model-badge {
-      font-size: 11px;
-      color: #dbebff;
-      background: rgba(11, 23, 38, 0.86);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 5px 10px;
-      white-space: nowrap;
-      font-family: 'JetBrains Mono', monospace;
-      letter-spacing: 0.01em;
-    }
-
-    .panel {
-      display: none;
-      min-height: 0;
-      flex: 1;
-      position: relative;
-    }
-
-    .panel.active {
-      display: flex;
-      flex-direction: column;
-    }
-
-    #chat-panel {
-      min-height: 0;
-    }
-
-    #messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px 12px 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    #messages::-webkit-scrollbar { width: 9px; }
-    #messages::-webkit-scrollbar-thumb {
-      background: rgba(146, 177, 212, 0.35);
-      border-radius: 999px;
-      border: 2px solid transparent;
-      background-clip: content-box;
-    }
-
-    .msg {
-      display: flex;
-      flex-direction: column;
-      max-width: 88%;
-      animation: fadeUp 0.16s ease-out;
-    }
-
-    .msg.user {
-      align-self: flex-end;
-      align-items: flex-end;
-    }
-
-    .msg.assistant {
-      align-self: flex-start;
-      align-items: flex-start;
-    }
-
-    .msg.status {
-      align-self: center;
-      align-items: center;
-      max-width: 94%;
-    }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .bubble {
-      padding: 11px 14px;
-      border-radius: var(--radius);
-      word-break: break-word;
-      overflow-wrap: break-word;
-      box-shadow: 0 10px 20px rgba(2, 8, 18, 0.25);
-    }
-
-    .msg.user .bubble {
-      background: var(--user-bubble);
-      border-bottom-right-radius: 6px;
-      color: #edf6ff;
-    }
-
-    .msg.assistant .bubble {
-      background: var(--assistant-bubble);
-      border: 1px solid rgba(122, 169, 220, 0.24);
-      border-bottom-left-radius: 6px;
-      color: #d7e9ff;
-    }
-
-    .msg.status .bubble {
-      background: rgba(10, 22, 36, 0.92);
-      border: 1px dashed rgba(118, 182, 236, 0.45);
-      border-radius: 14px;
-      color: #cde4ff;
-      font-size: 13px;
-      white-space: pre-line;
-    }
-
-    .bubble p { margin: 0 0 0.62em; }
-    .bubble p:last-child { margin-bottom: 0; }
-    .bubble ul, .bubble ol { padding-left: 1.4em; margin: 0.4em 0; }
-    .bubble li { margin: 0.14em 0; }
-    .bubble h1, .bubble h2, .bubble h3 {
-      font-size: 1em;
-      font-weight: 700;
-      margin: 0.56em 0 0.3em;
-      color: #f5fbff;
-    }
-    .bubble h1:first-child, .bubble h2:first-child, .bubble h3:first-child { margin-top: 0; }
-    .bubble code {
-      background: rgba(6, 15, 25, 0.9);
-      border: 1px solid rgba(137, 183, 228, 0.3);
-      border-radius: 5px;
-      padding: 1px 5px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.84em;
-      color: #b7f6e5;
-    }
-    .bubble pre {
-      background: rgba(5, 13, 22, 0.95);
-      border: 1px solid rgba(137, 183, 228, 0.3);
-      border-radius: 8px;
-      padding: 10px 12px;
-      overflow-x: auto;
-      margin: 0.5em 0;
-      -webkit-overflow-scrolling: touch;
-    }
-    .bubble pre code {
-      background: none;
-      border: none;
-      padding: 0;
-      font-size: 0.82em;
-      line-height: 1.45;
-    }
-    .bubble strong { color: #f2fbff; }
-    .bubble blockquote {
-      border-left: 3px solid rgba(129, 178, 226, 0.35);
-      padding-left: 10px;
-      color: #cde7ff;
-      margin: 0.4em 0;
-    }
-
-    .cursor::after {
-      content: '▋';
-      color: var(--accent);
-      animation: blink 0.9s step-end infinite;
-    }
-
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0; }
-    }
-
-    #empty-state {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      color: #9eb4cd;
-      pointer-events: none;
-      user-select: none;
-      text-align: center;
-      padding: 20px;
-    }
-
-    #empty-state .orb {
-      width: 60px;
-      height: 60px;
-      border-radius: 999px;
-      background: linear-gradient(160deg, #6cd9ff, #68e7c4);
-      display: grid;
-      place-items: center;
-      box-shadow: 0 14px 35px rgba(83, 216, 181, 0.25);
-    }
-
-    #empty-state .orb svg {
-      width: 30px;
-      height: 30px;
-      color: #03253f;
-    }
-
-    #input-bar {
-      display: flex;
-      align-items: flex-end;
-      gap: 8px;
-      padding: 8px 12px;
-      padding-bottom: max(8px, env(safe-area-inset-bottom));
-      border-top: 1px solid var(--border);
-      background: var(--surface);
-      backdrop-filter: blur(12px);
-      flex-shrink: 0;
-    }
-
-    #message-input {
-      flex: 1;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 22px;
-      padding: 12px 16px;
-      color: var(--text);
-      font-size: 15px;
-      font-family: inherit;
-      line-height: 1.4;
-      resize: none;
-      outline: none;
-      max-height: 160px;
-      min-height: 46px;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      transition: border-color 0.16s ease, box-shadow 0.16s ease;
-    }
-
-    #message-input:focus {
-      border-color: rgba(83, 216, 181, 0.58);
-      box-shadow: 0 0 0 2px rgba(83, 216, 181, 0.12);
-    }
-
-    #message-input::placeholder { color: #8ea5bf; }
-
-    #send-btn {
-      width: 46px;
-      height: 46px;
-      border-radius: 999px;
-      border: 0;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      transition: transform 0.1s ease, filter 0.16s ease;
-      flex-shrink: 0;
-      box-shadow: 0 9px 20px rgba(43, 128, 206, 0.32);
-    }
-
-    #voice-input-btn {
-      width: 46px;
-      height: 46px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(12, 24, 38, 0.9);
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      transition: transform 0.1s ease, border-color 0.16s ease, background 0.16s ease;
-      flex-shrink: 0;
-    }
-
-    #voice-input-btn svg {
-      width: 18px;
-      height: 18px;
-      fill: #d7e8ff;
-    }
-
-    #voice-input-btn.active {
-      border-color: rgba(255, 128, 140, 0.8);
-      background: rgba(93, 27, 36, 0.88);
-      box-shadow: 0 9px 22px rgba(159, 41, 61, 0.35);
-    }
-
-    #voice-input-btn:active { transform: scale(0.94); }
-    #voice-input-btn:disabled {
-      opacity: 0.45;
-      cursor: default;
-      box-shadow: none;
-      transform: none;
-    }
-
-    #send-btn:active { transform: scale(0.94); }
-    #send-btn:disabled {
-      filter: saturate(0.35) brightness(0.8);
-      cursor: default;
-      box-shadow: none;
-    }
-
-    #send-btn svg {
-      width: 20px;
-      height: 20px;
-      fill: #062337;
-    }
-
-    #new-chat-btn {
-      background: rgba(12, 24, 38, 0.74);
-      border: 1px solid var(--border);
-      color: #d7e8ff;
-      border-radius: 11px;
-      padding: 8px 12px;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      cursor: pointer;
-      min-height: 34px;
-      transition: all .18s ease;
-    }
-
-    #new-chat-btn:hover {
-      border-color: rgba(83, 216, 181, 0.45);
-      color: #effaff;
-      transform: translateY(-1px);
-    }
-
-    #stop-chat-btn {
-      background: rgba(51, 18, 23, 0.72);
-      border: 1px solid rgba(214, 108, 122, 0.35);
-      color: #ffdbe1;
-      border-radius: 11px;
-      padding: 8px 12px;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      cursor: pointer;
-      min-height: 34px;
-      transition: all .18s ease;
-    }
-
-    #stop-chat-btn:hover:not(:disabled) {
-      border-color: rgba(255, 132, 150, 0.55);
-      color: #fff5f7;
-      transform: translateY(-1px);
-    }
-
-    #stop-chat-btn:disabled {
-      opacity: 0.45;
-      cursor: default;
-      transform: none;
-    }
-
-    #workspace-panel {
-      position: relative;
-      min-height: 0;
-      background: rgba(6, 12, 21, 0.38);
-      overflow: hidden;
-    }
-
-    .workspace-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(8, 16, 28, 0.78);
-      backdrop-filter: blur(12px);
-      flex-wrap: wrap;
-      flex-shrink: 0;
-    }
-
-    .workspace-status {
-      font-size: 12px;
-      color: #cde6ff;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 4px 9px;
-      font-family: 'JetBrains Mono', monospace;
-      background: rgba(10, 20, 33, 0.74);
-    }
-
-    .workspace-tip {
-      font-size: 12px;
-      color: var(--text-dim);
-      margin-left: auto;
-      white-space: nowrap;
-    }
-
-    .workspace-frame-wrap {
-      flex: 1;
-      min-height: 0;
-      position: relative;
-      padding: 10px;
-      background:
-        radial-gradient(900px 500px at -5% 115%, rgba(87, 166, 255, 0.12), transparent 65%),
-        radial-gradient(900px 500px at 102% -15%, rgba(83, 216, 181, 0.1), transparent 65%),
-        rgba(6, 12, 21, 0.45);
-    }
-
-    .workspace-frame {
-      width: 100%;
-      height: 100%;
-      border: 1px solid rgba(139, 184, 228, 0.22);
-      border-radius: 14px;
-      background: #05090f;
-      box-shadow: var(--shadow-lg);
-    }
-
-    .settings-drawer {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: min(330px, calc(100% - 20px));
-      max-height: calc(100% - 20px);
-      overflow-y: auto;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: rgba(8, 16, 27, 0.96);
-      box-shadow: var(--shadow-lg);
-      padding: 12px;
-      display: none;
-      z-index: 25;
-    }
-
-    .settings-drawer.open { display: block; }
-
-    .settings-title {
-      font-weight: 700;
-      font-size: 13px;
-      color: #e5f3ff;
-      margin-bottom: 10px;
-    }
-
-    .setting-row {
-      display: grid;
-      gap: 5px;
-      margin-bottom: 10px;
-    }
-
-    .setting-row label {
-      font-size: 11px;
-      color: #abc4df;
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
-      font-weight: 600;
-    }
-
-    .setting-select,
-    .setting-range {
-      width: 100%;
-      border: 1px solid var(--border);
-      background: rgba(12, 23, 37, 0.84);
-      color: #e0efff;
-      border-radius: 10px;
-      font-size: 12px;
-      padding: 8px 10px;
-      font-family: 'JetBrains Mono', monospace;
-      transition: all 0.15s ease;
-      outline: none;
-    }
-
-    .setting-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    .setting-actions button {
-      flex: 1;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: rgba(13, 24, 39, 0.85);
-      color: #d5e8ff;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 9px 10px;
-      cursor: pointer;
-      transition: all 0.16s ease;
-    }
-
-    .setting-actions button:hover {
-      border-color: rgba(83, 216, 181, 0.45);
-      color: #f0fbff;
-    }
-
-    @media (max-width: 880px) {
-      .workspace-tip { display: none; }
-      .workspace-frame-wrap { padding: 8px; }
-    }
-
-    @media (max-width: 720px) {
-      header { gap: 8px; padding: 10px; }
-      .header-title { width: 100%; }
-      #model-badge { order: 10; width: 100%; text-align: center; margin-left: 0; }
-      .tab-btn, .provider-btn, .chip-btn { font-size: 11px; padding: 7px 9px; }
-      #messages { padding: 14px 10px 8px; }
-      .workspace-toolbar { padding: 8px 10px; }
-    }
+    #app { display: flex; height: 100dvh; }
+
+    aside#sidebar {
+      width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; transition: transform 0.3s ease; z-index: 100;
+    }
+    .sidebar-header { padding: 15px 20px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 1rem; display: flex; justify-content: space-between; align-items: center; }
+    .workspace-list { flex: 1; overflow-y: auto; padding: 10px; }
+    .ws-item { 
+      padding: 10px 12px; border-radius: var(--radius); cursor: pointer; margin-bottom: 4px;
+      transition: background 0.2s; border: 1px solid transparent; overflow: hidden;
+    }
+    .ws-item:hover { background: rgba(255,255,255,0.05); }
+    .ws-item.active { background: rgba(87, 166, 255, 0.15); border-color: var(--accent-2); }
+    .ws-item .name { font-weight: 600; font-size: 0.85rem; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+    .ws-item .path { font-size: 0.65rem; color: var(--text-dim); white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+
+    main#content { flex: 1; display: flex; flex-direction: column; position: relative; min-width: 0; }
+
+    header#main-header {
+      height: var(--header-h); background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 15px; gap: 10px; flex-shrink: 0;
+    }
+
+    .facet-tabs { display: flex; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 10px; flex-shrink: 0; }
+    .facet-btn { 
+      padding: 6px 12px; border-radius: 8px; border: 0; background: transparent; 
+      color: var(--text-dim); font-weight: 600; font-size: 0.8rem; cursor: pointer;
+    }
+    .facet-btn.active { background: var(--accent-2); color: #000; }
+
+    .session-tabs { display: flex; gap: 6px; overflow-x: auto; flex: 1; padding: 0 5px; scrollbar-width: none; }
+    .session-tabs::-webkit-scrollbar { display: none; }
+    .session-tab {
+      padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.05);
+      font-size: 0.75rem; white-space: nowrap; cursor: pointer; border: 1px solid var(--border);
+      max-width: 150px; text-overflow: ellipsis; overflow: hidden;
+    }
+    .session-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(83, 216, 181, 0.1); }
+
+    #facet-container { flex: 1; position: relative; overflow: hidden; }
+    .facet-view { position: absolute; inset: 0; display: none; flex-direction: column; }
+    .facet-view.active { display: flex; }
+
+    #shell-view { background: #000; padding: 5px; }
+    .terminal-container { flex: 1; width: 100%; height: 100%; }
+
+    #assist-view { background: var(--bg-1); overflow-y: auto; padding: 15px; gap: 12px; scroll-behavior: smooth; }
+    .msg { max-width: 90%; padding: 10px 14px; border-radius: var(--radius); line-height: 1.4; font-size: 0.9rem; margin-bottom: 10px; word-wrap: break-word; }
+    .msg.user { align-self: flex-end; background: var(--accent-2); color: #000; border-bottom-right-radius: 2px; }
+    .msg.assistant { align-self: flex-start; background: var(--surface-2); border: 1px solid var(--border); border-bottom-left-radius: 2px; }
+    .msg pre { background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; overflow-x: auto; margin: 8px 0; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+    .msg code { font-family: 'JetBrains Mono', monospace; background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px; }
+
+    #edit-view iframe { width: 100%; height: 100%; border: 0; }
+
+    #command-bar {
+      height: var(--cmd-h); background: var(--surface); border-top: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 15px; gap: 15px; flex-shrink: 0;
+    }
+    #cmd-input {
+      flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 15px; color: var(--text); font-family: inherit; font-size: 0.95rem; min-width: 100px; box-sizing: border-box;
+    }
+    .cmd-btn {
+      width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--surface-2);
+      color: var(--text); cursor: pointer; display: grid; place-items: center; flex-shrink: 0;
+    }
+    .cmd-btn.active { color: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+      display: none; place-items: center; z-index: 1000; padding: 20px;
+    }
+    .modal-overlay.active { display: grid; }
+    .modal {
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px;
+      width: 100%; max-width: 400px; padding: 24px; display: flex; flex-direction: column; gap: 15px;
+    }
+    .modal h2 { font-size: 1.2rem; font-weight: 700; }
+    .modal input, .modal select {
+      width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: #0a121e; color: #fff; font-family: inherit; font-size: 0.95rem; outline: none; appearance: none;
+    }
+    .modal select { background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px; }
+    .modal option { background: #0a121e; color: #fff; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+    .btn { padding: 8px 16px; border-radius: 8px; border: 0; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+    .btn-primary { background: var(--accent-2); color: #000; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-ghost { background: transparent; color: var(--text-dim); }
+
+    @media (max-width: 768px) {
+      aside#sidebar { position: absolute; transform: translateX(-100%); width: 85%; max-width: 300px; }
+      aside#sidebar.open { transform: translateX(0); box-shadow: 20px 0 50px rgba(0,0,0,0.5); }
+      .sidebar-toggle { display: flex !important; }
+      .session-tabs { display: none; }
+    }
+    .sidebar-toggle { display: none; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-<div id="app">
-  <header>
-    <span class="header-title">AI Hub</span>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <span>Workspaces</span>
+        <button id="add-ws-btn" title="New Workspace" style="background: transparent; border: 0; color: var(--accent); font-size: 1.5rem; cursor: pointer;">+</button>
+      </div>
+      <div id="workspace-list" class="workspace-list"></div>
+    </aside>
 
-    <div class="tab-switch" role="tablist" aria-label="AI Hub tabs">
-      <button class="tab-btn active" data-tab="chat" role="tab" aria-selected="true">Chat</button>
-      <button class="tab-btn" data-tab="terminal" role="tab" aria-selected="false">Terminal</button>
-      <button class="tab-btn" data-tab="code" role="tab" aria-selected="false">Code</button>
-      <button class="tab-btn" data-tab="sessions" role="tab" aria-selected="false">Sessions</button>
-    </div>
-
-    <div class="provider-switch" role="tablist" aria-label="Chat provider">
-      <button class="provider-btn active" data-provider="claude" type="button">Claude</button>
-      <button class="provider-btn" data-provider="gemini" type="button">Gemini</button>
-      <button class="provider-btn" data-provider="codex" type="button">Codex</button>
-    </div>
-
-    <div class="header-tools">
-      <button id="aikb-toggle-btn" class="chip-btn active" type="button" title="Toggle AIKB context for all providers">AIKB On</button>
-      <button id="voice-mode-btn" class="chip-btn" type="button" title="Toggle spoken assistant replies">Voice Off</button>
-      <button id="terminal-settings-btn" class="chip-btn" type="button">Terminal Style</button>
-      <button id="stop-chat-btn" type="button" title="Interrupt current response" disabled>Interrupt</button>
-      <button id="new-chat-btn" type="button" title="New chat">New Chat</button>
-    </div>
-
-    <span id="model-badge">connecting...</span>
-  </header>
-
-  <section id="chat-panel" class="panel active" aria-label="Chat tab content">
-    <div id="messages">
-      <div id="empty-state">
-        <div class="orb" aria-hidden="true">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" fill="currentColor"/>
-          </svg>
+    <main id="content">
+      <header id="main-header">
+        <button id="menu-btn" class="cmd-btn sidebar-toggle">☰</button>
+        <div class="facet-tabs">
+          <button class="facet-btn active" data-facet="assist">Assist</button>
+          <button class="facet-btn" data-facet="shell">Shell</button>
+          <button class="facet-btn" data-facet="edit">Edit</button>
         </div>
-        <p>Ask Claude anything, then hop to Terminal or Code without leaving AI Hub.</p>
+        <div id="session-tabs" class="session-tabs"></div>
+        <button id="add-session-btn" class="facet-btn" title="New Session">+</button>
+      </header>
+
+      <div id="facet-container">
+        <div id="assist-view" class="facet-view active">
+          <div id="chat-history" style="display: flex; flex-direction: column;"></div>
+        </div>
+        <div id="shell-view" class="facet-view">
+          <div id="terminal" class="terminal-container"></div>
+        </div>
+        <div id="edit-view" class="facet-view">
+          <iframe id="editor-frame" src=""></iframe>
+        </div>
+      </div>
+
+      <footer id="command-bar">
+        <button id="mic-btn" class="cmd-btn">\ud83c\udf99\ufe0f</button>
+        <input type="text" id="cmd-input" placeholder="Ask or type command..." autocomplete="off">
+        <button id="send-btn" class="cmd-btn">➤</button>
+      </footer>
+    </main>
+  </div>
+
+  <div id="ws-modal" class="modal-overlay">
+    <div class="modal">
+      <h2>New Workspace</h2>
+      <input type="text" id="ws-name" placeholder="Project Name (e.g. My App)">
+      <input type="text" id="ws-path" placeholder="Root Path (e.g. /home/mcglothi/Code/my-app)">
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('ws-modal')">Cancel</button>
+        <button class="btn btn-primary" id="ws-create-btn">Create Workspace</button>
       </div>
     </div>
+  </div>
 
-    <div id="input-bar">
-      <textarea id="message-input" placeholder="Message Claude..." rows="1" autocomplete="off" autocorrect="on" spellcheck="true"></textarea>
-      <button id="voice-input-btn" type="button" title="Start voice input">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v7c0 1.66 1.34 3 3 3zm5.3-3c0 3.07-2.13 5.64-5 6.23V21h-1.6v-2.77c-2.87-.59-5-3.16-5-6.23H4.1c0 3.53 2.62 6.43 6 7.06V22h3.8v-2.94c3.38-.63 6-3.53 6-7.06h-1.6z"/></svg>
-      </button>
-      <button id="send-btn" title="Send" disabled>
-        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-      </button>
-    </div>
-  </section>
-
-  <section id="terminal-panel" class="panel" aria-label="Terminal tab content">
-    <div class="panel active">
-      <div class="workspace-toolbar">
-        <span id="terminal-status" class="workspace-status">terminal: connecting</span>
-        <button id="terminal-reload-btn" class="chip-btn" type="button">Reconnect</button>
-        <button id="terminal-popout-btn" class="chip-btn" type="button">Open Fullscreen</button>
-        <span class="workspace-tip">Shortcuts: Cmd/Ctrl+Shift+C copy, Cmd/Ctrl+Shift+V paste</span>
-      </div>
-      <div class="workspace-frame-wrap">
-        <iframe id="terminal-frame" class="workspace-frame" src="/terminal/" title="Web terminal" loading="eager" referrerpolicy="same-origin"></iframe>
-        <aside id="settings-drawer" class="settings-drawer" aria-label="Terminal style settings">
-          <h2 class="settings-title">Terminal Style</h2>
-          <div class="setting-row">
-            <label for="term-font">Font</label>
-            <select id="term-font" class="setting-select">
-              <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
-              <option value="'Fira Code', monospace">Fira Code</option>
-              <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
-              <option value="'SF Mono', Menlo, monospace">SF Mono</option>
-            </select>
-          </div>
-          <div class="setting-row">
-            <label for="term-scale">Font Size / Zoom</label>
-            <input id="term-scale" class="setting-range" type="range" min="0.8" max="1.45" step="0.05" value="1">
-          </div>
-          <div class="setting-row">
-            <label for="term-theme">Color Theme</label>
-            <select id="term-theme" class="setting-select">
-              <option value="cool-night">Cool Night</option>
-              <option value="matrix">Matrix Green</option>
-              <option value="amber">Amber CRT</option>
-              <option value="ice">Ice Blue</option>
-              <option value="classic">Classic Dark</option>
-            </select>
-          </div>
-          <div class="setting-row">
-            <label for="term-contrast">Contrast</label>
-            <input id="term-contrast" class="setting-range" type="range" min="0.8" max="1.5" step="0.05" value="1">
-          </div>
-          <div class="setting-actions">
-            <button id="term-reset-btn" type="button">Reset Defaults</button>
-            <button id="term-apply-btn" type="button">Apply Now</button>
-          </div>
-        </aside>
+  <div id="session-modal" class="modal-overlay">
+    <div class="modal">
+      <h2>New Session</h2>
+      <label style="font-size: 0.8rem; color: var(--text-dim);">Select Tool</label>
+      <select id="session-provider">
+        <option value="claude">Claude Code</option>
+        <option value="gemini">Gemini Code Assist</option>
+        <option value="codex">Codex CLI</option>
+        <option value="zsh">Zsh Shell</option>
+      </select>
+      <input type="text" id="session-title" placeholder="Session Title (optional)">
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('session-modal')">Cancel</button>
+        <button class="btn btn-primary" id="session-create-btn">Launch Tool</button>
       </div>
     </div>
-  </section>
+  </div>
 
-  <section id="code-panel" class="panel" aria-label="Code tab content">
-    <div class="panel active">
-      <div class="workspace-toolbar">
-        <span class="workspace-status">code: embedded</span>
-        <button id="code-popout-btn" class="chip-btn" type="button">Open Fullscreen</button>
-      </div>
-      <div class="workspace-frame-wrap">
-        <iframe id="code-frame" class="workspace-frame" src="https://code.home.timmcg.net" title="Code Server" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
-      </div>
-    </div>
-  </section>
-
-  <section id="sessions-panel" class="panel" aria-label="Sessions tab content">
-    <div class="panel active">
-      <div class="workspace-toolbar">
-        <span class="workspace-status">sessions: embedded</span>
-        <button id="sessions-popout-btn" class="chip-btn" type="button">Open Fullscreen</button>
-      </div>
-      <div class="workspace-frame-wrap">
-        <iframe id="sessions-frame" class="workspace-frame" src="https://sessions.home.timmcg.net" title="AI Hub Sessions" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
-      </div>
-    </div>
-  </section>
-</div>
-
-<script>
-(function () {
-  'use strict';
-
-  const TERMINAL_SETTINGS_KEY = 'aihub_terminal_settings';
-  const TAB_KEY = 'aihub_active_tab';
-  const PROVIDER_KEY = 'aihub_chat_provider';
-  const SESSION_KEY_PREFIX = 'aihub_chat_session_';
-  const VOICE_MODE_KEY = 'aihub_voice_mode';
-  const AIKB_TOGGLE_KEY = 'aihub_aikb_enabled';
-
-  const providers = {
-    claude: { label: 'Claude', placeholder: 'Message Claude...', labelLong: 'Claude' },
-    gemini: { label: 'Gemini', placeholder: 'Message Gemini...', labelLong: 'Gemini' },
-    codex: { label: 'Codex', placeholder: 'Message Codex...', labelLong: 'Codex' }
-  };
-
-  const terminalThemeMap = {
-    'cool-night': {
-      bg: '#04070d',
-      fg: '#cde7ff',
-      filter: 'saturate(1.08) hue-rotate(0deg)'
-    },
-    'matrix': {
-      bg: '#021007',
-      fg: '#76ff7a',
-      filter: 'saturate(1.25) hue-rotate(-22deg)'
-    },
-    'amber': {
-      bg: '#120b04',
-      fg: '#ffd28c',
-      filter: 'saturate(1.2) hue-rotate(-35deg)'
-    },
-    'ice': {
-      bg: '#05111a',
-      fg: '#b8f3ff',
-      filter: 'saturate(1.2) hue-rotate(12deg)'
-    },
-    'classic': {
-      bg: '#000000',
-      fg: '#f2f2f2',
-      filter: 'none'
-    }
-  };
-
-  const defaultTerminalSettings = {
-    font: "'JetBrains Mono', monospace",
-    scale: 1,
-    theme: 'cool-night',
-    contrast: 1
-  };
-
-  let provider = localStorage.getItem(PROVIDER_KEY) || 'claude';
-  if (!providers[provider]) provider = 'claude';
-  let sessionId = localStorage.getItem(`${SESSION_KEY_PREFIX}${provider}`) || null;
-  let voiceModeEnabled = localStorage.getItem(VOICE_MODE_KEY) === '1';
-  let aikbEnabled = localStorage.getItem(AIKB_TOGGLE_KEY) !== '0';
-  let streaming = false;
-  let currentBubble = null;
-  let currentText = '';
-  let terminalBaseFontSize = null;
-  let activeFetchController = null;
-  let isListening = false;
-  let wantsListening = false;
-  let mediaRecorder = null;
-  let mediaStream = null;
-  let mediaChunks = [];
-  let mediaMimeType = 'audio/webm';
-  let hasMicAccess = false;
-  let audioContext = null;
-  let audioAnalyser = null;
-  let audioSourceNode = null;
-  let audioMonitorFrame = null;
-  let recordingStartedAtMs = 0;
-  let lastSpeechAtMs = 0;
-  let detectedSpeech = false;
-  let lastMeterUpdateAtMs = 0;
-  let liveCaptionRecognizer = null;
-  let liveCaptionFinal = '';
-  let liveCaptionInterim = '';
-  let transcriptionStatusMsg = null;
-  let transcriptionStatusBubble = null;
-  const supportsMediaRecorder = typeof window.MediaRecorder !== 'undefined';
-  const supportsLiveCaption = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-  const supportsSpeechSynthesis = !!window.speechSynthesis;
-  let preferredSpeechVoice = null;
-  const AUTO_STOP_SILENCE_MS = 1400;
-  const MIN_RECORDING_MS = 900;
-
-  const tabBtns = Array.from(document.querySelectorAll('.tab-btn'));
-  const providerBtns = Array.from(document.querySelectorAll('.provider-btn'));
-  const panels = {
-    chat: document.getElementById('chat-panel'),
-    terminal: document.getElementById('terminal-panel'),
-    code: document.getElementById('code-panel'),
-    sessions: document.getElementById('sessions-panel')
-  };
-
-  const messagesEl = document.getElementById('messages');
-  const emptyState = document.getElementById('empty-state');
-  const inputEl = document.getElementById('message-input');
-  const voiceInputBtn = document.getElementById('voice-input-btn');
-  const sendBtn = document.getElementById('send-btn');
-  const voiceModeBtn = document.getElementById('voice-mode-btn');
-  const aikbToggleBtn = document.getElementById('aikb-toggle-btn');
-  const stopChatBtn = document.getElementById('stop-chat-btn');
-  const newChatBtn = document.getElementById('new-chat-btn');
-  const modelBadge = document.getElementById('model-badge');
-
-  const terminalFrame = document.getElementById('terminal-frame');
-  const terminalStatus = document.getElementById('terminal-status');
-  const terminalSettingsBtn = document.getElementById('terminal-settings-btn');
-  const terminalReloadBtn = document.getElementById('terminal-reload-btn');
-  const terminalPopoutBtn = document.getElementById('terminal-popout-btn');
-
-  const codePopoutBtn = document.getElementById('code-popout-btn');
-  const sessionsPopoutBtn = document.getElementById('sessions-popout-btn');
-
-  const settingsDrawer = document.getElementById('settings-drawer');
-  const termFontInput = document.getElementById('term-font');
-  const termScaleInput = document.getElementById('term-scale');
-  const termThemeInput = document.getElementById('term-theme');
-  const termContrastInput = document.getElementById('term-contrast');
-  const termApplyBtn = document.getElementById('term-apply-btn');
-  const termResetBtn = document.getElementById('term-reset-btn');
-
-  let terminalSettings = loadTerminalSettings();
-
-  marked.setOptions({ breaks: true, gfm: true });
-
-  function syncVoiceModeUi() {
-    if (!supportsSpeechSynthesis) {
-      voiceModeEnabled = false;
-      voiceModeBtn.disabled = true;
-      voiceModeBtn.textContent = 'Voice N/A';
-      voiceModeBtn.title = 'Speech synthesis not available in this browser';
-      voiceModeBtn.classList.remove('active');
-    } else {
-      voiceModeBtn.disabled = false;
-      voiceModeBtn.textContent = voiceModeEnabled ? 'Voice On' : 'Voice Off';
-      voiceModeBtn.classList.toggle('active', voiceModeEnabled);
-      voiceModeBtn.title = voiceModeEnabled ? 'Disable spoken assistant replies' : 'Enable spoken assistant replies';
-    }
-
-    voiceInputBtn.disabled = streaming || !supportsMediaRecorder;
-    voiceInputBtn.classList.toggle('active', isListening || wantsListening);
-    voiceInputBtn.title = supportsMediaRecorder
-      ? ((isListening || wantsListening) ? 'Stop voice input' : 'Start voice input')
-      : 'Voice recording not supported in this browser';
-
-    if (wantsListening && panels.chat.classList.contains('active') && !streaming) {
-      modelBadge.textContent = 'listening...';
-    }
-  }
-
-  function syncAikbUi() {
-    aikbToggleBtn.textContent = aikbEnabled ? 'AIKB On' : 'AIKB Off';
-    aikbToggleBtn.classList.toggle('active', aikbEnabled);
-    aikbToggleBtn.title = aikbEnabled
-      ? 'Disable AIKB context for chat requests'
-      : 'Enable AIKB context for chat requests';
-  }
-
-  function selectPreferredVoice() {
-    if (!supportsSpeechSynthesis) return null;
-    const voices = window.speechSynthesis.getVoices();
-    if (!voices.length) return null;
-    return (
-      voices.find((v) => /en-US/i.test(v.lang)) ||
-      voices.find((v) => /^en/i.test(v.lang)) ||
-      voices[0]
-    );
-  }
-
-  function stopSpeaking() {
-    if (supportsSpeechSynthesis) window.speechSynthesis.cancel();
-  }
-
-  function stripForSpeech(markdownText) {
-    if (!markdownText) return '';
-    const temp = document.createElement('div');
-    temp.innerHTML = marked.parse(markdownText);
-    return (temp.textContent || '').replace(/\s+/g, ' ').trim();
-  }
-
-  function maybeSpeakAssistant(markdownText) {
-    if (!voiceModeEnabled || !supportsSpeechSynthesis) return;
-    const plain = stripForSpeech(markdownText);
-    if (!plain) return;
-    stopSpeaking();
-    const utterance = new SpeechSynthesisUtterance(plain);
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    utterance.voice = preferredSpeechVoice;
-    window.speechSynthesis.speak(utterance);
-  }
-
-  function stopLiveCaptionRecognition() {
-    if (!liveCaptionRecognizer) return;
-    try {
-      liveCaptionRecognizer.onresult = null;
-      liveCaptionRecognizer.onerror = null;
-      liveCaptionRecognizer.onend = null;
-      liveCaptionRecognizer.stop();
-    } catch {
-      // no-op
-    }
-    liveCaptionRecognizer = null;
-    liveCaptionFinal = '';
-    liveCaptionInterim = '';
-  }
-
-  function stopAudioMonitoring() {
-    if (audioMonitorFrame) {
-      cancelAnimationFrame(audioMonitorFrame);
-      audioMonitorFrame = null;
-    }
-    if (audioSourceNode) {
-      try { audioSourceNode.disconnect(); } catch {}
-      audioSourceNode = null;
-    }
-    if (audioAnalyser) {
-      try { audioAnalyser.disconnect(); } catch {}
-      audioAnalyser = null;
-    }
-    if (audioContext) {
-      try { audioContext.close(); } catch {}
-      audioContext = null;
-    }
-  }
-
-  function stopMediaTracks() {
-    stopAudioMonitoring();
-    stopLiveCaptionRecognition();
-    if (mediaStream) {
-      mediaStream.getTracks().forEach((track) => track.stop());
-      mediaStream = null;
-    }
-  }
-
-  async function ensureMicrophoneAccess() {
-    if (hasMicAccess) return true;
-    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') return true;
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach((track) => track.stop());
-    hasMicAccess = true;
-    return true;
-  }
-
-  function pickRecordingMimeType() {
-    const candidates = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/mp4',
-      'audio/ogg;codecs=opus',
-    ];
-    for (const value of candidates) {
-      if (window.MediaRecorder && window.MediaRecorder.isTypeSupported && window.MediaRecorder.isTypeSupported(value)) {
-        return value;
-      }
-    }
-    return 'audio/webm';
-  }
-
-  async function transcribeRecording(blob, mimeType) {
-    const formData = new FormData();
-    const ext = mimeType.includes('ogg') ? 'ogg' : (mimeType.includes('mp4') ? 'm4a' : 'webm');
-    formData.append('file', blob, `voice.${ext}`);
-    formData.append('language', 'en');
-    formData.append('model', 'whisper-1');
-
-    const response = await fetch('/transcribe', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.error || `transcribe HTTP ${response.status}`);
-    }
-
-    const payload = await response.json();
-    return (payload.text || '').trim();
-  }
-
-  function formatAudioMeter(level) {
-    const count = 12;
-    const clamped = Math.min(1, Math.max(0, level));
-    const filled = Math.max(1, Math.round(clamped * count));
-    return `[${'|'.repeat(filled)}${'.'.repeat(Math.max(0, count - filled))}]`;
-  }
-
-  function updateRecordingFeedback(level = 0) {
-    const previewRaw = `${liveCaptionFinal} ${liveCaptionInterim}`.trim();
-    const preview = previewRaw.length > 180 ? `...${previewRaw.slice(-180)}` : previewRaw;
-    const meter = formatAudioMeter(level);
-    if (preview) showTranscriptionStatus(`Listening ${meter}\n${preview}`);
-    else showTranscriptionStatus(`Listening ${meter}\nSpeak naturally. I will send when you pause.`);
-  }
-
-  function startLiveCaptionRecognition() {
-    if (!supportsLiveCaption) return;
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    try {
-      const recognizer = new SR();
-      recognizer.lang = 'en-US';
-      recognizer.interimResults = true;
-      recognizer.continuous = true;
-      recognizer.maxAlternatives = 1;
-      recognizer.onresult = (event) => {
-        let finalText = '';
-        let interimText = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const chunk = (event.results[i][0]?.transcript || '').trim();
-          if (!chunk) continue;
-          if (event.results[i].isFinal) finalText += ` ${chunk}`;
-          else interimText += ` ${chunk}`;
-        }
-        if (finalText.trim()) liveCaptionFinal = `${liveCaptionFinal} ${finalText}`.trim();
-        liveCaptionInterim = interimText.trim();
-        updateRecordingFeedback(0);
-      };
-      recognizer.onerror = () => {};
-      recognizer.onend = () => {};
-      recognizer.start();
-      liveCaptionRecognizer = recognizer;
-    } catch {
-      liveCaptionRecognizer = null;
-    }
-  }
-
-  function startAudioMonitoring() {
-    const AudioCtor = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtor || !mediaStream) return;
-
-    try {
-      audioContext = new AudioCtor();
-      audioSourceNode = audioContext.createMediaStreamSource(mediaStream);
-      audioAnalyser = audioContext.createAnalyser();
-      audioAnalyser.fftSize = 2048;
-      audioAnalyser.smoothingTimeConstant = 0.2;
-      audioSourceNode.connect(audioAnalyser);
-    } catch {
-      stopAudioMonitoring();
-      return;
-    }
-
-    const samples = new Uint8Array(audioAnalyser.fftSize);
-
-    const tick = () => {
-      if (!audioAnalyser || !mediaRecorder || mediaRecorder.state !== 'recording') return;
-      audioAnalyser.getByteTimeDomainData(samples);
-      let sum = 0;
-      for (let i = 0; i < samples.length; i++) {
-        const v = (samples[i] - 128) / 128;
-        sum += v * v;
-      }
-      const rms = Math.sqrt(sum / samples.length);
-      const now = Date.now();
-      if (rms > 0.02) {
-        detectedSpeech = true;
-        lastSpeechAtMs = now;
-      }
-
-      if (now - lastMeterUpdateAtMs > 150) {
-        lastMeterUpdateAtMs = now;
-        updateRecordingFeedback(Math.min(1, rms * 8));
-      }
-
-      const longEnough = now - recordingStartedAtMs > MIN_RECORDING_MS;
-      const pausedLongEnough = now - lastSpeechAtMs > AUTO_STOP_SILENCE_MS;
-      if (detectedSpeech && longEnough && pausedLongEnough) {
-        wantsListening = false;
-        showTranscriptionStatus('Pause detected. Transcribing voice input...');
-        modelBadge.textContent = 'transcribing...';
-        mediaRecorder.stop();
-        return;
-      }
-
-      audioMonitorFrame = requestAnimationFrame(tick);
+  <script src="https://unpkg.com/xterm/lib/xterm.js"></script>
+  <script src="https://unpkg.com/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
+  <script>
+    const state = {
+      workspaces: [],
+      activeWorkspace: null,
+      sessions: [],
+      activeSession: null,
+      facet: 'assist',
+      term: null,
+      fit: null,
+      socket: null
     };
 
-    audioMonitorFrame = requestAnimationFrame(tick);
-  }
-
-  async function startRecorderMode() {
-    await ensureMicrophoneAccess();
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaMimeType = pickRecordingMimeType();
-    mediaChunks = [];
-    mediaRecorder = new MediaRecorder(mediaStream, { mimeType: mediaMimeType });
-
-    mediaRecorder.addEventListener('dataavailable', (event) => {
-      if (event.data && event.data.size > 0) mediaChunks.push(event.data);
-    });
-
-    mediaRecorder.addEventListener('stop', async () => {
-      isListening = false;
-      syncVoiceModeUi();
-      stopMediaTracks();
-      if (!mediaChunks.length) {
-        showTranscriptionStatus('No audio detected. Try again.');
-        modelBadge.textContent = 'no audio detected';
-        return;
-      }
-
-      showTranscriptionStatus('Transcribing voice input...');
-      modelBadge.textContent = 'transcribing...';
+    const api = async (path, opts = {}) => {
+      console.log('API Call:', path, opts.method || 'GET');
       try {
-        const blob = new Blob(mediaChunks, { type: mediaMimeType });
-        const text = await transcribeRecording(blob, mediaMimeType);
-        if (!text) {
-          showTranscriptionStatus('No speech detected. Try again.');
-          modelBadge.textContent = 'no speech detected';
-          return;
+        const res = await fetch("/api/v2" + path, opts);
+        if (!res.ok) {
+          const body = await res.text();
+          console.error('API Error:', res.status, body);
+          throw new Error(`API ${res.status}: ${body}`);
         }
-
-        showTranscriptionStatus('Transcription complete. Sending...');
-        inputEl.value = inputEl.value.trim() ? `${inputEl.value.trim()} ${text}` : text;
-        autoResize();
-        updateSendBtn();
-        inputEl.focus();
-        modelBadge.textContent = 'sending voice message...';
-        await sendMessage();
+        return res.json();
       } catch (err) {
-        modelBadge.textContent = `voice input error: ${err.message}`;
-      } finally {
-        mediaChunks = [];
-        mediaRecorder = null;
+        console.error('Fetch Failed:', err);
+        throw err;
       }
-    }, { once: true });
-
-    mediaRecorder.start(250);
-    wantsListening = true;
-    isListening = true;
-    recordingStartedAtMs = Date.now();
-    lastSpeechAtMs = recordingStartedAtMs;
-    detectedSpeech = false;
-    lastMeterUpdateAtMs = 0;
-    liveCaptionFinal = '';
-    liveCaptionInterim = '';
-    startLiveCaptionRecognition();
-    startAudioMonitoring();
-    syncVoiceModeUi();
-    updateRecordingFeedback(0);
-    modelBadge.textContent = 'recording... auto-send when you pause';
-  }
-
-  async function toggleListening() {
-    if (streaming) return;
-    if (!supportsMediaRecorder) {
-      modelBadge.textContent = 'voice recording not supported in this browser';
-      return;
-    }
-    if (!panels.chat.classList.contains('active')) switchTab('chat');
-
-    try {
-      if (isListening || wantsListening) {
-        wantsListening = false;
-        syncVoiceModeUi();
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-        else stopMediaTracks();
-      } else {
-        await startRecorderMode();
-      }
-    } catch (err) {
-      const message = (err && err.message) ? err.message : 'unable to start voice input';
-      wantsListening = false;
-      isListening = false;
-      stopMediaTracks();
-      mediaRecorder = null;
-      syncVoiceModeUi();
-      modelBadge.textContent = `voice input error: ${message}`;
-    }
-  }
-
-  function loadTerminalSettings() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(TERMINAL_SETTINGS_KEY) || '{}');
-      return {
-        font: parsed.font || defaultTerminalSettings.font,
-        scale: clampNumber(parsed.scale, 0.8, 1.45, defaultTerminalSettings.scale),
-        theme: terminalThemeMap[parsed.theme] ? parsed.theme : defaultTerminalSettings.theme,
-        contrast: clampNumber(parsed.contrast, 0.8, 1.5, defaultTerminalSettings.contrast)
-      };
-    } catch {
-      return { ...defaultTerminalSettings };
-    }
-  }
-
-  function clampNumber(value, min, max, fallback) {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return fallback;
-    return Math.min(max, Math.max(min, n));
-  }
-
-  function persistTerminalSettings() {
-    localStorage.setItem(TERMINAL_SETTINGS_KEY, JSON.stringify(terminalSettings));
-  }
-
-  function syncSettingsInputs() {
-    termFontInput.value = terminalSettings.font;
-    termScaleInput.value = String(terminalSettings.scale);
-    termThemeInput.value = terminalSettings.theme;
-    termContrastInput.value = String(terminalSettings.contrast);
-  }
-
-  function escapeCss(value) {
-    return String(value).replace(/[^a-zA-Z0-9 ,.'\-]/g, '');
-  }
-
-  function isXtermInstance(value) {
-    return !!(
-      value &&
-      typeof value === 'object' &&
-      typeof value.write === 'function' &&
-      value.options &&
-      typeof value.options === 'object' &&
-      Object.prototype.hasOwnProperty.call(value.options, 'fontFamily') &&
-      Object.prototype.hasOwnProperty.call(value.options, 'fontSize')
-    );
-  }
-
-  function findXtermInstance(frameWindow) {
-    if (!frameWindow) return null;
-    const knownCandidates = [
-      frameWindow.term,
-      frameWindow.terminal,
-      frameWindow.xterm,
-      frameWindow.app && frameWindow.app.terminal,
-      frameWindow.app && frameWindow.app._terminal
-    ];
-
-    for (const candidate of knownCandidates) {
-      if (isXtermInstance(candidate)) return candidate;
-    }
-
-    const keys = Object.getOwnPropertyNames(frameWindow);
-    for (const key of keys) {
-      let candidate;
-      try {
-        candidate = frameWindow[key];
-      } catch {
-        continue;
-      }
-      if (isXtermInstance(candidate)) return candidate;
-    }
-    return null;
-  }
-
-  function applyTerminalAppearance() {
-    const frameWindow = terminalFrame.contentWindow;
-    const frameDoc = frameWindow ? frameWindow.document : null;
-    if (!frameDoc || !frameDoc.documentElement) return;
-
-    const theme = terminalThemeMap[terminalSettings.theme] || terminalThemeMap['cool-night'];
-    const font = escapeCss(terminalSettings.font);
-    const zoom = clampNumber(terminalSettings.scale, 0.8, 1.45, 1);
-    const contrast = clampNumber(terminalSettings.contrast, 0.8, 1.5, 1);
-
-    let styleEl = frameDoc.getElementById('aihub-terminal-style');
-    if (!styleEl) {
-      styleEl = frameDoc.createElement('style');
-      styleEl.id = 'aihub-terminal-style';
-      frameDoc.head.appendChild(styleEl);
-    }
-
-    styleEl.textContent = `
-      html, body {
-        background: ${theme.bg} !important;
-        color: ${theme.fg} !important;
-      }
-      .xterm, .xterm * {
-        font-family: ${font} !important;
-      }
-      .xterm .xterm-viewport {
-        background-color: ${theme.bg} !important;
-        filter: ${theme.filter} contrast(${contrast});
-      }
-      .xterm .composition-view {
-        background: ${theme.bg} !important;
-        color: ${theme.fg} !important;
-      }
-      #terminal-container, #terminal-container .terminal {
-        background: ${theme.bg} !important;
-      }
-    `;
-
-    const term = findXtermInstance(frameWindow);
-    let appliedToRenderer = false;
-
-    if (term) {
-      try {
-        if (terminalBaseFontSize === null) {
-          terminalBaseFontSize = Number(term.options.fontSize) || 14;
-        }
-        term.options.fontFamily = font;
-        term.options.fontSize = Math.max(10, Math.round(terminalBaseFontSize * zoom));
-        term.options.theme = {
-          ...(term.options.theme || {}),
-          background: theme.bg,
-          foreground: theme.fg,
-          cursor: theme.fg
-        };
-        if (typeof term.refresh === 'function') {
-          term.refresh(0, Math.max(0, (term.rows || 1) - 1));
-        }
-        frameWindow.dispatchEvent(new Event('resize'));
-        appliedToRenderer = true;
-      } catch {
-        appliedToRenderer = false;
-      }
-    }
-
-    if (appliedToRenderer) {
-      terminalFrame.style.transform = 'scale(1)';
-      terminalFrame.style.width = '100%';
-      terminalFrame.style.height = '100%';
-      terminalFrame.style.filter = 'none';
-      terminalStatus.textContent = 'terminal: styled';
-      return;
-    }
-
-    // Fallback for ttyd builds where xterm instance is not exposed on window.
-    terminalFrame.style.transformOrigin = 'top left';
-    terminalFrame.style.transform = `scale(${zoom})`;
-    terminalFrame.style.width = `${100 / zoom}%`;
-    terminalFrame.style.height = `${100 / zoom}%`;
-    terminalFrame.style.filter = `${theme.filter} contrast(${contrast})`;
-    terminalStatus.textContent = 'terminal: styled (compat mode)';
-  }
-
-  function switchTab(nextTab) {
-    if (!panels[nextTab]) return;
-    tabBtns.forEach((btn) => {
-      const active = btn.dataset.tab === nextTab;
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-
-    Object.keys(panels).forEach((tab) => {
-      panels[tab].classList.toggle('active', tab === nextTab);
-    });
-
-    localStorage.setItem(TAB_KEY, nextTab);
-
-    if (nextTab === 'chat') {
-      inputEl.focus();
-      modelBadge.textContent = sessionId ? `${providers[provider].label} resuming...` : `${providers[provider].label} ready`;
-    } else if (nextTab === 'terminal') {
-      modelBadge.textContent = 'terminal ready';
-      setTimeout(applyTerminalAppearance, 120);
-    } else if (nextTab === 'code') {
-      modelBadge.textContent = 'code ready';
-    } else if (nextTab === 'sessions') {
-      modelBadge.textContent = 'sessions ready';
-    }
-    updateStopButton();
-  }
-
-  function updateProviderUi() {
-    providerBtns.forEach((btn) => {
-      const active = btn.dataset.provider === provider;
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-    inputEl.placeholder = providers[provider].placeholder;
-
-    const emptyStateText = emptyState.querySelector('p');
-    if (emptyStateText) {
-      emptyStateText.textContent = `Ask ${providers[provider].labelLong} anything, then hop to Terminal or Code without leaving AI Hub.`;
-    }
-
-    const chatActive = panels.chat.classList.contains('active');
-    if (chatActive) {
-      modelBadge.textContent = sessionId ? `${providers[provider].label} resuming...` : `${providers[provider].label} ready`;
-    }
-  }
-
-  function switchProvider(nextProvider) {
-    if (streaming || !providers[nextProvider]) return;
-    provider = nextProvider;
-    localStorage.setItem(PROVIDER_KEY, provider);
-    sessionId = localStorage.getItem(`${SESSION_KEY_PREFIX}${provider}`) || null;
-    updateProviderUi();
-  }
-
-  function updateStopButton() {
-    const chatActive = panels.chat.classList.contains('active');
-    stopChatBtn.disabled = !(streaming && chatActive);
-  }
-
-  function interruptChat() {
-    stopSpeaking();
-    clearTranscriptionStatus();
-    wantsListening = false;
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-    stopMediaTracks();
-    mediaChunks = [];
-    mediaRecorder = null;
-    isListening = false;
-    syncVoiceModeUi();
-    if (!streaming || !activeFetchController) return;
-    activeFetchController.abort();
-  }
-
-  function hideEmptyState() {
-    emptyState.style.display = 'none';
-  }
-
-  function scrollToBottom(force = false) {
-    const nearBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 120;
-    if (force || nearBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-
-  function setInputEnabled(enabled) {
-    inputEl.disabled = !enabled;
-    updateSendBtn();
-    updateStopButton();
-    syncVoiceModeUi();
-  }
-
-  function updateSendBtn() {
-    sendBtn.disabled = streaming || inputEl.value.trim() === '';
-  }
-
-  function addMessage(role, text, isMarkdown = false) {
-    const msg = document.createElement('div');
-    msg.className = `msg ${role}`;
-
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    if (isMarkdown) bubble.innerHTML = marked.parse(text);
-    else bubble.textContent = text;
-
-    msg.appendChild(bubble);
-    messagesEl.appendChild(msg);
-    scrollToBottom(true);
-    return bubble;
-  }
-
-  function showTranscriptionStatus(text) {
-    hideEmptyState();
-    if (!transcriptionStatusMsg || !transcriptionStatusBubble || !transcriptionStatusMsg.isConnected) {
-      transcriptionStatusMsg = document.createElement('div');
-      transcriptionStatusMsg.className = 'msg status';
-      transcriptionStatusBubble = document.createElement('div');
-      transcriptionStatusBubble.className = 'bubble';
-      transcriptionStatusMsg.appendChild(transcriptionStatusBubble);
-      messagesEl.appendChild(transcriptionStatusMsg);
-    }
-    transcriptionStatusBubble.textContent = text;
-    scrollToBottom(true);
-  }
-
-  function clearTranscriptionStatus() {
-    if (transcriptionStatusMsg && transcriptionStatusMsg.parentNode) {
-      transcriptionStatusMsg.parentNode.removeChild(transcriptionStatusMsg);
-    }
-    transcriptionStatusMsg = null;
-    transcriptionStatusBubble = null;
-  }
-
-  function startAssistantMessage() {
-    const msg = document.createElement('div');
-    msg.className = 'msg assistant';
-
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble cursor';
-    bubble.innerHTML = '';
-
-    msg.appendChild(bubble);
-    messagesEl.appendChild(msg);
-    scrollToBottom(true);
-
-    currentBubble = bubble;
-    currentText = '';
-  }
-
-  function appendToAssistantMessage(text) {
-    currentText += text;
-    if (currentBubble) {
-      currentBubble.innerHTML = marked.parse(currentText);
-      scrollToBottom();
-    }
-  }
-
-  function finalizeAssistantMessage() {
-    if (!currentBubble) return;
-    currentBubble.classList.remove('cursor');
-    currentBubble.innerHTML = marked.parse(currentText);
-    maybeSpeakAssistant(currentText);
-    currentBubble = null;
-    currentText = '';
-  }
-
-  async function sendMessage() {
-    const text = inputEl.value.trim();
-    if (!text || streaming) return;
-    clearTranscriptionStatus();
-    wantsListening = false;
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-    stopMediaTracks();
-    mediaChunks = [];
-    mediaRecorder = null;
-    isListening = false;
-    syncVoiceModeUi();
-    stopSpeaking();
-
-    hideEmptyState();
-    streaming = true;
-    setInputEnabled(false);
-    inputEl.value = '';
-    autoResize();
-
-    addMessage('user', text);
-    startAssistantMessage();
-
-    activeFetchController = new AbortController();
-
-    try {
-      const response = await fetch('/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, sessionId, provider, aikbEnabled }),
-        signal: activeFetchController.signal
-      });
-
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let sseBuffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        sseBuffer += decoder.decode(value, { stream: true });
-        const parts = sseBuffer.split('\n\n');
-        sseBuffer = parts.pop();
-
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith('data: ')) continue;
-
-          let event;
-          try {
-            event = JSON.parse(line.slice(6));
-          } catch {
-            continue;
-          }
-
-          if (event.type === 'system') {
-            modelBadge.textContent = formatModelName(event.model, provider);
-          } else if (event.type === 'text') {
-            appendToAssistantMessage(event.text);
-          } else if (event.type === 'done') {
-            if (event.session_id) {
-              sessionId = event.session_id;
-              localStorage.setItem(`${SESSION_KEY_PREFIX}${provider}`, sessionId);
-            }
-          } else if (event.type === 'error') {
-            appendToAssistantMessage(`\n\n_Error: ${event.message}_`);
-          }
-        }
-      }
-    } catch (err) {
-      if (err && err.name === 'AbortError') {
-        appendToAssistantMessage('\n\n_Interrupted by user._');
-      } else {
-        appendToAssistantMessage(`\n\n_Network error: ${err.message}_`);
-      }
-    } finally {
-      finalizeAssistantMessage();
-      streaming = false;
-      activeFetchController = null;
-      setInputEnabled(true);
-      inputEl.focus();
-      scrollToBottom(true);
-    }
-  }
-
-  function formatModelName(raw, currentProvider) {
-    if (!raw) return providers[currentProvider]?.label || 'Assistant';
-    const m = raw.match(/claude-(\w+)-(\d+)-(\d+)/i);
-    if (m) {
-      const variant = m[1].charAt(0).toUpperCase() + m[1].slice(1);
-      return `${variant} ${m[2]}.${m[3]}`;
-    }
-    return raw;
-  }
-
-  function newChat() {
-    if (streaming) return;
-    sessionId = null;
-    localStorage.removeItem(`${SESSION_KEY_PREFIX}${provider}`);
-    stopSpeaking();
-    clearTranscriptionStatus();
-    wantsListening = false;
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-    stopMediaTracks();
-    mediaChunks = [];
-    mediaRecorder = null;
-    isListening = false;
-    syncVoiceModeUi();
-
-    messagesEl.innerHTML = '';
-    messagesEl.appendChild(emptyState);
-    emptyState.style.display = '';
-
-    modelBadge.textContent = `${providers[provider].label} new chat`;
-    inputEl.focus();
-  }
-
-  function autoResize() {
-    inputEl.style.height = 'auto';
-    inputEl.style.height = `${Math.min(inputEl.scrollHeight, 160)}px`;
-  }
-
-  function openTerminalPopout() {
-    window.open('/terminal/', '_blank', 'noopener');
-  }
-
-  function openCodePopout() {
-    window.open('https://code.home.timmcg.net', '_blank', 'noopener');
-  }
-
-  function openSessionsPopout() {
-    window.open('https://sessions.home.timmcg.net', '_blank', 'noopener');
-  }
-
-  tabBtns.forEach((btn) => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-  });
-
-  providerBtns.forEach((btn) => {
-    btn.addEventListener('click', () => switchProvider(btn.dataset.provider));
-  });
-
-  inputEl.addEventListener('input', () => {
-    autoResize();
-    updateSendBtn();
-  });
-
-  inputEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey && window.innerWidth > 600) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
-
-  sendBtn.addEventListener('click', sendMessage);
-  voiceInputBtn.addEventListener('click', () => { void toggleListening(); });
-  aikbToggleBtn.addEventListener('click', () => {
-    aikbEnabled = !aikbEnabled;
-    localStorage.setItem(AIKB_TOGGLE_KEY, aikbEnabled ? '1' : '0');
-    syncAikbUi();
-  });
-  voiceModeBtn.addEventListener('click', () => {
-    if (!supportsSpeechSynthesis) return;
-    voiceModeEnabled = !voiceModeEnabled;
-    localStorage.setItem(VOICE_MODE_KEY, voiceModeEnabled ? '1' : '0');
-    if (!voiceModeEnabled) stopSpeaking();
-    syncVoiceModeUi();
-  });
-  stopChatBtn.addEventListener('click', interruptChat);
-  newChatBtn.addEventListener('click', newChat);
-
-  terminalSettingsBtn.addEventListener('click', () => {
-    const isTerminalTab = panels.terminal.classList.contains('active');
-    if (!isTerminalTab) switchTab('terminal');
-    settingsDrawer.classList.toggle('open');
-    terminalSettingsBtn.classList.toggle('active', settingsDrawer.classList.contains('open'));
-  });
-
-  terminalReloadBtn.addEventListener('click', () => {
-    terminalStatus.textContent = 'terminal: reconnecting';
-    terminalFrame.src = '/terminal/';
-  });
-
-  terminalPopoutBtn.addEventListener('click', openTerminalPopout);
-  codePopoutBtn.addEventListener('click', openCodePopout);
-  sessionsPopoutBtn.addEventListener('click', openSessionsPopout);
-
-  termApplyBtn.addEventListener('click', () => {
-    terminalSettings = {
-      font: termFontInput.value,
-      scale: clampNumber(termScaleInput.value, 0.8, 1.45, 1),
-      theme: terminalThemeMap[termThemeInput.value] ? termThemeInput.value : 'cool-night',
-      contrast: clampNumber(termContrastInput.value, 0.8, 1.5, 1)
     };
-    persistTerminalSettings();
-    applyTerminalAppearance();
-  });
 
-  termResetBtn.addEventListener('click', () => {
-    terminalSettings = { ...defaultTerminalSettings };
-    syncSettingsInputs();
-    persistTerminalSettings();
-    applyTerminalAppearance();
-  });
+    const el = {
+      wsList: document.getElementById('workspace-list'),
+      sessionTabs: document.getElementById('session-tabs'),
+      chatHistory: document.getElementById('chat-history'),
+      terminal: document.getElementById('terminal'),
+      editorFrame: document.getElementById('editor-frame'),
+      cmdInput: document.getElementById('cmd-input'),
+      micBtn: document.getElementById('mic-btn'),
+      sendBtn: document.getElementById('send-btn'),
+      facetBtns: document.querySelectorAll('.facet-btn'),
+      views: document.querySelectorAll('.facet-view'),
+      sidebar: document.getElementById('sidebar'),
+      menuBtn: document.getElementById('menu-btn'),
+      addWsBtn: document.getElementById('add-ws-btn'),
+      addSessionBtn: document.getElementById('add-session-btn'),
+      sessionCreateBtn: document.getElementById('session-create-btn')
+    };
 
-  [termFontInput, termScaleInput, termThemeInput, termContrastInput].forEach((el) => {
-    el.addEventListener('change', () => termApplyBtn.click());
-  });
+    const closeModal = (id) => document.getElementById(id).classList.remove('active');
+    const openModal = (id) => document.getElementById(id).classList.add('active');
 
-  document.addEventListener('click', (e) => {
-    if (!settingsDrawer.classList.contains('open')) return;
-    const insideDrawer = settingsDrawer.contains(e.target);
-    const fromButton = terminalSettingsBtn.contains(e.target);
-    if (!insideDrawer && !fromButton) {
-      settingsDrawer.classList.remove('open');
-      terminalSettingsBtn.classList.remove('active');
-    }
-  });
+    const initTerm = () => {
+      if (state.term) return;
+      state.term = new Terminal({
+        fontFamily: 'JetBrains Mono, monospace',
+        fontSize: 13,
+        theme: { background: '#000' },
+        cursorBlink: true
+      });
+      state.fit = new FitAddon.FitAddon();
+      state.term.loadAddon(state.fit);
+      state.term.open(el.terminal);
+      state.term.onData(data => { if (state.socket?.readyState === WebSocket.OPEN) state.socket.send(data); });
+    };
 
-  terminalFrame.addEventListener('load', () => {
-    terminalStatus.textContent = 'terminal: connected';
-    setTimeout(applyTerminalAppearance, 120);
-  });
+    const connectWS = (sessionId) => {
+      console.log('Connecting WebSocket for session:', sessionId);
+      if (state.socket) state.socket.close();
+      const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+      state.socket = new WebSocket(`${protocol}://${location.host}/ws/v2/terminal/${sessionId}`);
+      
+      state.socket.onopen = () => {
+        console.log('WebSocket Connected');
+        const dims = state.fit.proposeDimensions();
+        state.socket.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
+      };
+      
+      state.socket.onmessage = (ev) => {
+        state.term.write(ev.data);
+      };
+      
+      state.socket.onerror = (err) => console.error('WebSocket Error:', err);
+      state.socket.onclose = () => console.log('WebSocket Closed');
+    };
 
-  const savedTab = localStorage.getItem(TAB_KEY);
-  preferredSpeechVoice = selectPreferredVoice();
-  if (supportsSpeechSynthesis && typeof window.speechSynthesis.addEventListener === 'function') {
-    window.speechSynthesis.addEventListener('voiceschanged', () => {
-      preferredSpeechVoice = selectPreferredVoice();
+    const loadWorkspaces = async () => {
+      state.workspaces = await api('/workspaces');
+      renderWorkspaces();
+      if (state.workspaces.length && !state.activeWorkspace) selectWorkspace(state.workspaces[0]);
+    };
+
+    const renderWorkspaces = () => {
+      el.wsList.innerHTML = state.workspaces.map(ws => `
+        <div class="ws-item ${state.activeWorkspace?.workspace_id === ws.workspace_id ? 'active' : ''}" onclick="selectWorkspaceById('${ws.workspace_id}')">
+          <div class="name">${ws.name}</div>
+          <div class="path">${ws.root_dir.replace("/home/mcglothi/Code", "~")}</div>
+        </div>
+      `).join('');
+    };
+
+    window.selectWorkspaceById = (id) => selectWorkspace(state.workspaces.find(w => w.workspace_id === id));
+
+    const selectWorkspace = async (ws) => {
+      console.log('Selecting Workspace:', ws.name);
+      state.activeWorkspace = ws;
+      renderWorkspaces();
+      try {
+        state.sessions = await api(`/sessions/v2?workspace_id=${ws.workspace_id}`);
+        renderSessions();
+        if (state.sessions.length) selectSession(state.sessions[0]);
+        else createInitialSessions(ws);
+      } catch (err) {
+        console.error('Failed to load sessions:', err);
+      }
+      el.editorFrame.src = "https://code.home.timmcg.net/?folder=" + encodeURIComponent(ws.root_dir.replace("/home/mcglothi/Code", "/home/coder/project"));
+      el.sidebar.classList.remove('open');
+    };
+
+    const createInitialSessions = async (ws) => {
+      console.log('Creating initial sessions...');
+      try {
+        const shell = await api('/sessions/v2', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ workspace_id: ws.workspace_id, provider: 'zsh', title: 'Shell' })
+        });
+        const claude = await api('/sessions/v2', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ workspace_id: ws.workspace_id, provider: 'claude', title: 'Claude' })
+        });
+        state.sessions = [shell, claude];
+        renderSessions();
+        selectSession(shell);
+      } catch (err) {
+        console.error('Failed to create initial sessions:', err);
+      }
+    };
+
+    const renderSessions = () => {
+      el.sessionTabs.innerHTML = state.sessions.map(s => `
+        <div class="session-tab ${state.activeSession?.session_id === s.session_id ? 'active' : ''}" onclick="selectSessionById('${s.session_id}')">
+          ${s.title}
+        </div>
+      `).join('');
+    };
+
+    window.selectSessionById = (id) => selectSession(state.sessions.find(s => s.session_id === id));
+
+    const selectSession = (s) => {
+      console.log('Selecting Session:', s.title);
+      state.activeSession = s;
+      renderSessions();
+      initTerm();
+      connectWS(s.session_id);
+      loadHistory(s.session_id);
+      el.cmdInput.placeholder = `Message ${s.provider}...`;
+    };
+
+    const loadHistory = async (id) => {
+      try {
+        const data = await api(`/history/${id}`);
+        el.chatHistory.innerHTML = data.events.slice(-40).map(ev => {
+          if (ev.event === 'input') return `<div class="msg user">${ev.data}</div>`;
+          if (ev.event === 'output') {
+             const clean = ev.data.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+             if (!clean.trim()) return '';
+             return `<div class="msg assistant">${marked.parse(clean)}</div>`;
+          }
+          return '';
+        }).join('');
+        el.chatHistory.scrollTop = el.chatHistory.scrollHeight;
+      } catch (err) {
+        console.warn('History load failed:', err);
+      }
+    };
+
+    el.facetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.facet = btn.dataset.facet;
+        el.facetBtns.forEach(b => b.classList.toggle('active', b === btn));
+        el.views.forEach(v => v.classList.toggle('active', v.id === `${state.facet}-view`));
+        if (state.facet === 'shell') setTimeout(() => { if (state.fit) state.fit.fit(); state.term?.focus(); }, 50);
+        if (state.facet === 'assist' && state.activeSession) loadHistory(state.activeSession.session_id);
+      });
     });
-  }
-  syncSettingsInputs();
-  syncVoiceModeUi();
-  syncAikbUi();
-  updateProviderUi();
 
-  if (sessionId) modelBadge.textContent = `${providers[provider].label} resuming...`;
-  else modelBadge.textContent = `${providers[provider].label} ready`;
+    el.sendBtn.addEventListener('click', () => {
+      const cmd = el.cmdInput.value.trim();
+      if (!cmd || !state.socket) return;
+      state.socket.send(cmd + "\n");
+      el.cmdInput.value = '';
+      setTimeout(() => { if (state.activeSession) loadHistory(state.activeSession.session_id); }, 500);
+    });
 
-  updateSendBtn();
-  updateStopButton();
-  inputEl.focus();
-  switchTab(savedTab || 'chat');
-})();
-</script>
+    el.cmdInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') el.sendBtn.click(); });
+    el.menuBtn.addEventListener('click', () => el.sidebar.classList.toggle('open'));
+
+    el.addWsBtn.addEventListener('click', () => openModal('ws-modal'));
+    document.getElementById('ws-create-btn').addEventListener('click', async () => {
+      const name = document.getElementById('ws-name').value;
+      const path = document.getElementById('ws-path').value;
+      if (!name || !path) return;
+      try {
+        const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        const ws = await api('/workspaces', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ name, slug, root_dir: path })
+        });
+        closeModal('ws-modal');
+        await loadWorkspaces();
+        selectWorkspace(ws);
+      } catch (err) {
+        alert('Workspace error: ' + err.message);
+      }
+    });
+
+    el.addSessionBtn.addEventListener('click', () => openModal('session-modal'));
+    el.sessionCreateBtn.addEventListener('click', async () => {
+      const provider = document.getElementById('session-provider').value;
+      const customTitle = document.getElementById('session-title').value;
+      if (!state.activeWorkspace) return;
+      
+      el.sessionCreateBtn.disabled = true;
+      el.sessionCreateBtn.textContent = 'Launching...';
+      
+      try {
+        const s = await api('/sessions/v2', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ workspace_id: state.activeWorkspace.workspace_id, provider, title: customTitle || provider })
+        });
+        closeModal('session-modal');
+        state.sessions.push(s);
+        renderSessions();
+        selectSession(s);
+      } catch (err) {
+        alert('Launch failed: ' + err.message);
+      } finally {
+        el.sessionCreateBtn.disabled = false;
+        el.sessionCreateBtn.textContent = 'Launch Tool';
+      }
+    });
+
+    window.addEventListener('resize', () => { if (state.fit) state.fit.fit(); });
+    loadWorkspaces();
+  </script>
 </body>
 </html>
