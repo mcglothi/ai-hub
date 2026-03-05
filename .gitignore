@@ -1,0 +1,16 @@
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Runtime data / logs
+*.log
+apps/sessions/data/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/

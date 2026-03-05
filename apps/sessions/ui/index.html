@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Hub Sessions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./static/styles.css" />
+    <link rel="stylesheet" href="https://unpkg.com/xterm/css/xterm.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="brand">
+          <div class="logo">AI</div>
+          <div>
+            <div class="title">AI Hub Sessions</div>
+            <div class="subtitle">Unified terminals for Claude · Gemini · Codex</div>
+          </div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button id="newSession" class="primary">New Session</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-title">Sessions</div>
+          <div class="sidebar-meta">Switch across providers</div>
+        </div>
+        <div class="sidebar-filters">
+          <input id="search" type="search" placeholder="Search sessions" />
+          <select id="providerFilter">
+            <option value="">All Providers</option>
+            <option value="claude">Claude</option>
+            <option value="gemini">Gemini</option>
+            <option value="codex">Codex</option>
+          </select>
+        </div>
+        <div id="sessionList" class="session-list"></div>
+      </aside>
+
+      <section class="terminal-panel">
+        <div class="tabbar" id="tabbar"></div>
+        <div class="terminal-header">
+          <div>
+            <div id="sessionTitle" class="session-title">No session selected</div>
+            <div id="sessionMeta" class="session-meta"></div>
+          </div>
+          <div class="terminal-actions">
+            <button id="renameSession">Rename</button>
+            <button id="pinSession">Pin</button>
+            <button id="archiveSession">Archive</button>
+            <button id="deleteSession" class="danger">Delete</button>
+            <button id="terminateSession">Terminate</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="tool-group">
+            <label>Working Dir</label>
+            <input id="workingDir" type="text" value="/home/mcglothi/Code" />
+            <button id="updateDir">Set</button>
+          </div>
+          <div class="tool-group">
+            <label>Git Status</label>
+            <span id="gitStatus" class="git-status">—</span>
+            <button id="refreshGit">Refresh</button>
+          </div>
+          <div class="tool-group">
+            <label>Font</label>
+            <select id="fontFamily">
+              <option value="JetBrains Mono, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace">JetBrains Mono</option>
+              <option value="Fira Code, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace">Fira Code</option>
+              <option value="SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace">SF Mono</option>
+              <option value="Consolas, Menlo, Monaco, Liberation Mono, Courier New, monospace">Consolas</option>
+              <option value="DejaVu Sans Mono, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace">DejaVu Sans</option>
+            </select>
+            <input id="fontSize" type="range" min="11" max="20" step="1" />
+            <span id="fontSizeValue" class="meta">13px</span>
+          </div>
+          <div class="tool-group">
+            <button id="exportSession">Export</button>
+          </div>
+        </div>
+
+        <div id="terminal" class="terminal"></div>
+
+        <div class="cheatsheet">
+          <div class="cheatsheet-title">tmux quick actions</div>
+          <div class="cheatsheet-buttons">
+            <button data-tmux="\"">Split top/bottom</button>
+            <button data-tmux="%">Split left/right</button>
+            <button data-tmux="c">New window</button>
+            <button data-tmux="x" data-tmux-confirm="y">Close pane</button>
+            <button data-tmux="s">Sessions list</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="history-panel">
+        <div class="history-header">History</div>
+        <input id="historySearch" type="search" placeholder="Search history" />
+        <div id="history" class="history"></div>
+      </aside>
+    </main>
+
+    <div id="modal" class="modal hidden">
+      <div class="modal-card">
+        <h2>New Session</h2>
+        <label>Provider
+          <select id="providerInput">
+            <option value="claude">Claude</option>
+            <option value="gemini">Gemini</option>
+            <option value="codex">Codex</option>
+          </select>
+        </label>
+        <label>Title
+          <input id="titleInput" type="text" placeholder="Session title" />
+        </label>
+        <label>Working Directory
+          <input id="dirInput" type="text" value="/home/mcglothi/Code" />
+        </label>
+        <label>Preset
+          <select id="presetInput">
+            <option value="">None</option>
+            <option value="/home/mcglothi/Code/AIKB|aikb">AIKB</option>
+            <option value="/home/mcglothi/Code|code">Code Root</option>
+          </select>
+        </label>
+        <label>Tags (comma separated)
+          <input id="tagsInput" type="text" placeholder="project, idea" />
+        </label>
+        <div class="modal-actions">
+          <button id="createSession" class="primary">Create</button>
+          <button id="cancelModal">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/xterm/lib/xterm.js"></script>
+    <script src="https://unpkg.com/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
+    <script src="./static/app.js"></script>
+  </body>
+</html>
