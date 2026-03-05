@@ -97,6 +97,41 @@ def send_with_retry(
     return {}
 
 
+def detect_repo_context() -> dict[str, object]:
+    repo_root = Path(__file__).resolve().parents[2]
+    context: dict[str, object] = {
+        "repo": str(repo_root),
+        "branch": None,
+        "dirty": False,
+        "cwd": str(Path.cwd()),
+    }
+
+    try:
+        branch = subprocess.check_output(
+            ["git", "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        ).strip()
+        if branch:
+            context["branch"] = branch
+    except Exception:
+        pass
+
+    try:
+        status = subprocess.check_output(
+            ["git", "-C", str(repo_root), "status", "--porcelain"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        )
+        context["dirty"] = bool(status.strip())
+    except Exception:
+        pass
+
+    return context
+
+
 def _normalize_state(data: object) -> dict[str, dict[str, int]]:
     out: dict[str, dict[str, int]] = {}
     if not isinstance(data, dict):
@@ -149,6 +184,48 @@ def append_dlq(path: Path, events: list[dict], reason: str) -> None:
             )
             f.write("\n")
     os.chmod(path, 0o600)
+
+
+def _count_dlq_entries(path: Path) -> int:
+    if not path.exists():
+        return 0
+    try:
+        with path.open("r", encoding="utf-8", errors="ignore") as f:
+            return sum(1 for _ in f)
+    except OSError:
+        return 0
+
+
+def write_metrics_file(
+    *,
+    path: Path,
+    now_ts: int,
+    files_touched: int,
+    files_failed: int,
+    events_sent: int,
+    dlq_entries: int,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# HELP ai_memory_sync_last_run_ts Unix timestamp of latest sync run",
+        "# TYPE ai_memory_sync_last_run_ts gauge",
+        f"ai_memory_sync_last_run_ts {now_ts}",
+        "# HELP ai_memory_sync_files_touched Number of files ingested in last run",
+        "# TYPE ai_memory_sync_files_touched gauge",
+        f"ai_memory_sync_files_touched {files_touched}",
+        "# HELP ai_memory_sync_files_failed Number of files failed in last run",
+        "# TYPE ai_memory_sync_files_failed gauge",
+        f"ai_memory_sync_files_failed {files_failed}",
+        "# HELP ai_memory_sync_events_sent Number of events sent in last run",
+        "# TYPE ai_memory_sync_events_sent gauge",
+        f"ai_memory_sync_events_sent {events_sent}",
+        "# HELP ai_memory_sync_dlq_entries Current DLQ line count",
+        "# TYPE ai_memory_sync_dlq_entries gauge",
+        f"ai_memory_sync_dlq_entries {dlq_entries}",
+    ]
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def resolve_api_key(arg_api_key: str) -> str:
@@ -227,16 +304,32 @@ def main() -> None:
     parser.add_argument("--api-key", default="")
     parser.add_argument("--max-retries", type=int, default=5)
     parser.add_argument("--backoff-base", type=float, default=1.0)
+    parser.add_argument(
+        "--metrics-file",
+        default=os.environ.get(
+            "MMC_SYNC_METRICS_FILE",
+            str(Path.home() / ".local/share/ai-hub-sessions/metrics.prom"),
+        ),
+    )
     parser.add_argument("--from-now", action="store_true", help="Initialize offsets to EOF and exit if state file doesn't exist")
     args = parser.parse_args()
 
     files = discover_files(args.glob, args.logs or None)
+    dlq_path = Path(args.dlq_file).expanduser()
+    metrics_path = Path(args.metrics_file).expanduser()
     if not files:
         log("info", "No matching log files; nothing to sync")
+        write_metrics_file(
+            path=metrics_path,
+            now_ts=int(time.time()),
+            files_touched=0,
+            files_failed=0,
+            events_sent=0,
+            dlq_entries=_count_dlq_entries(dlq_path),
+        )
         return
 
     state_path = Path(args.state_file).expanduser()
-    dlq_path = Path(args.dlq_file).expanduser()
     state = load_state(state_path)
 
     if args.from_now and not state_path.exists():
@@ -248,14 +341,52 @@ def main() -> None:
             state[str(p.resolve())] = {"offset": stat.st_size, "inode": int(getattr(stat, "st_ino", 0))}
         save_state(state_path, state)
         log("info", "Initialized state from current EOF", files=len(state), state_file=str(state_path))
+        write_metrics_file(
+            path=metrics_path,
+            now_ts=int(time.time()),
+            files_touched=0,
+            files_failed=0,
+            events_sent=0,
+            dlq_entries=_count_dlq_entries(dlq_path),
+        )
         return
 
     api_key = resolve_api_key(args.api_key)
     if not api_key:
         log("error", "No API key found", hint="--api-key or MMC_API_KEY or ~/.bw_session + Vault item")
+        write_metrics_file(
+            path=metrics_path,
+            now_ts=int(time.time()),
+            files_touched=0,
+            files_failed=1,
+            events_sent=0,
+            dlq_entries=_count_dlq_entries(dlq_path),
+        )
         return
 
-    endpoint = f"{args.server.rstrip('/')}/api/v1/events"
+    base_server = args.server.rstrip("/")
+    endpoint = f"{base_server}/api/v1/events"
+    heartbeat_endpoint = f"{base_server}/api/v1/observer/heartbeat"
+
+    repo_context = detect_repo_context()
+    try:
+        send_with_retry(
+            endpoint=heartbeat_endpoint,
+            payload={
+                "machine_id": args.device,
+                "ts": int(time.time()),
+                "repo": repo_context.get("repo"),
+                "branch": repo_context.get("branch"),
+                "dirty": bool(repo_context.get("dirty", False)),
+                "cwd": repo_context.get("cwd"),
+            },
+            api_key=api_key,
+            max_retries=max(1, args.max_retries),
+            backoff_base=max(0.1, args.backoff_base),
+        )
+    except Exception as exc:
+        log("warn", "Observer heartbeat failed", error=str(exc), endpoint=heartbeat_endpoint)
+
     total_sent = 0
     files_touched = 0
     files_failed = 0
@@ -374,6 +505,14 @@ def main() -> None:
 
     save_state(state_path, state)
     log("info", "Sync complete", files_touched=files_touched, files_failed=files_failed, events_sent=total_sent, state_file=str(state_path))
+    write_metrics_file(
+        path=metrics_path,
+        now_ts=int(time.time()),
+        files_touched=files_touched,
+        files_failed=files_failed,
+        events_sent=total_sent,
+        dlq_entries=_count_dlq_entries(dlq_path),
+    )
 
 
 if __name__ == "__main__":

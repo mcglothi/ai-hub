@@ -22,6 +22,9 @@ const STT_AUTH_TOKEN = process.env.STT_AUTH_TOKEN || '';
 const AIKB_PATH = process.env.AIKB_PATH || '/home/svc_ansible/AIKB';
 const AIKB_ENABLED_DEFAULT = process.env.AIKB_ENABLED_DEFAULT === '1';
 const AIKB_MAX_SNIPPETS = Math.max(1, Math.min(6, parseInt(process.env.AIKB_MAX_SNIPPETS || '4', 10)));
+const MEMORY_CORE_URL = (process.env.MEMORY_CORE_URL || 'https://memory.home.timmcg.net').replace(/\/+$/, '');
+const MEMORY_CORE_API_KEY = process.env.MEMORY_CORE_API_KEY || '';
+const MEMORY_CORE_TIMEOUT_MS = Math.max(1000, parseInt(process.env.MEMORY_CORE_TIMEOUT_MS || '20000', 10));
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 },
@@ -61,6 +64,40 @@ function toBool(value, fallback = false) {
     if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
   }
   return fallback;
+}
+
+async function memoryRequest(method, path, { params = null, body = null, expectJson = true } = {}) {
+  const url = new URL(`${MEMORY_CORE_URL}${path}`);
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v === undefined || v === null || v === '') continue;
+      url.searchParams.set(k, String(v));
+    }
+  }
+
+  const headers = {};
+  if (MEMORY_CORE_API_KEY) headers['X-API-Key'] = MEMORY_CORE_API_KEY;
+  if (body !== null) headers['Content-Type'] = 'application/json';
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MEMORY_CORE_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: body !== null ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(`memory core ${response.status}: ${text.slice(0, 400)}`);
+    }
+    if (!expectJson) return await response.text();
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function extractQueryTokens(text) {
@@ -344,6 +381,117 @@ app.post('/transcribe', upload.single('file'), async (req, res) => {
     return res.json({ text });
   } catch (err) {
     return res.status(502).json({ error: `stt request failed: ${err.message}` });
+  }
+});
+
+app.get('/memory/health', async (_req, res) => {
+  try {
+    const out = await memoryRequest('GET', '/health');
+    res.json(out);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.get('/memory/stats', async (_req, res) => {
+  try {
+    const out = await memoryRequest('GET', '/api/v1/stats');
+    res.json(out);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.get('/memory/metrics', async (_req, res) => {
+  try {
+    const out = await memoryRequest('GET', '/metrics', { expectJson: false });
+    res.type('text/plain').send(out);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.get('/memory/proposals', async (req, res) => {
+  try {
+    const out = await memoryRequest('GET', '/api/v1/proposals', {
+      params: {
+        status: req.query.status || 'new',
+        kind: req.query.kind || '',
+        limit: req.query.limit || 50,
+      },
+    });
+    res.json(out);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.get('/memory/proposals/:proposalId', async (req, res) => {
+  try {
+    const out = await memoryRequest('GET', `/api/v1/proposals/${encodeURIComponent(req.params.proposalId)}`);
+    res.json(out);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.patch('/memory/proposals/:proposalId', async (req, res) => {
+  try {
+    const out = await memoryRequest('PATCH', `/api/v1/proposals/${encodeURIComponent(req.params.proposalId)}`, {
+      body: {
+        status: String(req.body.status || ''),
+        review_notes: req.body.review_notes == null ? null : String(req.body.review_notes),
+        applied_file: req.body.applied_file == null ? null : String(req.body.applied_file),
+      },
+    });
+    res.json(out);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.put('/memory/proposals/:proposalId', async (req, res) => {
+  try {
+    const out = await memoryRequest('PUT', `/api/v1/proposals/${encodeURIComponent(req.params.proposalId)}`, {
+      body: {
+        summary: String(req.body.summary || ''),
+        payload: req.body.payload && typeof req.body.payload === 'object' ? req.body.payload : {},
+      },
+    });
+    res.json(out);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.get('/memory/search', async (req, res) => {
+  if (!req.query.q) {
+    return res.status(400).json({ error: 'q query param required' });
+  }
+  try {
+    const out = await memoryRequest('GET', '/api/v1/search', {
+      params: {
+        q: req.query.q,
+        limit: req.query.limit || 20,
+      },
+    });
+    res.json(out);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.post('/memory/harvest', async (req, res) => {
+  try {
+    const out = await memoryRequest('POST', '/api/v1/proposals/harvest', {
+      body: {
+        max_events: Number(req.body.max_events || 250),
+        state_name: String(req.body.state_name || 'default'),
+      },
+    });
+    res.json(out);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
   }
 });
 
