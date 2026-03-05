@@ -70,6 +70,7 @@ Behavior:
 - Handles truncation/rotation using offset + inode tracking
 - Retries with exponential backoff on transient failures
 - Stores hard failures in DLQ: `~/.local/share/ai-hub-sessions/failed-events.jsonl`
+- Emits collector metrics for monitoring: `~/.local/share/ai-hub-sessions/metrics.prom`
 
 Suggested schedule:
 - Linux (`cron`): every 10 minutes
@@ -83,6 +84,7 @@ bash infra/systemd/install-ai-memory-sync.sh
 - Installs `ai-memory-sync.service` + `ai-memory-sync.timer` under `~/.config/systemd/user/`
 - Creates `~/.config/ai-memory-sync.env` (0600) from example if missing
 - Service runs `sync_agent.py` every 10 minutes
+- Optional env `MMC_SYNC_METRICS_FILE` can override metrics textfile location
 
 ### macOS LaunchAgent (recommended)
 ```bash
@@ -92,3 +94,4 @@ bash infra/launchd/install-ai-memory-sync-macos.sh
 - Installs `~/.local/bin/ai-memory-sync.sh`
 - Installs `~/Library/LaunchAgents/com.timmcg.ai-memory-sync.plist`
 - Uses `~/.config/ai-memory-sync.env` for `MMC_API_KEY`
+- Optional env `MMC_SYNC_METRICS_FILE` can override metrics textfile location
