@@ -672,6 +672,7 @@
       <button class="tab-btn active" data-tab="chat" role="tab" aria-selected="true">Chat</button>
       <button class="tab-btn" data-tab="terminal" role="tab" aria-selected="false">Terminal</button>
       <button class="tab-btn" data-tab="code" role="tab" aria-selected="false">Code</button>
+      <button class="tab-btn" data-tab="sessions" role="tab" aria-selected="false">Sessions</button>
     </div>
 
     <div class="provider-switch" role="tablist" aria-label="Chat provider">
@@ -773,6 +774,18 @@
       </div>
     </div>
   </section>
+
+  <section id="sessions-panel" class="panel" aria-label="Sessions tab content">
+    <div class="panel active">
+      <div class="workspace-toolbar">
+        <span class="workspace-status">sessions: embedded</span>
+        <button id="sessions-popout-btn" class="chip-btn" type="button">Open Fullscreen</button>
+      </div>
+      <div class="workspace-frame-wrap">
+        <iframe id="sessions-frame" class="workspace-frame" src="https://sessions.home.timmcg.net" title="AI Hub Sessions" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      </div>
+    </div>
+  </section>
 </div>
 
 <script>
@@ -869,7 +882,8 @@
   const panels = {
     chat: document.getElementById('chat-panel'),
     terminal: document.getElementById('terminal-panel'),
-    code: document.getElementById('code-panel')
+    code: document.getElementById('code-panel'),
+    sessions: document.getElementById('sessions-panel')
   };
 
   const messagesEl = document.getElementById('messages');
@@ -890,6 +904,7 @@
   const terminalPopoutBtn = document.getElementById('terminal-popout-btn');
 
   const codePopoutBtn = document.getElementById('code-popout-btn');
+  const sessionsPopoutBtn = document.getElementById('sessions-popout-btn');
 
   const settingsDrawer = document.getElementById('settings-drawer');
   const termFontInput = document.getElementById('term-font');
@@ -1428,6 +1443,8 @@
       setTimeout(applyTerminalAppearance, 120);
     } else if (nextTab === 'code') {
       modelBadge.textContent = 'code ready';
+    } else if (nextTab === 'sessions') {
+      modelBadge.textContent = 'sessions ready';
     }
     updateStopButton();
   }
@@ -1700,6 +1717,10 @@
     window.open('https://code.home.timmcg.net', '_blank', 'noopener');
   }
 
+  function openSessionsPopout() {
+    window.open('https://sessions.home.timmcg.net', '_blank', 'noopener');
+  }
+
   tabBtns.forEach((btn) => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -1751,6 +1772,7 @@
 
   terminalPopoutBtn.addEventListener('click', openTerminalPopout);
   codePopoutBtn.addEventListener('click', openCodePopout);
+  sessionsPopoutBtn.addEventListener('click', openSessionsPopout);
 
   termApplyBtn.addEventListener('click', () => {
     terminalSettings = {
