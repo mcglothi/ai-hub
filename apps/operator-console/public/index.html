@@ -1,0 +1,3269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AI Hub Operator Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-0: #060b11;
+      --bg-1: #0b1722;
+      --bg-2: #122333;
+      --panel: rgba(10, 17, 27, 0.76);
+      --panel-strong: rgba(9, 15, 24, 0.92);
+      --panel-soft: rgba(17, 29, 43, 0.58);
+      --line: rgba(147, 185, 220, 0.18);
+      --line-strong: rgba(147, 185, 220, 0.28);
+      --text: #eef5fc;
+      --muted: #93a8bf;
+      --accent: #8ae6c2;
+      --accent-2: #6ec7ff;
+      --accent-3: #ffbc7b;
+      --accent-4: #d7a1ff;
+      --danger: #ff8d8d;
+      --radius-xl: 26px;
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --shadow: 0 28px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    html, body {
+      min-height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
+      font-family: 'Manrope', sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(900px 500px at 10% -5%, rgba(81, 169, 255, 0.25), transparent 58%),
+        radial-gradient(700px 500px at 110% 12%, rgba(115, 230, 194, 0.18), transparent 62%),
+        radial-gradient(900px 600px at 50% 110%, rgba(217, 161, 255, 0.11), transparent 58%),
+        linear-gradient(155deg, var(--bg-0), var(--bg-1) 45%, var(--bg-2));
+    }
+
+    body::before,
+    body::after {
+      content: '';
+      position: fixed;
+      inset: auto;
+      border-radius: 999px;
+      filter: blur(60px);
+      opacity: 0.22;
+      pointer-events: none;
+      animation: drift 16s ease-in-out infinite alternate;
+    }
+
+    body::before {
+      width: 260px;
+      height: 260px;
+      top: 5%;
+      right: 8%;
+      background: rgba(110, 199, 255, 0.65);
+    }
+
+    body::after {
+      width: 320px;
+      height: 320px;
+      left: 4%;
+      bottom: 2%;
+      background: rgba(138, 230, 194, 0.48);
+      animation-delay: -5s;
+    }
+
+    @keyframes drift {
+      from { transform: translate3d(0, -6px, 0) scale(1); }
+      to { transform: translate3d(16px, 10px, 0) scale(1.06); }
+    }
+
+    #app {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100dvh;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .shell {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+    }
+
+    aside {
+      border-radius: var(--radius-xl);
+      padding: 18px;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      gap: 14px;
+      overflow: auto;
+    }
+
+    .brand {
+      display: grid;
+      gap: 6px;
+    }
+
+    .eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .copy {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .pill-row,
+    .nav,
+    .ops-list,
+    .theme-grid,
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .status-pill,
+    .chip,
+    .nav-btn,
+    .action-btn,
+    .theme-btn,
+    .mini-btn {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      border-radius: 999px;
+      font: inherit;
+    }
+
+    .status-pill,
+    .chip {
+      font-size: 11px;
+      padding: 6px 10px;
+      color: #d7e8f8;
+    }
+
+    .status-pill.good { color: var(--accent); }
+    .status-pill.warn { color: var(--accent-3); }
+
+    .nav {
+      flex-direction: column;
+    }
+
+    .nav-btn {
+      border-radius: 16px;
+      padding: 13px 14px;
+      text-align: left;
+      cursor: pointer;
+      display: grid;
+      gap: 3px;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+
+    .nav-btn .nav-title {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .nav-btn .nav-copy {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .nav-btn.active {
+      border-color: rgba(138, 230, 194, 0.4);
+      background: linear-gradient(135deg, rgba(138, 230, 194, 0.16), rgba(110, 199, 255, 0.1));
+      transform: translateX(2px);
+    }
+
+    .nav-btn:hover {
+      border-color: var(--line-strong);
+      transform: translateX(2px);
+    }
+
+    .sidebar-section {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .section-title {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #a6bdd3;
+      font-weight: 800;
+    }
+
+    .ops-list {
+      flex-direction: column;
+      overflow: auto;
+      min-height: 0;
+      padding-right: 4px;
+    }
+
+    .ops-item {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.02);
+      padding: 10px 11px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .ops-item .meta,
+    .metric .label,
+    .info-card .label,
+    .node-detail .meta,
+    .trace-item .meta {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .ops-item .value,
+    .node-detail .value {
+      font-size: 12px;
+      line-height: 1.45;
+      color: #deedf9;
+    }
+
+    .footer-note {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    main {
+      min-width: 0;
+      border-radius: calc(var(--radius-xl) + 4px);
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      overflow: auto;
+    }
+
+    .topbar {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .topbar-copy {
+      display: grid;
+      gap: 5px;
+    }
+
+    .topbar-copy h1 {
+      font-size: 28px;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      font-weight: 800;
+    }
+
+    .topbar-copy p {
+      color: var(--muted);
+      font-size: 14px;
+      max-width: 720px;
+      line-height: 1.45;
+    }
+
+    .toolbar {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .search-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 240px;
+    }
+
+    .text-input,
+    .select-input,
+    .range-input {
+      border: 1px solid var(--line);
+      background: rgba(7, 12, 20, 0.72);
+      color: var(--text);
+      border-radius: 14px;
+      font: inherit;
+      outline: none;
+    }
+
+    .text-input,
+    .select-input {
+      padding: 12px 14px;
+      font-size: 14px;
+    }
+
+    .text-input {
+      flex: 1;
+      min-width: 220px;
+    }
+
+    .select-input {
+      min-width: 150px;
+    }
+
+    .action-btn,
+    .mini-btn,
+    .theme-btn {
+      padding: 11px 14px;
+      cursor: pointer;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+
+    .action-btn:hover,
+    .mini-btn:hover,
+    .theme-btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
+    }
+
+    .action-btn.primary {
+      color: #081018;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      font-weight: 800;
+    }
+
+    .action-btn.secondary {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .view {
+      display: none;
+      min-height: 0;
+    }
+
+    .view.active {
+      display: grid;
+    }
+
+    #memory-view {
+      grid-template-columns: minmax(0, 1.6fr) 380px;
+      gap: 14px;
+      padding: 14px;
+      overflow: auto;
+      align-content: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+      min-height: min-content;
+      align-content: start;
+    }
+
+    .card {
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      padding: 16px;
+      min-width: 0;
+      box-shadow: 0 22px 40px rgba(0, 0, 0, 0.18);
+    }
+
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      display: grid;
+      gap: 4px;
+    }
+
+    .card-title h2 {
+      font-size: 20px;
+      letter-spacing: -0.03em;
+      font-weight: 800;
+    }
+
+    .card-title p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      display: grid;
+      gap: 4px;
+    }
+
+    .metric .value {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .metric .note {
+      font-size: 12px;
+      color: #cddceb;
+    }
+
+    .graph-card {
+      display: grid;
+      grid-template-rows: auto auto auto 1fr;
+      min-height: min-content;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .graph-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+
+    .control-group {
+      display: grid;
+      gap: 5px;
+      min-width: 140px;
+    }
+
+    .control-group label {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      font-size: 11px;
+      color: #d8e8f7;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .graph-stage {
+      position: relative;
+      min-height: 760px;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background:
+        radial-gradient(1200px 600px at 50% -10%, rgba(110, 199, 255, 0.14), transparent 48%),
+        radial-gradient(900px 520px at 50% 115%, rgba(138, 230, 194, 0.08), transparent 55%),
+        linear-gradient(180deg, #08111b, #0a141e 55%, #071019);
+    }
+
+    .graph-stage::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: 0.3;
+      mix-blend-mode: screen;
+    }
+
+    #graph-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    .graph-hud {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      max-width: calc(100% - 28px);
+    }
+
+    .hud-pill {
+      border-radius: 999px;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      background: rgba(8, 14, 22, 0.78);
+      color: #dae9f8;
+      font-size: 11px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .graph-toolbar {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      display: grid;
+      gap: 10px;
+      justify-items: end;
+      z-index: 2;
+    }
+
+    .graph-zoom-stack {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .mini-map {
+      width: 188px;
+      height: 122px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(7, 12, 20, 0.84);
+      box-shadow: 0 16px 28px rgba(0, 0, 0, 0.22);
+      overflow: hidden;
+    }
+
+    #mini-map-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .graph-note {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .trace-list,
+    .result-list,
+    .proposal-list {
+      display: grid;
+      gap: 9px;
+      overflow: auto;
+      min-height: 0;
+      padding-right: 4px;
+    }
+
+    .review-layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 0.92fr) minmax(420px, 1.08fr);
+      gap: 16px;
+      min-height: 0;
+      align-items: start;
+    }
+
+    .review-pane {
+      min-height: 0;
+    }
+
+    .trace-item,
+    .result-item,
+    .proposal-item,
+    .info-card,
+    .node-detail {
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      padding: 11px 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .result-item,
+    .proposal-item {
+      cursor: pointer;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+
+    .result-item:hover,
+    .proposal-item:hover,
+    .result-item.active,
+    .proposal-item.active {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tone-history {
+      border-color: rgba(255, 188, 123, 0.3);
+      background: linear-gradient(135deg, rgba(255, 188, 123, 0.08), rgba(255, 255, 255, 0.03));
+    }
+
+    .tone-aikb {
+      border-color: rgba(110, 199, 255, 0.34);
+      background: linear-gradient(135deg, rgba(110, 199, 255, 0.1), rgba(255, 255, 255, 0.03));
+    }
+
+    .tone-proposal {
+      border-color: rgba(215, 161, 255, 0.34);
+      background: linear-gradient(135deg, rgba(215, 161, 255, 0.1), rgba(255, 255, 255, 0.03));
+    }
+
+    .tone-context {
+      border-color: rgba(138, 230, 194, 0.3);
+      background: linear-gradient(135deg, rgba(138, 230, 194, 0.09), rgba(255, 255, 255, 0.03));
+    }
+
+    .result-title,
+    .proposal-title,
+    .node-detail .title {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .result-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .result-copy,
+    .proposal-copy,
+    .node-detail .value,
+    .trace-item .value,
+    .info-card .value {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #dceaf8;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .review-detail-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .detail-stack,
+    .label-block {
+      display: grid;
+      gap: 8px;
+    }
+
+    .label-block label,
+    .meta-card .label,
+    .preview-card .label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .text-area {
+      width: 100%;
+      min-height: 118px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(6, 11, 17, 0.72);
+      color: var(--text);
+      padding: 14px 15px;
+      font: inherit;
+      line-height: 1.55;
+      resize: vertical;
+    }
+
+    .mono-area {
+      min-height: 168px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+    }
+
+    .detail-meta-grid,
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .meta-card,
+    .preview-card,
+    .status-note {
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(8, 14, 22, 0.7);
+      padding: 12px 14px;
+    }
+
+    .meta-card .value,
+    .status-note,
+    .preview-card pre {
+      font-size: 12px;
+      line-height: 1.55;
+      color: #dceaf8;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .status-note strong {
+      color: var(--text);
+    }
+
+    .preview-card {
+      min-height: 180px;
+      overflow: auto;
+    }
+
+    .preview-card pre {
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .side-stack {
+      display: grid;
+      gap: 14px;
+      min-height: min-content;
+      grid-template-rows: auto auto auto auto;
+      align-content: start;
+    }
+
+    .side-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .terminal-wrap,
+    .code-wrap {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 14px;
+      padding: 14px;
+      min-height: 0;
+    }
+
+    .surface-frame {
+      width: 100%;
+      height: 100%;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #03070c;
+      min-height: 0;
+    }
+
+    .toolbar-block {
+      display: grid;
+      gap: 12px;
+    }
+
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .range-group {
+      display: grid;
+      gap: 6px;
+      min-width: 180px;
+    }
+
+    .range-input {
+      accent-color: var(--accent);
+    }
+
+    .theme-btn.active {
+      border-color: rgba(138, 230, 194, 0.46);
+      background: linear-gradient(135deg, rgba(138, 230, 194, 0.15), rgba(110, 199, 255, 0.08));
+    }
+
+    .neighbor-btn {
+      cursor: pointer;
+    }
+
+    .mono {
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 1220px) {
+      #app {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        grid-template-rows: auto auto;
+      }
+
+      #memory-view {
+        grid-template-columns: 1fr;
+      }
+
+      .side-stack {
+        grid-template-rows: repeat(4, auto);
+      }
+    }
+
+    @media (max-width: 780px) {
+      #app {
+        padding: 10px;
+        gap: 10px;
+      }
+
+      aside,
+      main {
+        border-radius: 20px;
+      }
+
+      .metric-grid,
+      .side-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .graph-stage {
+        min-height: 540px;
+      }
+
+      .review-layout,
+      .detail-meta-grid,
+      .preview-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside class="shell">
+      <div class="brand">
+        <div class="eyebrow">AI Hub</div>
+        <div class="title">Operator Console</div>
+        <div class="copy">A separate track for a calmer, more legible operator surface. Memory comes first. Terminal and code stay close.</div>
+      </div>
+
+      <div class="pill-row">
+        <span id="memory-health-pill" class="status-pill">memory unknown</span>
+        <span id="build-pill" class="status-pill mono">build pending</span>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-title">Modes</div>
+        <div class="nav">
+          <button class="nav-btn active" data-view="memory">
+            <span class="nav-title">Explore</span>
+            <span class="nav-copy">Graph search, relationships, provenance, and record inspection.</span>
+          </button>
+          <button class="nav-btn" data-view="review">
+            <span class="nav-title">Review</span>
+            <span class="nav-copy">Harvest, queue review, and durable memory shaping.</span>
+          </button>
+          <button class="nav-btn" data-view="terminal">
+            <span class="nav-title">Terminal</span>
+            <span class="nav-copy">Remote shell with stronger styling and density controls.</span>
+          </button>
+          <button class="nav-btn" data-view="code">
+            <span class="nav-title">Code</span>
+            <span class="nav-copy">Keep code-server close for real edits and project context.</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-title">Operating Model</div>
+        <div class="ops-list" id="ops-log"></div>
+      </div>
+
+      <div class="footer-note">
+        <strong>Transparent by default.</strong><br>
+        Search uses <span class="mono">/memory/search</span>. Proposals use <span class="mono">/memory/proposals</span>. Terminal is proxied through <span class="mono">/terminal/</span>. This operator console remains a separate track until it replaces the legacy chat surface.
+      </div>
+    </aside>
+
+    <main class="shell">
+      <div class="topbar">
+        <div class="topbar-copy">
+          <h1 id="view-title">Graphical Memory Search</h1>
+          <p id="view-copy">World class retrieval is not just search quality. It is orientation, motion, provenance, and confidence. This view keeps the graph, the evidence, and the operational trace visible at the same time.</p>
+        </div>
+        <div class="pill-row">
+          <span id="search-summary" class="status-pill mono">query idle</span>
+          <span id="proposal-summary" class="status-pill mono">proposals idle</span>
+          <span id="selection-pill" class="status-pill mono">selection none</span>
+        </div>
+      </div>
+
+      <div class="toolbar" id="memory-toolbar">
+        <div class="search-wrap">
+          <input id="query-input" class="text-input" type="search" value="memory" placeholder="Search memory and AIKB">
+          <button id="search-btn" class="action-btn primary" type="button">Search</button>
+          <button id="refresh-btn" class="action-btn secondary" type="button">Refresh</button>
+        </div>
+        <select id="depth-filter" class="select-input">
+          <option value="1">Depth 1 · direct hits</option>
+          <option value="2" selected>Depth 2 · devices and sources</option>
+          <option value="3">Depth 3 · relations and proposals</option>
+        </select>
+        <select id="event-cap-filter" class="select-input">
+          <option value="8">8 events</option>
+          <option value="12" selected>12 events</option>
+          <option value="16">16 events</option>
+        </select>
+      </div>
+
+      <section id="memory-view" class="view active">
+        <div class="stack">
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <h2>Live Signal Field</h2>
+                <p>Health, counts, and machine coverage stay in view so you always know what the graph is built from.</p>
+              </div>
+              <div class="chip-row">
+                <span id="source-chip" class="chip mono">source pending</span>
+                <span id="latency-chip" class="chip mono">latency pending</span>
+              </div>
+            </div>
+            <div class="metric-grid">
+              <div class="metric">
+                <div class="label">Memory Health</div>
+                <div id="metric-health" class="value">-</div>
+                <div class="note">Reachability to Memory Core</div>
+              </div>
+              <div class="metric">
+                <div class="label">Event Volume</div>
+                <div id="metric-events" class="value">-</div>
+                <div class="note">Total ingested signals</div>
+              </div>
+              <div class="metric">
+                <div class="label">New Proposals</div>
+                <div id="metric-proposals" class="value">-</div>
+                <div class="note">Review queue load</div>
+              </div>
+              <div class="metric">
+                <div class="label">Machines</div>
+                <div id="metric-machines" class="value">-</div>
+                <div class="note">Observer heartbeat coverage</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card graph-card">
+            <div class="card-head">
+              <div class="card-title">
+                <h2>Organic Relationship View</h2>
+                <p>Results are arranged as a living field instead of a static list: query, devices, sources, relations, AIKB hits, and proposals all stay visible together.</p>
+              </div>
+              <div class="chip-row">
+                <span id="graph-chip" class="chip mono">graph idle</span>
+                <span id="node-chip" class="chip mono">0 nodes</span>
+                <span id="edge-chip" class="chip mono">0 edges</span>
+              </div>
+            </div>
+            <div class="legend">
+              <span class="legend-item"><span class="dot" style="background:#8ae6c2"></span>query</span>
+              <span class="legend-item"><span class="dot" style="background:#6ec7ff"></span>AIKB hit</span>
+              <span class="legend-item"><span class="dot" style="background:#ffbc7b"></span>event</span>
+              <span class="legend-item"><span class="dot" style="background:#7bb4ff"></span>device or source</span>
+              <span class="legend-item"><span class="dot" style="background:#d7a1ff"></span>proposal</span>
+            </div>
+            <div class="graph-controls">
+              <div class="control-group">
+                <label for="layout-filter">Layout Mood</label>
+                <select id="layout-filter" class="select-input">
+                  <option value="organic" selected>Organic</option>
+                  <option value="constellation">Constellation</option>
+                  <option value="radial">Radial Focus</option>
+                </select>
+              </div>
+              <div class="control-group">
+                <label for="motion-filter">Motion</label>
+                <select id="motion-filter" class="select-input">
+                  <option value="calm">Calm</option>
+                  <option value="live" selected>Live</option>
+                  <option value="pinned">Pinned</option>
+                </select>
+              </div>
+              <div class="control-group">
+                <label for="glow-filter">Glow</label>
+                <input id="glow-filter" class="range-input" type="range" min="0.2" max="1.2" step="0.05" value="0.8">
+              </div>
+              <button id="save-scene-btn" class="action-btn secondary" type="button">Save Scene</button>
+              <button id="reset-scene-btn" class="action-btn secondary" type="button">Reset Scene</button>
+            </div>
+            <div class="graph-stage">
+              <div class="graph-hud">
+                <span id="hud-mode" class="hud-pill">mode: transparent</span>
+                <span id="hud-query" class="hud-pill">query: memory</span>
+                <span id="hud-selection" class="hud-pill">focus: none</span>
+              </div>
+              <div class="graph-toolbar">
+                <div class="graph-zoom-stack">
+                  <button id="graph-fit-btn" class="mini-btn" type="button">Fit</button>
+                  <button id="graph-zoom-out-btn" class="mini-btn" type="button">Zoom Out</button>
+                  <button id="graph-zoom-in-btn" class="mini-btn" type="button">Zoom In</button>
+                </div>
+                <div class="mini-map">
+                  <svg id="mini-map-svg" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid meet"></svg>
+                </div>
+                <div id="graph-viewport-note" class="graph-note">zoom 1.00x · centered</div>
+              </div>
+              <svg id="graph-svg" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <h2>Evidence Stream</h2>
+                <p>List view stays synchronized with the graph so you can review concrete snippets, not just pretty nodes.</p>
+              </div>
+            </div>
+            <div id="result-list" class="result-list"></div>
+          </div>
+        </div>
+
+        <div class="side-stack">
+          <div class="side-grid">
+            <div class="info-card">
+              <div class="label">Data Path</div>
+              <div id="info-data-path" class="value">Waiting for first refresh.</div>
+            </div>
+            <div class="info-card">
+              <div class="label">Query Reasoning</div>
+              <div id="info-query-reasoning" class="value">Graph neighborhoods are built from events, AIKB hits, sources, devices, and proposals connected to the active query.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <h2>Saved Scenes</h2>
+                <p>Keep promising explorations around as reusable graph views instead of rediscovering them from scratch.</p>
+              </div>
+            </div>
+            <div id="saved-scenes" class="trace-list"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <h2>Relationship Inspector</h2>
+                <p>Click a node or list item to see what it is, why it appeared, and what it connects to.</p>
+              </div>
+            </div>
+            <div id="node-detail" class="node-detail">
+              <div class="title">Nothing selected yet</div>
+              <div class="meta">selection</div>
+              <div class="value">Pick a node or result to inspect provenance, neighbors, and metadata.</div>
+            </div>
+            <div id="node-provenance" class="node-detail">
+              <div class="title">Inclusion Reason</div>
+              <div class="meta">why this is visible</div>
+              <div class="value">The inspector will explain how the selected node got into the current graph.</div>
+            </div>
+            <div id="node-path" class="node-detail">
+              <div class="title">Path Trace</div>
+              <div class="meta">how this connects</div>
+              <div class="value">Select a node to trace the shortest visible path from the active query.</div>
+            </div>
+            <div id="node-record" class="node-detail">
+              <div class="title">Entry Metadata</div>
+              <div class="meta">record details</div>
+              <div class="value">Select a memory event to inspect its provider, source file, and captured payload.</div>
+            </div>
+            <div id="node-context" class="node-detail tone-context">
+              <div class="title">Source Context</div>
+              <div class="meta">nearby lines</div>
+              <div class="value">When the backing file is available to the server, nearby lines will appear here.</div>
+            </div>
+            <div class="chip-row">
+              <button id="expand-node-btn" class="action-btn secondary" type="button">Expand Neighborhood</button>
+              <button id="collapse-node-btn" class="action-btn secondary" type="button">Collapse</button>
+              <button id="pin-node-btn" class="action-btn secondary" type="button">Pin Node</button>
+              <button id="trace-path-btn" class="action-btn secondary" type="button">Trace Path</button>
+              <button id="show-context-btn" class="action-btn secondary" type="button">Show Nearby Lines</button>
+              <button id="filter-file-btn" class="action-btn secondary" type="button">Filter This File</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <h2>Operational Trace</h2>
+                <p>Every action writes a compact trace line so the interface feels trustworthy instead of magical.</p>
+              </div>
+            </div>
+            <div id="trace-list" class="trace-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="review-view" class="view">
+        <div class="stack" style="padding:14px;">
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <h2>Review Flow</h2>
+                <p>Harvest and proposal review live here so exploration stays calm and operational decisions stay explicit.</p>
+              </div>
+              <div class="chip-row">
+                <span class="chip mono">queue <span id="review-queue-pill">pending</span></span>
+              </div>
+            </div>
+            <div class="control-row">
+              <select id="proposal-filter" class="select-input">
+                <option value="new">New proposals</option>
+                <option value="approved">Approved proposals</option>
+                <option value="rejected">Rejected proposals</option>
+                <option value="applied">Applied proposals</option>
+                <option value="">All proposals</option>
+              </select>
+              <button id="harvest-btn" class="action-btn primary" type="button">Harvest</button>
+              <button id="review-refresh-btn" class="action-btn secondary" type="button">Refresh Queue</button>
+            </div>
+          </div>
+
+          <div class="review-layout">
+            <div class="card review-pane">
+              <div class="card-head">
+                <div class="card-title">
+                  <h2>Proposal Queue</h2>
+                  <p>Durable candidates stay together here with a cleaner operational context than the explore surface.</p>
+                </div>
+              </div>
+              <div id="proposal-list" class="proposal-list"></div>
+            </div>
+
+            <div class="card review-pane">
+              <div class="card-head">
+                <div class="card-title">
+                  <h2>Proposal Detail</h2>
+                  <p>Review the candidate, refine the summary or payload, preview the AIKB write, and apply only when it is truly durable.</p>
+                </div>
+                <div class="chip-row">
+                  <span id="review-selection-pill" class="chip mono">selection none</span>
+                </div>
+              </div>
+
+              <div id="proposal-detail-empty" class="status-note">
+                <strong>No proposal selected.</strong>
+                Pick a row from the queue to inspect its payload, notes, preview, and AIKB destination.
+              </div>
+
+              <div id="proposal-detail-panel" class="review-detail-grid hidden">
+                <div class="detail-meta-grid">
+                  <div class="meta-card">
+                    <div class="label">Status</div>
+                    <div id="proposal-status-meta" class="value">-</div>
+                  </div>
+                  <div class="meta-card">
+                    <div class="label">Confidence</div>
+                    <div id="proposal-confidence-meta" class="value">-</div>
+                  </div>
+                  <div class="meta-card">
+                    <div class="label">Suggested Destination</div>
+                    <div id="proposal-destination-meta" class="value">-</div>
+                  </div>
+                  <div class="meta-card">
+                    <div class="label">Evidence</div>
+                    <div id="proposal-evidence-meta" class="value">-</div>
+                  </div>
+                </div>
+
+                <div class="detail-stack">
+                  <div class="label-block">
+                    <label for="proposal-summary-input">Summary</label>
+                    <textarea id="proposal-summary-input" class="text-area" placeholder="Tighten the durable memory summary before saving."></textarea>
+                  </div>
+
+                  <div class="label-block">
+                    <label for="proposal-payload-input">Payload JSON</label>
+                    <textarea id="proposal-payload-input" class="text-area mono-area" spellcheck="false" placeholder="{ }"></textarea>
+                  </div>
+
+                  <div class="label-block">
+                    <label for="proposal-file-input">Apply Destination</label>
+                    <input id="proposal-file-input" class="text-input mono" type="text" placeholder="home-lab/services/example.md">
+                  </div>
+
+                  <div class="label-block">
+                    <label for="proposal-review-notes">Review Notes</label>
+                    <textarea id="proposal-review-notes" class="text-area" placeholder="Why should this be kept, rejected, or applied?"></textarea>
+                  </div>
+                </div>
+
+                <div class="control-row">
+                  <button id="proposal-save-btn" class="action-btn secondary" type="button">Save Edit</button>
+                  <button id="proposal-approve-btn" class="action-btn secondary" type="button">Approve</button>
+                  <button id="proposal-reject-btn" class="action-btn secondary" type="button">Reject</button>
+                  <button id="proposal-preview-btn" class="action-btn primary" type="button">Preview Apply</button>
+                  <button id="proposal-apply-btn" class="action-btn primary" type="button">Apply to AIKB</button>
+                </div>
+
+                <div id="proposal-detail-status" class="status-note">
+                  <strong>Review status:</strong> waiting for action.
+                </div>
+
+                <div class="preview-grid">
+                  <div class="preview-card">
+                    <div class="label">Existing Tail</div>
+                    <pre id="proposal-preview-existing">Preview the target file to inspect the current tail before applying.</pre>
+                  </div>
+                  <div class="preview-card">
+                    <div class="label">Append Block</div>
+                    <pre id="proposal-preview-append">The generated AIKB block will appear here after preview.</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="terminal-view" class="view terminal-wrap">
+        <div class="card toolbar-block">
+          <div class="card-head">
+            <div class="card-title">
+              <h2>Remote Shell</h2>
+              <p>Keep the always-on home-lab shell, but make it more yours. Presets tune font, color, contrast, and density without leaving the page.</p>
+            </div>
+            <div class="chip-row">
+              <span id="terminal-status" class="chip mono">terminal pending</span>
+            </div>
+          </div>
+          <div class="theme-grid">
+            <button class="theme-btn active" data-theme="harbor" type="button">Harbor</button>
+            <button class="theme-btn" data-theme="ice" type="button">Ice</button>
+            <button class="theme-btn" data-theme="forest" type="button">Forest</button>
+            <button class="theme-btn" data-theme="amber" type="button">Amber</button>
+            <button class="theme-btn" data-theme="classic" type="button">Classic</button>
+          </div>
+            <div class="control-row">
+              <select id="font-select" class="select-input">
+                <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
+                <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+                <option value="'Fira Code', monospace">Fira Code</option>
+                <option value="'SF Mono', Menlo, monospace">SF Mono</option>
+              </select>
+            <div class="range-group">
+              <label class="mono" for="scale-input">Scale</label>
+              <input id="scale-input" class="range-input" type="range" min="0.8" max="1.45" step="0.05" value="1">
+            </div>
+            <div class="range-group">
+              <label class="mono" for="contrast-input">Contrast</label>
+              <input id="contrast-input" class="range-input" type="range" min="0.85" max="1.5" step="0.05" value="1">
+            </div>
+            <div class="range-group">
+              <label class="mono" for="frame-opacity-input">Glass</label>
+              <input id="frame-opacity-input" class="range-input" type="range" min="0.75" max="1" step="0.05" value="0.95">
+            </div>
+            <div class="range-group">
+              <label class="mono" for="line-height-input">Density</label>
+              <input id="line-height-input" class="range-input" type="range" min="0.9" max="1.5" step="0.05" value="1.1">
+            </div>
+            <div class="range-group">
+              <label class="mono" for="glow-input">Glow</label>
+              <input id="glow-input" class="range-input" type="range" min="0" max="1" step="0.05" value="0.35">
+            </div>
+            <button id="terminal-reload" class="action-btn secondary" type="button">Reconnect</button>
+            <button id="terminal-popout" class="action-btn secondary" type="button">Open Fullscreen</button>
+          </div>
+        </div>
+        <iframe id="terminal-frame" class="surface-frame" src="/terminal/" title="Terminal" loading="eager" referrerpolicy="same-origin"></iframe>
+      </section>
+
+      <section id="code-view" class="view code-wrap">
+        <div class="card toolbar-block">
+          <div class="card-head">
+            <div class="card-title">
+              <h2>Code Surface</h2>
+              <p>Keep code-server embedded so project edits stay one click away while memory search remains the primary orientation layer.</p>
+            </div>
+            <div class="chip-row">
+              <span class="chip mono">origin: code.home.timmcg.net</span>
+            </div>
+          </div>
+          <div class="control-row">
+            <button id="code-popout" class="action-btn secondary" type="button">Open Fullscreen</button>
+          </div>
+        </div>
+        <iframe id="code-frame" class="surface-frame" src="https://code.home.timmcg.net" title="Code Server" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      </section>
+    </main>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const SCENE_KEY = 'aihub_v2_scene';
+    const SCENES_KEY = 'aihub_v2_scenes';
+
+    const state = {
+      view: 'memory',
+      build: null,
+      health: null,
+      stats: null,
+      search: null,
+      proposals: [],
+      fileFilter: '',
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      selectedProposalId: null,
+      reviewPreview: null,
+      graph: { nodes: [], edges: [], raf: 0 },
+      graphViewport: {
+        scale: 1,
+        panX: 0,
+        panY: 0,
+      },
+      activePath: [],
+      graphControls: {
+        depth: 2,
+        eventCap: 12,
+        layout: 'organic',
+        motion: 'live',
+        glow: 0.8,
+      },
+      expandedNodeIds: new Set(),
+      pinnedNodePositions: {},
+      savedScenes: [],
+      terminalTheme: 'harbor',
+      terminalSettings: {
+        font: "'IBM Plex Mono', monospace",
+        scale: 1,
+        contrast: 1,
+        opacity: 0.95,
+        lineHeight: 1.1,
+        glow: 0.35,
+      },
+      ops: [],
+      trace: [],
+    };
+
+    const THEME_MAP = {
+      harbor: { bg: '#05090f', fg: '#d2e8ff', filter: 'saturate(1.08) hue-rotate(0deg)' },
+      ice: { bg: '#07131c', fg: '#c4f3ff', filter: 'saturate(1.16) hue-rotate(10deg)' },
+      forest: { bg: '#051008', fg: '#95f4b8', filter: 'saturate(1.2) hue-rotate(-18deg)' },
+      amber: { bg: '#120b04', fg: '#ffd49a', filter: 'saturate(1.14) hue-rotate(-30deg)' },
+      classic: { bg: '#010203', fg: '#f3f6fb', filter: 'none' },
+    };
+
+    const viewMeta = {
+      memory: {
+        title: 'Explore Memory',
+        copy: 'Search, graph navigation, provenance, and source inspection stay together here so exploration feels calm and legible.',
+      },
+      review: {
+        title: 'Review Proposals',
+        copy: 'Harvest and proposal review are separated from search so durable memory decisions feel deliberate instead of mixed into exploration.',
+      },
+      terminal: {
+        title: 'Remote Shell',
+        copy: 'The shell remains intentionally simple: fast access, richer visual tuning, and zero confusion about where commands are actually running.',
+      },
+      code: {
+        title: 'Embedded Code Surface',
+        copy: 'Code-server remains available when you want real edits, but v2 keeps memory as the primary operating context rather than letting editing dominate the whole screen.',
+      },
+    };
+
+    const el = {
+      navBtns: [...document.querySelectorAll('.nav-btn')],
+      views: {
+        memory: document.getElementById('memory-view'),
+        review: document.getElementById('review-view'),
+        terminal: document.getElementById('terminal-view'),
+        code: document.getElementById('code-view'),
+      },
+      viewTitle: document.getElementById('view-title'),
+      viewCopy: document.getElementById('view-copy'),
+      buildPill: document.getElementById('build-pill'),
+      memoryHealthPill: document.getElementById('memory-health-pill'),
+      searchSummary: document.getElementById('search-summary'),
+      proposalSummary: document.getElementById('proposal-summary'),
+      selectionPill: document.getElementById('selection-pill'),
+      sourceChip: document.getElementById('source-chip'),
+      latencyChip: document.getElementById('latency-chip'),
+      metricHealth: document.getElementById('metric-health'),
+      metricEvents: document.getElementById('metric-events'),
+      metricProposals: document.getElementById('metric-proposals'),
+      metricMachines: document.getElementById('metric-machines'),
+      queryInput: document.getElementById('query-input'),
+      searchBtn: document.getElementById('search-btn'),
+      refreshBtn: document.getElementById('refresh-btn'),
+      proposalFilter: document.getElementById('proposal-filter'),
+      depthFilter: document.getElementById('depth-filter'),
+      eventCapFilter: document.getElementById('event-cap-filter'),
+      harvestBtn: document.getElementById('harvest-btn'),
+      reviewRefreshBtn: document.getElementById('review-refresh-btn'),
+      reviewQueuePill: document.getElementById('review-queue-pill'),
+      layoutFilter: document.getElementById('layout-filter'),
+      motionFilter: document.getElementById('motion-filter'),
+      glowFilter: document.getElementById('glow-filter'),
+      saveSceneBtn: document.getElementById('save-scene-btn'),
+      resetSceneBtn: document.getElementById('reset-scene-btn'),
+      graphFitBtn: document.getElementById('graph-fit-btn'),
+      graphZoomOutBtn: document.getElementById('graph-zoom-out-btn'),
+      graphZoomInBtn: document.getElementById('graph-zoom-in-btn'),
+      graphSvg: document.getElementById('graph-svg'),
+      miniMapSvg: document.getElementById('mini-map-svg'),
+      graphViewportNote: document.getElementById('graph-viewport-note'),
+      graphChip: document.getElementById('graph-chip'),
+      nodeChip: document.getElementById('node-chip'),
+      edgeChip: document.getElementById('edge-chip'),
+      hudQuery: document.getElementById('hud-query'),
+      hudSelection: document.getElementById('hud-selection'),
+      resultList: document.getElementById('result-list'),
+      proposalList: document.getElementById('proposal-list'),
+      reviewSelectionPill: document.getElementById('review-selection-pill'),
+      proposalDetailEmpty: document.getElementById('proposal-detail-empty'),
+      proposalDetailPanel: document.getElementById('proposal-detail-panel'),
+      proposalStatusMeta: document.getElementById('proposal-status-meta'),
+      proposalConfidenceMeta: document.getElementById('proposal-confidence-meta'),
+      proposalDestinationMeta: document.getElementById('proposal-destination-meta'),
+      proposalEvidenceMeta: document.getElementById('proposal-evidence-meta'),
+      proposalSummaryInput: document.getElementById('proposal-summary-input'),
+      proposalPayloadInput: document.getElementById('proposal-payload-input'),
+      proposalFileInput: document.getElementById('proposal-file-input'),
+      proposalReviewNotes: document.getElementById('proposal-review-notes'),
+      proposalSaveBtn: document.getElementById('proposal-save-btn'),
+      proposalApproveBtn: document.getElementById('proposal-approve-btn'),
+      proposalRejectBtn: document.getElementById('proposal-reject-btn'),
+      proposalPreviewBtn: document.getElementById('proposal-preview-btn'),
+      proposalApplyBtn: document.getElementById('proposal-apply-btn'),
+      proposalDetailStatus: document.getElementById('proposal-detail-status'),
+      proposalPreviewExisting: document.getElementById('proposal-preview-existing'),
+      proposalPreviewAppend: document.getElementById('proposal-preview-append'),
+      nodeDetail: document.getElementById('node-detail'),
+      nodeProvenance: document.getElementById('node-provenance'),
+      nodePath: document.getElementById('node-path'),
+      nodeRecord: document.getElementById('node-record'),
+      nodeContext: document.getElementById('node-context'),
+      expandNodeBtn: document.getElementById('expand-node-btn'),
+      collapseNodeBtn: document.getElementById('collapse-node-btn'),
+      pinNodeBtn: document.getElementById('pin-node-btn'),
+      tracePathBtn: document.getElementById('trace-path-btn'),
+      showContextBtn: document.getElementById('show-context-btn'),
+      filterFileBtn: document.getElementById('filter-file-btn'),
+      infoDataPath: document.getElementById('info-data-path'),
+      opsLog: document.getElementById('ops-log'),
+      traceList: document.getElementById('trace-list'),
+      terminalFrame: document.getElementById('terminal-frame'),
+      terminalStatus: document.getElementById('terminal-status'),
+      themeBtns: [...document.querySelectorAll('.theme-btn')],
+      fontSelect: document.getElementById('font-select'),
+      scaleInput: document.getElementById('scale-input'),
+      contrastInput: document.getElementById('contrast-input'),
+      frameOpacityInput: document.getElementById('frame-opacity-input'),
+      lineHeightInput: document.getElementById('line-height-input'),
+      glowInput: document.getElementById('glow-input'),
+      terminalReload: document.getElementById('terminal-reload'),
+      terminalPopout: document.getElementById('terminal-popout'),
+      codePopout: document.getElementById('code-popout'),
+    };
+
+    const fmtNum = (value) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n.toLocaleString() : '-';
+    };
+
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+    const escapeHtml = (value) => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    const fmtTime = (value) => {
+      const n = Number(value || 0);
+      if (!Number.isFinite(n) || !n) return 'unknown';
+      return new Date(n * 1000).toLocaleString();
+    };
+
+    const parseEventSnippet = (event) => {
+      const raw = String(event?.snippet || '').trim();
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    };
+
+    const summarizeEvent = (event) => {
+      const parsed = parseEventSnippet(event);
+      const payload = parsed?.payload || {};
+      const snippet = String(event?.snippet || '').trim();
+      const filePath = String(event?.metadata?.file_path || '').trim();
+      const filename = String(event?.metadata?.filename || '').trim() || (filePath ? filePath.split('/').pop() : '');
+      const lineIndex = event?.metadata?.line_index;
+      const sourceRef = filename ? `${filename}${lineIndex != null ? `:${Number(lineIndex) + 1}` : ''}` : 'source line unknown';
+
+      const firstText = (...values) => values.find((value) => typeof value === 'string' && value.trim()) || '';
+
+      let title = '';
+      let summary = '';
+      let kind = '';
+
+      if (parsed?.type === 'event_msg') {
+        kind = String(payload?.type || event?.event_type || 'event');
+        title = firstText(payload?.type, event?.event_type, 'event');
+        summary = firstText(payload?.message, payload?.text, payload?.summary, snippet);
+      } else if (parsed?.type === 'response_item') {
+        kind = String(payload?.type || event?.event_type || 'response');
+        if (payload?.type === 'function_call') {
+          title = `function_call ${String(payload?.name || 'unknown')}`;
+          summary = firstText(payload?.arguments, payload?.name, snippet);
+        } else if (payload?.type === 'function_call_output') {
+          title = 'function output';
+          summary = firstText(payload?.output, payload?.call_id, snippet);
+        } else if (payload?.type === 'message') {
+          const text = payload?.content?.find?.((item) => item?.type === 'output_text')?.text;
+          title = firstText(payload?.role ? `${payload.role} message` : '', 'message', event?.event_type);
+          summary = firstText(text, snippet);
+        } else if (payload?.type === 'reasoning') {
+          const text = payload?.summary?.map?.((item) => item?.text).find(Boolean);
+          title = 'reasoning';
+          summary = firstText(text, snippet);
+        } else {
+          title = firstText(payload?.type, event?.event_type, 'response');
+          summary = firstText(payload?.text, snippet);
+        }
+      } else {
+        kind = String(event?.event_type || 'event');
+        title = firstText(event?.event_type, parsed?.type, 'event');
+        summary = firstText(snippet);
+      }
+
+      const compactSummary = summary
+        .replace(/\s+/g, ' ')
+        .replace(/^\{.*$/, '')
+        .trim();
+
+      return {
+        title: title || String(event?.event_type || 'event'),
+        summary: compactSummary || String(event?.event_type || 'event'),
+        kind: kind || String(event?.event_type || 'event'),
+        sourceRef,
+        filePath,
+        filename,
+        lineNumber: lineIndex != null ? Number(lineIndex) + 1 : null,
+        parsed,
+        provider: String(event?.metadata?.provider || ''),
+        device: String(event?.metadata?.device || ''),
+        source: String(event?.source || ''),
+        eventType: String(event?.event_type || ''),
+        eventId: String(event?.event_id || ''),
+      };
+    };
+
+    const classifyResultTone = (record, fallback = 'tone-history') => {
+      if (!record) return fallback;
+      if (record.source === 'aikb' || record.kind === 'aikb') return 'tone-aikb';
+      if (record.kind === 'proposal') return 'tone-proposal';
+      if (['turn_context', 'agent_reasoning', 'function_call', 'function output', 'assistant message', 'agent_message', 'reasoning'].includes(record.title)) return 'tone-history';
+      if (record.provider || record.device) return 'tone-context';
+      return fallback;
+    };
+
+    const toneFill = (tone) => ({
+      'tone-aikb': '#6ec7ff',
+      'tone-proposal': '#d7a1ff',
+      'tone-context': '#8ae6c2',
+      'tone-history': '#ffbc7b',
+    }[tone] || '#ffbc7b');
+
+    const sceneSnapshot = () => ({
+      query: el.queryInput.value.trim() || 'memory',
+      proposalFilter: el.proposalFilter.value,
+      graphControls: { ...state.graphControls },
+      pinnedNodePositions: state.pinnedNodePositions,
+      selectedNodeId: state.selectedNodeId,
+      expandedNodeIds: [...state.expandedNodeIds],
+      graphViewport: { ...state.graphViewport },
+      fileFilter: state.fileFilter,
+      terminalTheme: state.terminalTheme,
+      terminalSettings: { ...state.terminalSettings },
+    });
+
+    const saveScene = () => {
+      localStorage.setItem(SCENE_KEY, JSON.stringify(sceneSnapshot()));
+      logOp('scene', 'Current view saved locally');
+    };
+
+    const sceneNameForSnapshot = (snapshot) => {
+      const stamp = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const query = String(snapshot.query || 'memory').trim() || 'memory';
+      return `${query} · ${stamp}`;
+    };
+
+    const persistScenes = () => {
+      localStorage.setItem(SCENES_KEY, JSON.stringify(state.savedScenes));
+    };
+
+    const loadSavedScenes = () => {
+      try {
+        const raw = localStorage.getItem(SCENES_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        state.savedScenes = Array.isArray(parsed) ? parsed.slice(0, 6) : [];
+      } catch {
+        state.savedScenes = [];
+      }
+    };
+
+    const saveNamedScene = () => {
+      const snapshot = sceneSnapshot();
+      const entry = {
+        id: `scene-${Date.now()}`,
+        name: sceneNameForSnapshot(snapshot),
+        createdAt: new Date().toISOString(),
+        snapshot,
+      };
+      state.savedScenes.unshift(entry);
+      state.savedScenes = state.savedScenes.slice(0, 6);
+      persistScenes();
+      saveScene();
+      renderSavedScenes();
+      logOp('scene', `Saved ${entry.name}`);
+    };
+
+    const applyScene = async (sceneId) => {
+      const scene = state.savedScenes.find((item) => item.id === sceneId);
+      if (!scene) return;
+      localStorage.setItem(SCENE_KEY, JSON.stringify(scene.snapshot));
+      loadScene();
+      syncControlsFromState();
+      logTrace('scene load', scene.name);
+      await refreshSearch(scene.snapshot.query || 'memory');
+    };
+
+    const removeScene = (sceneId) => {
+      state.savedScenes = state.savedScenes.filter((item) => item.id !== sceneId);
+      persistScenes();
+      renderSavedScenes();
+      logTrace('scene remove', 'Removed saved scene');
+    };
+
+    const loadScene = () => {
+      try {
+        const raw = localStorage.getItem(SCENE_KEY);
+        if (!raw) return;
+        const scene = JSON.parse(raw);
+        if (scene && typeof scene === 'object') {
+          if (scene.query) el.queryInput.value = scene.query;
+          if (typeof scene.proposalFilter === 'string') el.proposalFilter.value = scene.proposalFilter;
+          if (scene.graphControls && typeof scene.graphControls === 'object') {
+            state.graphControls = { ...state.graphControls, ...scene.graphControls };
+          }
+          state.pinnedNodePositions = scene.pinnedNodePositions && typeof scene.pinnedNodePositions === 'object' ? scene.pinnedNodePositions : {};
+          state.selectedNodeId = scene.selectedNodeId || null;
+          state.expandedNodeIds = new Set(Array.isArray(scene.expandedNodeIds) ? scene.expandedNodeIds : []);
+          if (scene.graphViewport && typeof scene.graphViewport === 'object') {
+            state.graphViewport = { ...state.graphViewport, ...scene.graphViewport };
+          }
+          if (typeof scene.fileFilter === 'string') state.fileFilter = scene.fileFilter;
+          if (scene.terminalTheme) state.terminalTheme = scene.terminalTheme;
+          if (scene.terminalSettings && typeof scene.terminalSettings === 'object') {
+            state.terminalSettings = { ...state.terminalSettings, ...scene.terminalSettings };
+          }
+        }
+      } catch {}
+    };
+
+    const syncControlsFromState = () => {
+      el.depthFilter.value = String(state.graphControls.depth);
+      el.eventCapFilter.value = String(state.graphControls.eventCap);
+      el.layoutFilter.value = state.graphControls.layout;
+      el.motionFilter.value = state.graphControls.motion;
+      el.glowFilter.value = String(state.graphControls.glow);
+      el.themeBtns.forEach((btn) => btn.classList.toggle('active', btn.dataset.theme === state.terminalTheme));
+      el.fontSelect.value = state.terminalSettings.font;
+      el.scaleInput.value = String(state.terminalSettings.scale);
+      el.contrastInput.value = String(state.terminalSettings.contrast);
+      el.frameOpacityInput.value = String(state.terminalSettings.opacity);
+      el.lineHeightInput.value = String(state.terminalSettings.lineHeight);
+      el.glowInput.value = String(state.terminalSettings.glow);
+    };
+
+    const renderSavedScenes = () => {
+      const node = document.getElementById('saved-scenes');
+      if (!node) return;
+      node.innerHTML = state.savedScenes.map((scene) => `
+        <div class="ops-item">
+          <div class="meta">${escapeHtml(new Date(scene.createdAt).toLocaleString())}</div>
+          <div class="value">${escapeHtml(scene.name)}</div>
+          <div class="chip-row">
+            <button class="chip scene-load-btn" data-scene-id="${escapeHtml(scene.id)}">Load</button>
+            <button class="chip scene-remove-btn" data-scene-id="${escapeHtml(scene.id)}">Remove</button>
+          </div>
+        </div>
+      `).join('') || '<div class="info-card"><div class="value">Save a few graph scenes so good explorations stay reusable.</div></div>';
+      node.querySelectorAll('.scene-load-btn').forEach((btn) => {
+        btn.addEventListener('click', () => applyScene(btn.dataset.sceneId).catch((err) => logTrace('scene load error', err.message)));
+      });
+      node.querySelectorAll('.scene-remove-btn').forEach((btn) => {
+        btn.addEventListener('click', () => removeScene(btn.dataset.sceneId));
+      });
+    };
+
+    const logOp = (title, value) => {
+      state.ops.unshift({ title, value, at: new Date().toLocaleTimeString() });
+      state.ops = state.ops.slice(0, 8);
+      el.opsLog.innerHTML = state.ops.map((item) => `
+        <div class="ops-item">
+          <div class="meta">${escapeHtml(item.at)} · ${escapeHtml(item.title)}</div>
+          <div class="value">${escapeHtml(item.value)}</div>
+        </div>
+      `).join('');
+    };
+
+    const logTrace = (title, value) => {
+      state.trace.unshift({ title, value, at: new Date().toLocaleTimeString() });
+      state.trace = state.trace.slice(0, 10);
+      el.traceList.innerHTML = state.trace.map((item) => `
+        <div class="trace-item">
+          <div class="meta">${escapeHtml(item.at)} · ${escapeHtml(item.title)}</div>
+          <div class="value">${escapeHtml(item.value)}</div>
+        </div>
+      `).join('');
+    };
+
+    const setView = (view) => {
+      state.view = view;
+      el.navBtns.forEach((btn) => btn.classList.toggle('active', btn.dataset.view === view));
+      Object.entries(el.views).forEach(([name, node]) => node.classList.toggle('active', name === view));
+      el.viewTitle.textContent = viewMeta[view].title;
+      el.viewCopy.textContent = viewMeta[view].copy;
+      logOp('view', viewMeta[view].title);
+    };
+
+    const fetchJson = async (path, options = {}) => {
+      const started = performance.now();
+      const response = await fetch(path, options);
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new Error(detail || `HTTP ${response.status}`);
+      }
+      const json = await response.json();
+      const elapsed = Math.round(performance.now() - started);
+      el.latencyChip.textContent = `latency ${elapsed}ms`;
+      return json;
+    };
+
+    const relationLabel = (event) => String(event?.event_type || event?.relation || 'event');
+
+    const buildGraph = (query, searchOut, proposals) => {
+      const nodes = [];
+      const edges = [];
+      const seen = new Set();
+      const width = 1200;
+      const height = 760;
+      const depth = state.graphControls.depth;
+      const eventCap = state.graphControls.eventCap;
+      const layout = state.graphControls.layout;
+
+      const addNode = (node) => {
+        if (seen.has(node.id)) return;
+        const pinned = state.pinnedNodePositions[node.id];
+        seen.add(node.id);
+        nodes.push({
+          vx: 0,
+          vy: 0,
+          fixed: !!pinned,
+          ...node,
+          ...(pinned ? { x: pinned.x, y: pinned.y } : {}),
+        });
+      };
+
+      addNode({
+        id: 'query',
+        kind: 'query',
+        label: query,
+        x: width * 0.5,
+        y: height * 0.48,
+        r: 24,
+        fill: '#8ae6c2',
+        detail: `Search query "${query}" anchors this graph.`,
+        reason: `You searched for "${query}". Every node shown here is connected to that search response.`,
+      });
+
+      const filteredEvents = state.fileFilter
+        ? (searchOut?.events || []).filter((event) => String(event?.metadata?.file_path || '').trim() === state.fileFilter)
+        : (searchOut?.events || []);
+      const events = filteredEvents.slice(0, eventCap);
+      const hits = (searchOut?.aikb || []).slice(0, 8);
+      const proposalRows = depth >= 3 ? (proposals || []).slice(0, 8) : [];
+
+      const addEdge = (from, to, weight = 1, reason = '') => edges.push({
+        id: `${from}::${to}`,
+        from,
+        to,
+        weight,
+        reason,
+      });
+
+      events.forEach((event, index) => {
+        const eventId = `event-${index}`;
+        const device = String(event?.metadata?.device || 'unknown');
+        const source = String(event?.source || 'unknown');
+        const relation = relationLabel(event);
+        const tone = classifyResultTone(summarizeEvent(event), 'tone-history');
+        const eventFill = toneFill(tone);
+        const eventCol = index % 4;
+        const eventRow = Math.floor(index / 4);
+        const radialAngle = (Math.PI * 2 * index) / Math.max(events.length, 1);
+        const layoutX = layout === 'radial'
+          ? width * 0.5 + Math.cos(radialAngle) * 220
+          : layout === 'constellation'
+            ? width * (0.18 + eventCol * 0.2)
+            : width * (0.2 + eventCol * 0.18);
+        const layoutY = layout === 'radial'
+          ? height * 0.48 + Math.sin(radialAngle) * 180
+          : layout === 'constellation'
+            ? height * (0.24 + eventRow * 0.18)
+            : height * (0.22 + eventRow * 0.2);
+        const summary = summarizeEvent(event);
+        addNode({
+          id: eventId,
+          kind: 'event',
+          label: summary?.title || String(event?.title || relation || `event ${index + 1}`),
+          x: layoutX,
+          y: layoutY,
+          r: 16,
+          fill: eventFill,
+          detail: summary?.summary || event?.snippet || '(no snippet)',
+          meta: `${device} · ${source} · ${summary?.sourceRef || relation}`,
+          reason: `This event matched the active query directly. It comes from ${summary?.sourceRef || 'the captured event stream'} on ${device} via ${source}.`,
+          sourceRef: summary?.sourceRef,
+          filePath: summary?.filePath,
+          lineNumber: summary?.lineNumber,
+          record: summary,
+          raw: event,
+        });
+        addEdge('query', eventId, 1.8, `The query directly retrieved this event as a top match.`);
+
+        if (depth >= 2) {
+          const deviceId = `device:${device}`;
+          addNode({
+            id: deviceId,
+            kind: 'device',
+            label: device,
+            x: width * 0.12,
+            y: height * (0.16 + ((index % 6) * 0.11)),
+            r: 13,
+            fill: '#7bb4ff',
+            detail: `Observer machine ${device}`,
+            reason: `This device is included because at least one matched event originated from ${device}.`,
+          });
+          addEdge(deviceId, eventId, 1.1, `This event originated from ${device}.`);
+
+          const sourceId = `source:${source}`;
+          addNode({
+            id: sourceId,
+            kind: 'source',
+            label: source,
+            x: width * 0.86,
+            y: height * (0.18 + ((index % 6) * 0.11)),
+            r: 13,
+            fill: '#6ec7ff',
+            detail: `Source ${source}`,
+            reason: `This source is included because it produced one or more of the matched events.`,
+          });
+          addEdge(sourceId, eventId, 1, `This event was emitted by source ${source}.`);
+        }
+
+        if (depth >= 3) {
+          const relationId = `relation:${relation}`;
+          addNode({
+            id: relationId,
+            kind: 'relation',
+            label: relation,
+            x: width * (0.34 + ((index % 5) * 0.1)),
+            y: height * 0.1,
+            r: 12,
+            fill: '#d7a1ff',
+            detail: `Relation kind ${relation}`,
+            reason: `This relation label is included so you can see the semantic shape of the retrieved events.`,
+          });
+          addEdge(relationId, eventId, 0.85, `This event carries the relation label ${relation}.`);
+        }
+
+        if (state.expandedNodeIds.has(eventId)) {
+          const provider = String(event?.metadata?.provider || 'unknown');
+          const providerId = `provider:${provider}:${index}`;
+          addNode({
+            id: providerId,
+            kind: 'provider',
+            label: provider,
+            x: width * 0.5 + Math.cos(radialAngle + 0.4) * 340,
+            y: height * 0.48 + Math.sin(radialAngle + 0.4) * 280,
+            r: 11,
+            fill: '#8ae6c2',
+            detail: `Provider ${provider}`,
+            reason: `Expanded from ${eventId} to expose the provider behind this event.`,
+          });
+          addEdge(providerId, eventId, 0.9, `This expanded provider emitted or handled the selected event.`);
+
+          const filePath = String(event?.metadata?.file_path || '').trim();
+          if (filePath) {
+            const fileId = `file:${index}`;
+            addNode({
+              id: fileId,
+              kind: 'file',
+              label: filePath.split('/').pop() || 'session file',
+              x: width * 0.5 + Math.cos(radialAngle - 0.35) * 360,
+              y: height * 0.48 + Math.sin(radialAngle - 0.35) * 300,
+              r: 11,
+              fill: '#6ec7ff',
+              detail: filePath,
+              meta: `line ${event?.metadata?.line_index ?? '-'}`,
+              reason: `Expanded from ${eventId} to show the backing file path for this event.`,
+            });
+            addEdge(fileId, eventId, 0.9, `This file path backs the selected event.`);
+          }
+        }
+      });
+
+      hits.forEach((hit, index) => {
+        const hitId = `aikb-${index}`;
+        addNode({
+          id: hitId,
+          kind: 'aikb',
+          label: (hit?.path || '').split('/').pop() || `AIKB ${index + 1}`,
+          x: width * (0.38 + ((index % 4) * 0.12)),
+          y: height * 0.82,
+          r: 14,
+          fill: toneFill('tone-aikb'),
+          detail: hit?.snippet || '(no snippet)',
+          meta: `${hit?.path || 'AIKB'}:${hit?.line || '-'}`,
+          reason: `This AIKB note matched the active query lexically and is shown as durable long-term context.`,
+          raw: hit,
+        });
+        addEdge('query', hitId, 1.4, `The query matched this AIKB note directly.`);
+
+        if (state.expandedNodeIds.has(hitId)) {
+          const fullPath = String(hit?.path || '').trim();
+          const parts = fullPath.split('/').filter(Boolean).slice(-3);
+          parts.forEach((part, offset) => {
+            const partId = `aikb-path:${index}:${offset}`;
+            addNode({
+              id: partId,
+              kind: 'path',
+              label: part,
+              x: width * (0.22 + offset * 0.12),
+              y: height * (0.78 - index * 0.04),
+              r: 10,
+              fill: '#6ec7ff',
+              detail: fullPath,
+              reason: `Expanded from an AIKB hit to show the durable path context around this note.`,
+            });
+            addEdge(partId, hitId, 0.72, `This path segment helps explain where the AIKB hit lives canonically.`);
+          });
+        }
+      });
+
+      proposalRows.forEach((proposal, index) => {
+        const proposalId = `proposal-${index}`;
+        addNode({
+          id: proposalId,
+          kind: 'proposal',
+          label: proposal?.summary || `proposal ${index + 1}`,
+          x: width * 0.76,
+          y: height * (0.26 + (index * 0.08)),
+          r: 13,
+          fill: toneFill('tone-proposal'),
+          detail: JSON.stringify(proposal?.payload || {}, null, 2),
+          meta: `${proposal?.kind || 'proposal'} · ${proposal?.status || 'unknown'}`,
+          reason: `This proposal is visible because the current depth includes durable review candidates beside retrieved events.`,
+          raw: proposal,
+        });
+        addEdge('query', proposalId, 1.15, `This proposal is part of the current review queue and included at the current depth.`);
+
+        if (state.expandedNodeIds.has(proposalId)) {
+          const suggestedFile = String(proposal?.payload?.suggested_file || '').trim();
+          if (suggestedFile) {
+            const targetId = `proposal-target:${index}`;
+            addNode({
+              id: targetId,
+              kind: 'file',
+              label: suggestedFile.split('/').pop() || 'target file',
+              x: width * 0.88,
+              y: height * (0.22 + index * 0.09),
+              r: 11,
+              fill: '#d7a1ff',
+              detail: suggestedFile,
+              reason: `Expanded from the proposal to expose its suggested AIKB destination.`,
+            });
+            addEdge(targetId, proposalId, 0.82, `This file is the proposed durable destination for the selected proposal.`);
+          }
+        }
+      });
+
+      const expandRelatedEvents = (predicate, anchorId, palette, reasonBuilder) => {
+        const extraEvents = (searchOut?.events || [])
+          .filter(predicate)
+          .slice(eventCap, eventCap + 4);
+        extraEvents.forEach((event, index) => {
+          const nodeId = `expanded:${anchorId}:${index}`;
+          const relatedSummary = summarizeEvent(event);
+          const relatedTone = classifyResultTone(relatedSummary, 'tone-history');
+          addNode({
+            id: nodeId,
+            kind: 'event',
+            label: relatedSummary?.title || String(event?.title || relationLabel(event) || `related event ${index + 1}`),
+            x: width * (0.3 + (index % 2) * 0.42),
+            y: height * (0.14 + index * 0.12),
+            r: 12,
+            fill: toneFill(relatedTone) || palette,
+            detail: relatedSummary?.summary || event?.snippet || '(no snippet)',
+            meta: `${String(event?.metadata?.device || 'unknown')} · ${String(event?.source || 'unknown')} · ${relatedSummary?.sourceRef || 'session event'}`,
+            reason: reasonBuilder(event),
+            sourceRef: relatedSummary?.sourceRef,
+            filePath: relatedSummary?.filePath,
+            lineNumber: relatedSummary?.lineNumber,
+            record: relatedSummary,
+            raw: event,
+          });
+          addEdge(anchorId, nodeId, 0.78, `Expanded from ${anchorId} to reveal a semantically related event outside the default event cap.`);
+        });
+      };
+
+      [...state.expandedNodeIds].forEach((expandedId) => {
+        if (expandedId.startsWith('device:')) {
+          const device = expandedId.split(':').slice(1).join(':');
+          expandRelatedEvents(
+            (event) => String(event?.metadata?.device || 'unknown') === device,
+            expandedId,
+            '#90cbff',
+            () => `Expanded from ${device} to show additional events from this observer beyond the default visible set.`,
+          );
+        }
+        if (expandedId.startsWith('source:')) {
+          const source = expandedId.split(':').slice(1).join(':');
+          expandRelatedEvents(
+            (event) => String(event?.source || 'unknown') === source,
+            expandedId,
+            '#7ed9ff',
+            () => `Expanded from ${source} to show more events produced by this source.`,
+          );
+        }
+        if (expandedId.startsWith('relation:')) {
+          const relation = expandedId.split(':').slice(1).join(':');
+          expandRelatedEvents(
+            (event) => relationLabel(event) === relation,
+            expandedId,
+            '#ebb0ff',
+            () => `Expanded from the ${relation} relation to reveal other events with the same semantic shape.`,
+          );
+        }
+      });
+
+      return { nodes, edges, width, height };
+    };
+
+    const runForce = () => {
+      cancelAnimationFrame(state.graph.raf);
+      const graph = state.graph;
+      const nodes = graph.nodes;
+      const edges = graph.edges;
+      if (!nodes.length) return;
+
+      let ticks = 0;
+      const width = graph.width;
+      const height = graph.height;
+
+      const step = () => {
+        ticks += 1;
+        const motion = state.graphControls.motion;
+        const springFactor = motion === 'calm' ? 0.7 : motion === 'pinned' ? 0.18 : 1;
+
+        for (let i = 0; i < nodes.length; i++) {
+          const a = nodes[i];
+          if (a.fixed) continue;
+          a.vx *= motion === 'calm' ? 0.95 : 0.92;
+          a.vy *= motion === 'calm' ? 0.95 : 0.92;
+
+          for (let j = i + 1; j < nodes.length; j++) {
+            const b = nodes[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const d2 = Math.max(90, dx * dx + dy * dy);
+            const repulse = (2600 / d2) * springFactor;
+            const dist = Math.sqrt(d2);
+            const fx = (dx / dist) * repulse;
+            const fy = (dy / dist) * repulse;
+            if (!a.fixed) { a.vx += fx; a.vy += fy; }
+            if (!b.fixed) { b.vx -= fx; b.vy -= fy; }
+          }
+        }
+
+        edges.forEach((edge) => {
+          const from = nodes.find((node) => node.id === edge.from);
+          const to = nodes.find((node) => node.id === edge.to);
+          if (!from || !to) return;
+          const dx = to.x - from.x;
+          const dy = to.y - from.y;
+          const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+          const target = 120 - edge.weight * 16;
+          const spring = (dist - target) * 0.008 * springFactor;
+          const fx = (dx / dist) * spring;
+          const fy = (dy / dist) * spring;
+          if (!from.fixed) { from.vx += fx; from.vy += fy; }
+          if (!to.fixed) { to.vx -= fx; to.vy -= fy; }
+        });
+
+        nodes.forEach((node) => {
+          if (node.id === 'query') {
+            node.x += (width * 0.5 - node.x) * 0.06 * springFactor;
+            node.y += (height * 0.48 - node.y) * 0.06 * springFactor;
+            return;
+          }
+          if (node.fixed) return;
+          node.x = clamp(node.x + node.vx, 32, width - 32);
+          node.y = clamp(node.y + node.vy, 32, height - 32);
+        });
+
+        drawGraph();
+        if (motion !== 'pinned' && ticks < 220) state.graph.raf = requestAnimationFrame(step);
+      };
+
+      state.graph.raf = requestAnimationFrame(step);
+    };
+
+    const nodeById = (id) => state.graph.nodes.find((node) => node.id === id) || null;
+
+    const neighborIds = (id) => state.graph.edges
+      .filter((edge) => edge.from === id || edge.to === id)
+      .map((edge) => edge.from === id ? edge.to : edge.from);
+
+    const worldToScreen = (x, y) => ({
+      x: x * state.graphViewport.scale + state.graphViewport.panX,
+      y: y * state.graphViewport.scale + state.graphViewport.panY,
+    });
+
+    const screenToWorld = (x, y) => ({
+      x: (x - state.graphViewport.panX) / state.graphViewport.scale,
+      y: (y - state.graphViewport.panY) / state.graphViewport.scale,
+    });
+
+    const setViewport = ({ scale = state.graphViewport.scale, panX = state.graphViewport.panX, panY = state.graphViewport.panY }) => {
+      state.graphViewport.scale = clamp(scale, 0.55, 2.8);
+      state.graphViewport.panX = panX;
+      state.graphViewport.panY = panY;
+      el.graphViewportNote.textContent = `zoom ${state.graphViewport.scale.toFixed(2)}x · pan ${Math.round(state.graphViewport.panX)}, ${Math.round(state.graphViewport.panY)}`;
+    };
+
+    const fitGraph = () => {
+      const svgRect = el.graphSvg.getBoundingClientRect();
+      const width = svgRect.width || state.graph.width || 1200;
+      const height = svgRect.height || state.graph.height || 760;
+      const padding = 64;
+      const scale = Math.min((width - padding) / (state.graph.width || 1200), (height - padding) / (state.graph.height || 760));
+      const nextScale = clamp(scale, 0.65, 1.35);
+      const panX = (width - (state.graph.width || 1200) * nextScale) / 2;
+      const panY = (height - (state.graph.height || 760) * nextScale) / 2;
+      setViewport({ scale: nextScale, panX, panY });
+      drawGraph();
+    };
+
+    const shortestPath = (fromId, toId) => {
+      if (!fromId || !toId || fromId === toId) return fromId === toId ? [fromId] : [];
+      const queue = [fromId];
+      const visited = new Set([fromId]);
+      const prev = new Map();
+      while (queue.length) {
+        const current = queue.shift();
+        const neighbors = neighborIds(current);
+        for (const neighbor of neighbors) {
+          if (visited.has(neighbor)) continue;
+          visited.add(neighbor);
+          prev.set(neighbor, current);
+          if (neighbor === toId) {
+            const path = [toId];
+            let cursor = toId;
+            while (prev.has(cursor)) {
+              cursor = prev.get(cursor);
+              path.unshift(cursor);
+            }
+            return path;
+          }
+          queue.push(neighbor);
+        }
+      }
+      return [];
+    };
+
+    const edgeById = (id) => state.graph.edges.find((edge) => edge.id === id) || null;
+
+    const selectEdge = (id) => {
+      state.selectedEdgeId = id;
+      const edge = edgeById(id);
+      if (edge) {
+        const from = nodeById(edge.from);
+        const to = nodeById(edge.to);
+        logTrace('edge inspect', `${from?.label || edge.from} -> ${to?.label || edge.to}`);
+      }
+      renderInspector();
+      drawGraph();
+    };
+
+    const selectNode = (id) => {
+      state.selectedNodeId = id;
+      state.selectedEdgeId = null;
+      state.activePath = shortestPath('query', id);
+      const node = nodeById(id);
+      if (node?.kind === 'proposal' && node?.raw?.proposal_id) {
+        state.selectedProposalId = node.raw.proposal_id;
+      }
+      el.selectionPill.textContent = node ? `selection ${node.kind}` : 'selection none';
+      el.hudSelection.textContent = node ? `focus: ${node.label.slice(0, 28)}` : 'focus: none';
+      el.pinNodeBtn.textContent = node && state.pinnedNodePositions[id] ? 'Unpin Node' : 'Pin Node';
+      renderInspector();
+      renderProposals();
+      renderProposalDetail();
+      drawGraph();
+    };
+
+    const drawGraph = () => {
+      const svg = el.graphSvg;
+      const ns = 'http://www.w3.org/2000/svg';
+      svg.innerHTML = '';
+
+      const defs = document.createElementNS(ns, 'defs');
+      defs.innerHTML = `
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="6" result="blur"></feGaussianBlur>
+          <feMerge>
+            <feMergeNode in="blur"></feMergeNode>
+            <feMergeNode in="SourceGraphic"></feMergeNode>
+          </feMerge>
+        </filter>
+      `;
+      svg.appendChild(defs);
+
+      const viewportGroup = document.createElementNS(ns, 'g');
+      viewportGroup.setAttribute('transform', `translate(${state.graphViewport.panX} ${state.graphViewport.panY}) scale(${state.graphViewport.scale})`);
+      svg.appendChild(viewportGroup);
+
+      const activeEdgeIds = new Set();
+      for (let i = 0; i < state.activePath.length - 1; i++) {
+        activeEdgeIds.add(`${state.activePath[i]}::${state.activePath[i + 1]}`);
+        activeEdgeIds.add(`${state.activePath[i + 1]}::${state.activePath[i]}`);
+      }
+
+      state.graph.edges.forEach((edge) => {
+        const from = nodeById(edge.from);
+        const to = nodeById(edge.to);
+        if (!from || !to) return;
+        const path = document.createElementNS(ns, 'path');
+        const curve = `M ${from.x} ${from.y} Q ${(from.x + to.x) / 2} ${((from.y + to.y) / 2) - 28} ${to.x} ${to.y}`;
+        const pathActive = activeEdgeIds.has(`${edge.from}::${edge.to}`);
+        const edgeSelected = state.selectedEdgeId === edge.id;
+        path.setAttribute('d', curve);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', edgeSelected ? 'rgba(110, 199, 255, 0.95)' : pathActive ? 'rgba(255, 188, 123, 0.88)' : state.selectedNodeId && (edge.from === state.selectedNodeId || edge.to === state.selectedNodeId) ? 'rgba(138, 230, 194, 0.55)' : 'rgba(147, 185, 220, 0.14)');
+        path.setAttribute('stroke-width', String(edgeSelected ? edge.weight * 2.2 : pathActive ? edge.weight * 1.8 : edge.weight * 1.1));
+        path.style.cursor = 'pointer';
+        path.addEventListener('click', (event) => {
+          event.stopPropagation();
+          selectEdge(edge.id);
+        });
+        viewportGroup.appendChild(path);
+      });
+
+      state.graph.nodes.forEach((node) => {
+        const group = document.createElementNS(ns, 'g');
+        group.style.cursor = 'pointer';
+        const pathActive = state.activePath.includes(node.id);
+
+        const halo = document.createElementNS(ns, 'circle');
+        halo.setAttribute('cx', String(node.x));
+        halo.setAttribute('cy', String(node.y));
+        halo.setAttribute('r', String(node.r + 10));
+        halo.setAttribute('fill', node.fill);
+        halo.setAttribute('opacity', pathActive ? String(0.12 + state.graphControls.glow * 0.18) : state.selectedNodeId === node.id ? String(0.1 + state.graphControls.glow * 0.14) : String(0.03 + state.graphControls.glow * 0.07));
+        halo.setAttribute('filter', 'url(#glow)');
+        group.appendChild(halo);
+
+        const circle = document.createElementNS(ns, 'circle');
+        circle.setAttribute('cx', String(node.x));
+        circle.setAttribute('cy', String(node.y));
+        circle.setAttribute('r', String(node.r));
+        circle.setAttribute('fill', node.fill);
+        circle.setAttribute('stroke', state.selectedNodeId === node.id ? '#ffffff' : pathActive ? '#ffbc7b' : 'rgba(255,255,255,0.18)');
+        circle.setAttribute('stroke-width', state.selectedNodeId === node.id ? '2.4' : pathActive ? '1.8' : '1');
+        group.appendChild(circle);
+
+        const text = document.createElementNS(ns, 'text');
+        text.setAttribute('x', String(node.x + node.r + 8));
+        text.setAttribute('y', String(node.y + 4));
+        text.setAttribute('fill', '#eff7ff');
+        text.setAttribute('font-size', '12');
+        text.setAttribute('font-family', 'IBM Plex Mono, monospace');
+        text.textContent = node.label.slice(0, 30);
+        group.appendChild(text);
+
+        let dragging = false;
+        group.addEventListener('pointerdown', (event) => {
+          dragging = true;
+          node.fixed = true;
+          svg.setPointerCapture(event.pointerId);
+        });
+        group.addEventListener('pointermove', (event) => {
+          if (!dragging) return;
+          const rect = svg.getBoundingClientRect();
+          const local = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
+          const x = (local.x / rect.width) * state.graph.width;
+          const y = (local.y / rect.height) * state.graph.height;
+          node.x = clamp(x, 32, state.graph.width - 32);
+          node.y = clamp(y, 32, state.graph.height - 32);
+          drawGraph();
+        });
+        group.addEventListener('pointerup', (event) => {
+          dragging = false;
+          if (state.pinnedNodePositions[node.id]) {
+            state.pinnedNodePositions[node.id] = { x: node.x, y: node.y };
+            node.fixed = true;
+          } else {
+            node.fixed = false;
+          }
+          svg.releasePointerCapture(event.pointerId);
+          runForce();
+        });
+        group.addEventListener('click', () => selectNode(node.id));
+        group.addEventListener('dblclick', () => {
+          if (state.pinnedNodePositions[node.id]) {
+            delete state.pinnedNodePositions[node.id];
+            node.fixed = false;
+            logTrace('pin', `Unpinned ${node.label}`);
+          } else {
+            state.pinnedNodePositions[node.id] = { x: node.x, y: node.y };
+            node.fixed = true;
+            logTrace('pin', `Pinned ${node.label}`);
+          }
+          selectNode(node.id);
+        });
+
+        viewportGroup.appendChild(group);
+      });
+
+      el.nodeChip.textContent = `${state.graph.nodes.length} nodes`;
+      el.edgeChip.textContent = `${state.graph.edges.length} edges`;
+      document.getElementById('hud-mode').textContent = `mode: ${state.graphControls.layout}/${state.graphControls.motion}`;
+      drawMiniMap();
+    };
+
+    const drawMiniMap = () => {
+      const svg = el.miniMapSvg;
+      const ns = 'http://www.w3.org/2000/svg';
+      svg.innerHTML = '';
+      state.graph.edges.forEach((edge) => {
+        const from = nodeById(edge.from);
+        const to = nodeById(edge.to);
+        if (!from || !to) return;
+        const line = document.createElementNS(ns, 'line');
+        line.setAttribute('x1', String(from.x));
+        line.setAttribute('y1', String(from.y));
+        line.setAttribute('x2', String(to.x));
+        line.setAttribute('y2', String(to.y));
+        line.setAttribute('stroke', 'rgba(147, 185, 220, 0.18)');
+        line.setAttribute('stroke-width', '1');
+        svg.appendChild(line);
+      });
+      state.graph.nodes.forEach((node) => {
+        const dot = document.createElementNS(ns, 'circle');
+        dot.setAttribute('cx', String(node.x));
+        dot.setAttribute('cy', String(node.y));
+        dot.setAttribute('r', String(Math.max(3, node.r * 0.28)));
+        dot.setAttribute('fill', node.fill);
+        dot.setAttribute('opacity', state.selectedNodeId === node.id ? '1' : '0.75');
+        svg.appendChild(dot);
+      });
+      const stageWidth = el.graphSvg.getBoundingClientRect().width || state.graph.width || 1200;
+      const stageHeight = el.graphSvg.getBoundingClientRect().height || state.graph.height || 760;
+      const viewport = document.createElementNS(ns, 'rect');
+      viewport.setAttribute('x', String((-state.graphViewport.panX / state.graphViewport.scale) * ((state.graph.width || 1200) / stageWidth)));
+      viewport.setAttribute('y', String((-state.graphViewport.panY / state.graphViewport.scale) * ((state.graph.height || 760) / stageHeight)));
+      viewport.setAttribute('width', String(((stageWidth / state.graphViewport.scale) * ((state.graph.width || 1200) / stageWidth))));
+      viewport.setAttribute('height', String(((stageHeight / state.graphViewport.scale) * ((state.graph.height || 760) / stageHeight))));
+      viewport.setAttribute('fill', 'rgba(138, 230, 194, 0.08)');
+      viewport.setAttribute('stroke', 'rgba(138, 230, 194, 0.55)');
+      viewport.setAttribute('stroke-width', '10');
+      svg.appendChild(viewport);
+    };
+
+    const renderInspector = () => {
+      const node = nodeById(state.selectedNodeId);
+      const edge = edgeById(state.selectedEdgeId);
+      if (!node) {
+        el.nodeDetail.innerHTML = `
+          <div class="title">Nothing selected yet</div>
+          <div class="meta">selection</div>
+          <div class="value">Pick a node or result to inspect provenance, neighbors, and metadata.</div>
+        `;
+        el.nodeProvenance.innerHTML = `
+          <div class="title">Inclusion Reason</div>
+          <div class="meta">why this is visible</div>
+          <div class="value">The inspector will explain how the selected node got into the current graph.</div>
+        `;
+        el.nodePath.innerHTML = `
+          <div class="title">Path Trace</div>
+          <div class="meta">how this connects</div>
+          <div class="value">Select a node to trace the shortest visible path from the active query.</div>
+        `;
+        el.nodeRecord.innerHTML = `
+          <div class="title">Entry Metadata</div>
+          <div class="meta">record details</div>
+          <div class="value">Select a memory event to inspect its provider, source file, and captured payload.</div>
+        `;
+        el.nodeContext.innerHTML = `
+          <div class="title">Source Context</div>
+          <div class="meta">nearby lines</div>
+          <div class="value">When the backing file is available to the server, nearby lines will appear here.</div>
+        `;
+        if (edge) {
+          const from = nodeById(edge.from);
+          const to = nodeById(edge.to);
+          el.nodeDetail.innerHTML = `
+            <div class="title">${escapeHtml(from?.label || edge.from)} → ${escapeHtml(to?.label || edge.to)}</div>
+            <div class="meta">edge · weight ${escapeHtml(String(edge.weight.toFixed(2)))}</div>
+            <div class="value">${escapeHtml(edge.reason || 'This edge connects two visible entities in the current scene.')}</div>
+          `;
+          el.nodeProvenance.innerHTML = `
+            <div class="title">Edge Reason</div>
+            <div class="meta">why this connection exists</div>
+            <div class="value">${escapeHtml(edge.reason || 'This edge belongs to the active graph neighborhood.')}</div>
+          `;
+          el.nodePath.innerHTML = `
+            <div class="title">Path Trace</div>
+            <div class="meta">connection path</div>
+            <div class="value">${escapeHtml(`${from?.label || edge.from} -> ${to?.label || edge.to}`)}</div>
+          `;
+          el.nodeRecord.innerHTML = `
+            <div class="title">Entry Metadata</div>
+            <div class="meta">record details</div>
+            <div class="value">Edges describe why two visible entities are connected. Select a node to inspect a specific captured record.</div>
+          `;
+          el.nodeContext.innerHTML = `
+            <div class="title">Source Context</div>
+            <div class="meta">nearby lines</div>
+            <div class="value">Edges do not have direct file context. Select a node to inspect its source lines.</div>
+          `;
+        }
+        return;
+      }
+
+      const neighbors = neighborIds(node.id).map(nodeById).filter(Boolean);
+      const path = state.activePath.map(nodeById).filter(Boolean);
+      const fileMeta = node.filePath ? `${node.filePath}${node.lineNumber ? `:${node.lineNumber}` : ''}` : '';
+      const record = node.record || null;
+      const rawPretty = record?.parsed ? JSON.stringify(record.parsed, null, 2) : (node.raw ? JSON.stringify(node.raw, null, 2) : '');
+      el.nodeDetail.innerHTML = `
+        <div class="title">${escapeHtml(node.label)}</div>
+        <div class="meta">${escapeHtml(node.kind)}${node.meta ? ` · ${escapeHtml(node.meta)}` : ''}</div>
+        <div class="value">${escapeHtml(node.detail || '(no detail)')}</div>
+        ${fileMeta ? `<div class="meta">backing source</div><div class="value">${escapeHtml(fileMeta)}</div>` : ''}
+        <div class="meta">neighbors</div>
+        <div class="chip-row">
+          ${neighbors.map((item) => `<button class="chip neighbor-btn" data-neighbor-id="${escapeHtml(item.id)}">${escapeHtml(item.label)}</button>`).join('') || '<span class="chip">none</span>'}
+        </div>
+      `;
+      el.nodeProvenance.innerHTML = `
+        <div class="title">Inclusion Reason</div>
+        <div class="meta">why this is visible</div>
+        <div class="value">${escapeHtml(node.reason || 'This node is part of the current graph neighborhood.')}</div>
+      `;
+      el.nodePath.innerHTML = `
+        <div class="title">Path Trace</div>
+        <div class="meta">how this connects</div>
+        <div class="value">${path.length ? escapeHtml(path.map((item) => item.label).join(' -> ')) : 'No visible path from the current query in this scene.'}</div>
+      `;
+      el.nodeRecord.innerHTML = `
+        <div class="title">Entry Metadata</div>
+        <div class="meta">record details</div>
+        <div class="value">
+          ${record ? escapeHtml([
+            `type: ${record.kind || record.eventType || node.kind}`,
+            record.provider ? `provider: ${record.provider}` : '',
+            record.device ? `device: ${record.device}` : '',
+            record.source ? `source: ${record.source}` : '',
+            record.eventId ? `event_id: ${record.eventId}` : '',
+            record.filePath ? `file: ${record.filePath}` : '',
+            record.lineNumber ? `line: ${record.lineNumber}` : '',
+          ].filter(Boolean).join('\n')) : 'No captured record metadata for this node.'}
+        </div>
+        ${rawPretty ? `<div class="meta">captured payload</div><div class="value">${escapeHtml(rawPretty)}</div>` : ''}
+      `;
+      el.nodeContext.innerHTML = `
+        <div class="title">Source Context</div>
+        <div class="meta">nearby lines</div>
+        <div class="value">${node.filePath ? 'Use "Show Nearby Lines" to load the surrounding file context for this record.' : 'This node does not expose a readable backing file.'}</div>
+      `;
+      el.nodeDetail.querySelectorAll('[data-neighbor-id]').forEach((btn) => {
+        btn.addEventListener('click', () => selectNode(btn.dataset.neighborId));
+      });
+    };
+
+    const renderResults = () => {
+      const rows = [];
+      const events = state.search?.events || [];
+      const hits = state.search?.aikb || [];
+
+      events.slice(0, 14).forEach((event, index) => {
+        const id = `event-${index}`;
+        const summary = summarizeEvent(event);
+        const tone = classifyResultTone(summary, 'tone-history');
+        rows.push(`
+          <div class="result-item ${tone} ${state.selectedNodeId === id ? 'active' : ''}" data-node-id="${escapeHtml(id)}">
+            <div class="result-title">${escapeHtml(summary?.title || String(event?.title || relationLabel(event) || `event ${index + 1}`))}</div>
+            <div class="meta">${escapeHtml(fmtTime(event?.ts))} · ${escapeHtml(String(event?.metadata?.device || 'unknown'))} · ${escapeHtml(summary?.sourceRef || String(event?.source || 'unknown'))}</div>
+            <div class="result-meta-row">
+              <span class="chip">${escapeHtml(summary?.kind || relationLabel(event))}</span>
+              <span class="chip">${escapeHtml(String(event?.metadata?.provider || 'provider unknown'))}</span>
+            </div>
+            <div class="result-copy">${escapeHtml(summary?.summary || event?.snippet || '(no snippet)')}</div>
+          </div>
+        `);
+      });
+
+      hits.slice(0, 10).forEach((hit, index) => {
+        const id = `aikb-${index}`;
+        rows.push(`
+          <div class="result-item tone-aikb ${state.selectedNodeId === id ? 'active' : ''}" data-node-id="${escapeHtml(id)}">
+            <div class="result-title">${escapeHtml((hit?.path || '').split('/').pop() || `AIKB ${index + 1}`)}</div>
+            <div class="meta">${escapeHtml(hit?.path || 'AIKB')} : ${escapeHtml(String(hit?.line || '-'))}</div>
+            <div class="result-copy">${escapeHtml(hit?.snippet || '(no snippet)')}</div>
+          </div>
+        `);
+      });
+
+      el.resultList.innerHTML = rows.join('') || '<div class="info-card"><div class="value">No results yet.</div></div>';
+      el.resultList.querySelectorAll('[data-node-id]').forEach((node) => {
+        node.addEventListener('click', () => selectNode(node.dataset.nodeId));
+      });
+    };
+
+    const proposalById = (proposalId) => state.proposals.find((proposal) => proposal.proposal_id === proposalId) || null;
+
+    const proposalNodeIdFor = (proposalId) => {
+      const index = state.proposals.findIndex((proposal) => proposal.proposal_id === proposalId);
+      return index >= 0 ? `proposal-${index}` : null;
+    };
+
+    const safeProposalPayload = (proposal) => proposal?.payload && typeof proposal.payload === 'object' ? proposal.payload : {};
+
+    const defaultProposalFile = (proposal) => {
+      const payload = safeProposalPayload(proposal);
+      return String(payload.suggested_file || proposal?.applied_file || '').trim();
+    };
+
+    const setReviewStatus = (message, { tone = 'neutral' } = {}) => {
+      const label = tone === 'error'
+        ? 'Review status: error.'
+        : tone === 'good'
+          ? 'Review status: ready.'
+          : 'Review status:';
+      el.proposalDetailStatus.innerHTML = `<strong>${escapeHtml(label)}</strong> ${escapeHtml(message)}`;
+    };
+
+    const renderProposalDetail = () => {
+      const proposal = proposalById(state.selectedProposalId);
+      if (!proposal) {
+        el.reviewSelectionPill.textContent = 'selection none';
+        el.proposalDetailEmpty.classList.remove('hidden');
+        el.proposalDetailPanel.classList.add('hidden');
+        state.reviewPreview = null;
+        el.proposalPreviewExisting.textContent = 'Preview the target file to inspect the current tail before applying.';
+        el.proposalPreviewAppend.textContent = 'The generated AIKB block will appear here after preview.';
+        return;
+      }
+
+      const payload = safeProposalPayload(proposal);
+      const suggestedFile = defaultProposalFile(proposal);
+      const evidence = proposal.evidence && typeof proposal.evidence === 'object' ? proposal.evidence : {};
+      const evidenceBits = [
+        evidence.source ? `source: ${evidence.source}` : '',
+        evidence.event_type ? `event: ${evidence.event_type}` : '',
+        evidence.event_id ? `id: ${evidence.event_id}` : '',
+        evidence.ts ? `ts: ${evidence.ts}` : '',
+      ].filter(Boolean);
+
+      el.reviewSelectionPill.textContent = `${proposal.kind || 'proposal'} · ${proposal.status || 'unknown'}`;
+      el.proposalDetailEmpty.classList.add('hidden');
+      el.proposalDetailPanel.classList.remove('hidden');
+      el.proposalStatusMeta.textContent = `${proposal.status || 'unknown'} · ${proposal.kind || 'proposal'}`;
+      el.proposalConfidenceMeta.textContent = Number(proposal.confidence || 0).toFixed(2);
+      el.proposalDestinationMeta.textContent = suggestedFile || '(no suggested file)';
+      el.proposalEvidenceMeta.textContent = evidenceBits.join('\n') || 'No structured evidence metadata.';
+      el.proposalSummaryInput.value = proposal.summary || '';
+      el.proposalPayloadInput.value = JSON.stringify(payload, null, 2);
+      el.proposalFileInput.value = suggestedFile;
+      el.proposalReviewNotes.value = proposal.review_notes || '';
+
+      if (state.reviewPreview?.proposal_id === proposal.proposal_id) {
+        el.proposalPreviewExisting.textContent = state.reviewPreview.preview?.existing_tail || '(target file is empty)';
+        el.proposalPreviewAppend.textContent = state.reviewPreview.preview?.append_block || '(nothing to append)';
+        setReviewStatus(`Preview ready for ${state.reviewPreview.file || suggestedFile || 'the selected destination'}.`, { tone: 'good' });
+      } else {
+        el.proposalPreviewExisting.textContent = 'Preview the target file to inspect the current tail before applying.';
+        el.proposalPreviewAppend.textContent = 'The generated AIKB block will appear here after preview.';
+        setReviewStatus('Edit the candidate, then preview or apply it.', { tone: 'neutral' });
+      }
+    };
+
+    const selectProposal = (proposalId) => {
+      if (!proposalId) return;
+      state.selectedProposalId = proposalId;
+      const nodeId = proposalNodeIdFor(proposalId);
+      if (nodeId) {
+        state.selectedNodeId = nodeId;
+        state.selectedEdgeId = null;
+      }
+      renderProposals();
+      renderProposalDetail();
+    };
+
+    const parseProposalEditorPayload = () => {
+      const raw = el.proposalPayloadInput.value.trim();
+      if (!raw) return {};
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new Error('Payload JSON must be an object.');
+        }
+        return parsed;
+      } catch (err) {
+        throw new Error(`Payload JSON is invalid: ${err.message}`);
+      }
+    };
+
+    const currentProposalInputs = () => ({
+      summary: el.proposalSummaryInput.value.trim(),
+      payload: parseProposalEditorPayload(),
+      review_notes: el.proposalReviewNotes.value.trim(),
+      file: el.proposalFileInput.value.trim(),
+    });
+
+    const updateSelectedProposalContent = async () => {
+      const proposal = proposalById(state.selectedProposalId);
+      if (!proposal) return;
+      const next = currentProposalInputs();
+      const out = await fetchJson(`/memory/proposals/${encodeURIComponent(proposal.proposal_id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          summary: next.summary || proposal.summary || '',
+          payload: next.payload,
+        }),
+      });
+      const updated = out.proposal || proposal;
+      updated.review_notes = next.review_notes || proposal.review_notes || '';
+      const index = state.proposals.findIndex((item) => item.proposal_id === proposal.proposal_id);
+      if (index >= 0) state.proposals[index] = updated;
+      state.reviewPreview = null;
+      renderProposals();
+      renderProposalDetail();
+      setReviewStatus('Proposal summary and payload saved.', { tone: 'good' });
+      logTrace('proposal save', updated.summary || updated.proposal_id);
+    };
+
+    const setSelectedProposalStatus = async (status) => {
+      const proposal = proposalById(state.selectedProposalId);
+      if (!proposal) return;
+      const next = currentProposalInputs();
+      const out = await fetchJson(`/memory/proposals/${encodeURIComponent(proposal.proposal_id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status,
+          review_notes: next.review_notes || null,
+          applied_file: status === 'applied' ? (next.file || proposal.applied_file || null) : (proposal.applied_file || null),
+        }),
+      });
+      const updated = out.proposal || { ...proposal, status, review_notes: next.review_notes || proposal.review_notes || '' };
+      await refreshStats();
+      await refreshReview();
+      if (proposalById(updated.proposal_id)) {
+        state.selectedProposalId = updated.proposal_id;
+        renderProposalDetail();
+      }
+      setReviewStatus(`Proposal marked ${status}.`, { tone: 'good' });
+      logTrace('proposal status', `${status} · ${updated.summary || updated.proposal_id}`);
+    };
+
+    const previewSelectedProposalApply = async () => {
+      const proposal = proposalById(state.selectedProposalId);
+      if (!proposal) return;
+      const next = currentProposalInputs();
+      const out = await fetchJson(`/memory/proposals/${encodeURIComponent(proposal.proposal_id)}/apply-preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file: next.file || defaultProposalFile(proposal) || '' }),
+      });
+      state.reviewPreview = out;
+      renderProposalDetail();
+      logTrace('proposal preview', out.file || proposal.proposal_id);
+    };
+
+    const applySelectedProposal = async () => {
+      const proposal = proposalById(state.selectedProposalId);
+      if (!proposal) return;
+      const next = currentProposalInputs();
+      const out = await fetchJson(`/memory/proposals/${encodeURIComponent(proposal.proposal_id)}/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file: next.file || defaultProposalFile(proposal) || '',
+          review_notes: next.review_notes || null,
+        }),
+      });
+      if (out.proposal) {
+        const index = state.proposals.findIndex((item) => item.proposal_id === proposal.proposal_id);
+        if (index >= 0) state.proposals[index] = out.proposal;
+      }
+      state.reviewPreview = null;
+      await refreshStats();
+      await refreshReview();
+      setReviewStatus(`Applied to ${out.file || next.file || '(unknown file)'}.`, { tone: 'good' });
+      logTrace('proposal apply', `${proposal.summary || proposal.proposal_id} -> ${out.file || next.file || 'AIKB'}`);
+    };
+
+    const renderProposals = () => {
+      el.proposalList.innerHTML = state.proposals.map((proposal, index) => {
+        const id = `proposal-${index}`;
+        return `
+          <div class="proposal-item tone-proposal ${state.selectedProposalId === proposal.proposal_id ? 'active' : ''}" data-node-id="${escapeHtml(id)}" data-proposal-id="${escapeHtml(proposal.proposal_id)}">
+            <div class="proposal-title">${escapeHtml(proposal.summary || 'Untitled proposal')}</div>
+            <div class="meta">${escapeHtml(proposal.kind || 'proposal')} · ${escapeHtml(proposal.status || 'unknown')} · ${escapeHtml(String(Number(proposal.confidence || 0).toFixed(2)))}</div>
+            <div class="proposal-copy">${escapeHtml(JSON.stringify(proposal.payload || {}))}</div>
+          </div>
+        `;
+      }).join('') || '<div class="info-card"><div class="value">No proposals in the selected queue.</div></div>';
+      el.proposalList.querySelectorAll('[data-proposal-id]').forEach((node) => {
+        node.addEventListener('click', () => selectProposal(node.dataset.proposalId));
+      });
+    };
+
+    const refreshBuild = async () => {
+      try {
+        const out = await fetchJson('/build-info');
+        state.build = out;
+        el.buildPill.textContent = `build ${String(out.build || 'unknown').slice(0, 19)}`;
+      } catch (err) {
+        el.buildPill.textContent = 'build unavailable';
+        logTrace('build', err.message);
+      }
+    };
+
+    const refreshStats = async () => {
+      const [health, stats] = await Promise.all([
+        fetchJson('/memory/health'),
+        fetchJson('/memory/stats'),
+      ]);
+      state.health = health;
+      state.stats = stats;
+      el.metricHealth.textContent = health.status || 'unknown';
+      el.metricEvents.textContent = fmtNum(stats.events_total);
+      el.metricProposals.textContent = fmtNum(stats.proposals_new);
+      el.metricMachines.textContent = fmtNum(stats.observer_machines);
+      el.memoryHealthPill.textContent = `memory ${health.status || 'unknown'}`;
+      el.memoryHealthPill.className = `status-pill ${health.status === 'ok' ? 'good' : 'warn'}`;
+      el.sourceChip.textContent = `source ${fmtNum(stats.events_total)} events`;
+      logTrace('memory stats', `${fmtNum(stats.events_total)} events, ${fmtNum(stats.proposals_new)} new proposals`);
+    };
+
+    const refreshSearch = async (query = el.queryInput.value.trim() || 'memory') => {
+      const started = performance.now();
+      el.hudQuery.textContent = `query: ${query}`;
+      const search = await fetchJson(`/memory/search?q=${encodeURIComponent(query)}&limit=40`);
+      const proposals = await fetchJson(`/memory/proposals?status=${encodeURIComponent(el.proposalFilter.value)}&limit=40`);
+      state.search = search;
+      state.proposals = proposals.proposals || [];
+      state.graph = buildGraph(query, search, state.proposals);
+      renderResults();
+      renderProposals();
+      drawGraph();
+      runForce();
+      const events = search?.counts?.events || 0;
+      const aikb = search?.counts?.aikb || 0;
+      el.searchSummary.textContent = `query ${query} · ${events} events · ${aikb} AIKB`;
+      el.proposalSummary.textContent = `proposals ${state.proposals.length}`;
+      if (el.reviewQueuePill) el.reviewQueuePill.textContent = `${state.proposals.length} visible`;
+      el.graphChip.textContent = `graph ${(performance.now() - started).toFixed(0)}ms`;
+      el.infoDataPath.textContent = `Search came from /memory/search with ${events} event hits and ${aikb} AIKB hits. Proposal context came from /memory/proposals with filter "${el.proposalFilter.value || 'all'}".${state.fileFilter ? ` File filter: ${state.fileFilter}` : ''}`;
+      logOp('search', `${query} -> ${events} events, ${aikb} AIKB, ${state.proposals.length} proposals`);
+      logTrace('graph rebuild', `${state.graph.nodes.length} nodes and ${state.graph.edges.length} edges`);
+      if (!proposalById(state.selectedProposalId) && state.proposals[0]?.proposal_id) {
+        state.selectedProposalId = state.proposals[0].proposal_id;
+      }
+      selectNode(nodeById(state.selectedNodeId) ? state.selectedNodeId : 'query');
+    };
+
+    const refreshReview = async () => {
+      const proposals = await fetchJson(`/memory/proposals?status=${encodeURIComponent(el.proposalFilter.value)}&limit=40`);
+      state.proposals = proposals.proposals || [];
+      if (!proposalById(state.selectedProposalId)) {
+        state.selectedProposalId = state.proposals[0]?.proposal_id || null;
+      }
+      renderProposals();
+      renderProposalDetail();
+      el.proposalSummary.textContent = `proposals ${state.proposals.length}`;
+      if (el.reviewQueuePill) el.reviewQueuePill.textContent = `${state.proposals.length} visible`;
+      logOp('review', `${state.proposals.length} proposals loaded`);
+    };
+
+    const harvest = async () => {
+      logTrace('harvest', 'Running proposal harvester with default state.');
+      const out = await fetchJson('/memory/harvest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ max_events: 250, state_name: 'default' }),
+      });
+      logOp('harvest', `scanned ${out.scanned || 0}, created ${out.created || 0}`);
+      await refreshStats();
+      await refreshReview();
+    };
+
+    const applyTerminalAppearance = () => {
+      const frameWindow = el.terminalFrame.contentWindow;
+      const frameDoc = frameWindow ? frameWindow.document : null;
+      if (!frameDoc || !frameDoc.documentElement) return;
+
+      const theme = THEME_MAP[state.terminalTheme];
+      let styleEl = frameDoc.getElementById('aihub-v2-terminal-style');
+      if (!styleEl) {
+        styleEl = frameDoc.createElement('style');
+        styleEl.id = 'aihub-v2-terminal-style';
+        frameDoc.head.appendChild(styleEl);
+      }
+
+      const scale = clamp(Number(state.terminalSettings.scale), 0.8, 1.45);
+      const contrast = clamp(Number(state.terminalSettings.contrast), 0.85, 1.5);
+      const opacity = clamp(Number(state.terminalSettings.opacity), 0.75, 1);
+      const lineHeight = clamp(Number(state.terminalSettings.lineHeight), 0.9, 1.5);
+      const glow = clamp(Number(state.terminalSettings.glow), 0, 1);
+      const font = state.terminalSettings.font;
+
+      styleEl.textContent = `
+        html, body {
+          background: ${theme.bg} !important;
+          color: ${theme.fg} !important;
+        }
+        .xterm, .xterm * {
+          font-family: ${font} !important;
+        }
+        .xterm-screen, .xterm-rows {
+          line-height: ${lineHeight} !important;
+        }
+        .xterm .xterm-viewport,
+        #terminal-container,
+        #terminal-container .terminal {
+          background-color: ${theme.bg} !important;
+          filter: ${theme.filter} contrast(${contrast});
+        }
+        body::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          background: repeating-linear-gradient(
+            to bottom,
+            rgba(255,255,255,0.05),
+            rgba(255,255,255,0.05) 1px,
+            transparent 1px,
+            transparent 4px
+          );
+          opacity: ${glow * 0.18};
+          mix-blend-mode: screen;
+        }
+      `;
+
+      el.terminalFrame.style.transformOrigin = 'top left';
+      el.terminalFrame.style.transform = `scale(${scale})`;
+      el.terminalFrame.style.width = `${100 / scale}%`;
+      el.terminalFrame.style.height = `${100 / scale}%`;
+      el.terminalFrame.style.opacity = String(opacity);
+      el.terminalFrame.style.filter = `drop-shadow(0 0 ${10 + glow * 24}px rgba(110, 199, 255, ${0.18 + glow * 0.22}))`;
+      el.terminalStatus.textContent = `terminal ${state.terminalTheme}`;
+      logTrace('terminal theme', `${state.terminalTheme}, scale ${scale.toFixed(2)}, contrast ${contrast.toFixed(2)}, density ${lineHeight.toFixed(2)}`);
+    };
+
+    el.navBtns.forEach((btn) => btn.addEventListener('click', () => setView(btn.dataset.view)));
+    el.searchBtn.addEventListener('click', () => refreshSearch().catch((err) => logTrace('search error', err.message)));
+    el.refreshBtn.addEventListener('click', () => {
+      Promise.all([refreshStats(), refreshSearch()]).catch((err) => logTrace('refresh error', err.message));
+    });
+    el.harvestBtn.addEventListener('click', () => harvest().catch((err) => logTrace('harvest error', err.message)));
+    el.reviewRefreshBtn.addEventListener('click', () => refreshReview().catch((err) => logTrace('review refresh error', err.message)));
+    el.proposalFilter.addEventListener('change', () => refreshReview().catch((err) => logTrace('proposal filter error', err.message)));
+    el.proposalSaveBtn.addEventListener('click', () => {
+      updateSelectedProposalContent().catch((err) => {
+        setReviewStatus(err.message, { tone: 'error' });
+        logTrace('proposal save error', err.message);
+      });
+    });
+    el.proposalApproveBtn.addEventListener('click', () => {
+      setSelectedProposalStatus('approved').catch((err) => {
+        setReviewStatus(err.message, { tone: 'error' });
+        logTrace('proposal approve error', err.message);
+      });
+    });
+    el.proposalRejectBtn.addEventListener('click', () => {
+      setSelectedProposalStatus('rejected').catch((err) => {
+        setReviewStatus(err.message, { tone: 'error' });
+        logTrace('proposal reject error', err.message);
+      });
+    });
+    el.proposalPreviewBtn.addEventListener('click', () => {
+      previewSelectedProposalApply().catch((err) => {
+        setReviewStatus(err.message, { tone: 'error' });
+        logTrace('proposal preview error', err.message);
+      });
+    });
+    el.proposalApplyBtn.addEventListener('click', () => {
+      applySelectedProposal().catch((err) => {
+        setReviewStatus(err.message, { tone: 'error' });
+        logTrace('proposal apply error', err.message);
+      });
+    });
+    el.depthFilter.addEventListener('change', () => {
+      state.graphControls.depth = Number(el.depthFilter.value);
+      refreshSearch().catch((err) => logTrace('depth change error', err.message));
+    });
+    el.eventCapFilter.addEventListener('change', () => {
+      state.graphControls.eventCap = Number(el.eventCapFilter.value);
+      refreshSearch().catch((err) => logTrace('event cap error', err.message));
+    });
+    el.layoutFilter.addEventListener('change', () => {
+      state.graphControls.layout = el.layoutFilter.value;
+      refreshSearch().catch((err) => logTrace('layout change error', err.message));
+    });
+    el.motionFilter.addEventListener('change', () => {
+      state.graphControls.motion = el.motionFilter.value;
+      if (state.search) {
+        drawGraph();
+        runForce();
+      }
+    });
+    el.glowFilter.addEventListener('input', () => {
+      state.graphControls.glow = Number(el.glowFilter.value);
+      drawGraph();
+    });
+    el.graphFitBtn.addEventListener('click', fitGraph);
+    el.graphZoomInBtn.addEventListener('click', () => {
+      const rect = el.graphSvg.getBoundingClientRect();
+      setViewport({
+        scale: state.graphViewport.scale * 1.15,
+        panX: state.graphViewport.panX - rect.width * 0.075,
+        panY: state.graphViewport.panY - rect.height * 0.075,
+      });
+      drawGraph();
+    });
+    el.graphZoomOutBtn.addEventListener('click', () => {
+      const rect = el.graphSvg.getBoundingClientRect();
+      setViewport({
+        scale: state.graphViewport.scale / 1.15,
+        panX: state.graphViewport.panX + rect.width * 0.065,
+        panY: state.graphViewport.panY + rect.height * 0.065,
+      });
+      drawGraph();
+    });
+    el.queryInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        refreshSearch().catch((err) => logTrace('search error', err.message));
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (state.view !== 'review') return;
+      const tag = event.target?.tagName || '';
+      const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || event.target?.isContentEditable;
+      const key = event.key.toLowerCase();
+      if (isEditable && !['escape'].includes(key)) return;
+      if (!state.proposals.length) return;
+
+      const index = Math.max(0, state.proposals.findIndex((proposal) => proposal.proposal_id === state.selectedProposalId));
+      if (key === 'j' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        const next = state.proposals[Math.min(state.proposals.length - 1, index + 1)];
+        if (next) selectProposal(next.proposal_id);
+      } else if (key === 'k' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const next = state.proposals[Math.max(0, index - 1)];
+        if (next) selectProposal(next.proposal_id);
+      } else if (key === 'a') {
+        event.preventDefault();
+        setSelectedProposalStatus('approved').catch((err) => {
+          setReviewStatus(err.message, { tone: 'error' });
+          logTrace('proposal approve error', err.message);
+        });
+      } else if (key === 'r') {
+        event.preventDefault();
+        setSelectedProposalStatus('rejected').catch((err) => {
+          setReviewStatus(err.message, { tone: 'error' });
+          logTrace('proposal reject error', err.message);
+        });
+      } else if (key === 's') {
+        event.preventDefault();
+        updateSelectedProposalContent().catch((err) => {
+          setReviewStatus(err.message, { tone: 'error' });
+          logTrace('proposal save error', err.message);
+        });
+      } else if (key === 'p') {
+        event.preventDefault();
+        previewSelectedProposalApply().catch((err) => {
+          setReviewStatus(err.message, { tone: 'error' });
+          logTrace('proposal preview error', err.message);
+        });
+      } else if (event.key === 'Enter' && !isEditable) {
+        event.preventDefault();
+        applySelectedProposal().catch((err) => {
+          setReviewStatus(err.message, { tone: 'error' });
+          logTrace('proposal apply error', err.message);
+        });
+      }
+    });
+
+    el.themeBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.terminalTheme = btn.dataset.theme;
+        el.themeBtns.forEach((node) => node.classList.toggle('active', node === btn));
+        applyTerminalAppearance();
+      });
+    });
+
+    el.fontSelect.addEventListener('change', () => {
+      state.terminalSettings.font = el.fontSelect.value;
+      applyTerminalAppearance();
+    });
+    el.scaleInput.addEventListener('input', () => {
+      state.terminalSettings.scale = Number(el.scaleInput.value);
+      applyTerminalAppearance();
+    });
+    el.contrastInput.addEventListener('input', () => {
+      state.terminalSettings.contrast = Number(el.contrastInput.value);
+      applyTerminalAppearance();
+    });
+    el.frameOpacityInput.addEventListener('input', () => {
+      state.terminalSettings.opacity = Number(el.frameOpacityInput.value);
+      applyTerminalAppearance();
+    });
+    el.lineHeightInput.addEventListener('input', () => {
+      state.terminalSettings.lineHeight = Number(el.lineHeightInput.value);
+      applyTerminalAppearance();
+    });
+    el.glowInput.addEventListener('input', () => {
+      state.terminalSettings.glow = Number(el.glowInput.value);
+      applyTerminalAppearance();
+    });
+    el.saveSceneBtn.addEventListener('click', saveNamedScene);
+    el.resetSceneBtn.addEventListener('click', () => {
+      state.expandedNodeIds = new Set();
+      state.pinnedNodePositions = {};
+      state.selectedNodeId = null;
+      state.selectedEdgeId = null;
+      localStorage.removeItem(SCENE_KEY);
+      refreshSearch().catch((err) => logTrace('scene reset error', err.message));
+    });
+    el.expandNodeBtn.addEventListener('click', () => {
+      if (!state.selectedNodeId) return;
+      state.expandedNodeIds.add(state.selectedNodeId);
+      refreshSearch().catch((err) => logTrace('expand error', err.message));
+    });
+    el.collapseNodeBtn.addEventListener('click', () => {
+      if (!state.selectedNodeId) return;
+      state.expandedNodeIds.delete(state.selectedNodeId);
+      if (state.pinnedNodePositions[state.selectedNodeId]) delete state.pinnedNodePositions[state.selectedNodeId];
+      refreshSearch().catch((err) => logTrace('collapse error', err.message));
+    });
+    el.pinNodeBtn.addEventListener('click', () => {
+      const node = nodeById(state.selectedNodeId);
+      if (!node) return;
+      if (state.pinnedNodePositions[node.id]) {
+        delete state.pinnedNodePositions[node.id];
+        node.fixed = false;
+        logTrace('pin', `Unpinned ${node.label}`);
+      } else {
+        state.pinnedNodePositions[node.id] = { x: node.x, y: node.y };
+        node.fixed = true;
+        logTrace('pin', `Pinned ${node.label}`);
+      }
+      selectNode(node.id);
+    });
+    el.tracePathBtn.addEventListener('click', () => {
+      if (!state.selectedNodeId) return;
+      state.activePath = shortestPath('query', state.selectedNodeId);
+      renderInspector();
+      drawGraph();
+      logTrace('path trace', state.activePath.length ? `${state.activePath.length} visible hops` : 'no visible path');
+    });
+    el.showContextBtn.addEventListener('click', async () => {
+      const node = nodeById(state.selectedNodeId);
+      if (!node?.filePath || !node?.lineNumber) return;
+      try {
+        const out = await fetchJson(`/memory/source-context?path=${encodeURIComponent(node.filePath)}&line=${encodeURIComponent(node.lineNumber)}&radius=3`);
+        el.nodeContext.innerHTML = `
+          <div class="title">Source Context</div>
+          <div class="meta">${escapeHtml(out.path)} · lines ${escapeHtml(String(out.start))}-${escapeHtml(String(out.end))}</div>
+          <div class="value">${escapeHtml(out.excerpt.map((item) => `${item.selected ? '>' : ' '} ${String(item.line).padStart(4, ' ')} | ${item.text}`).join('\n'))}</div>
+        `;
+        logTrace('source context', `${out.path}:${out.line}`);
+      } catch (err) {
+        el.nodeContext.innerHTML = `
+          <div class="title">Source Context</div>
+          <div class="meta">nearby lines</div>
+          <div class="value">${escapeHtml(err.message)}</div>
+        `;
+        logTrace('source context error', err.message);
+      }
+    });
+    el.filterFileBtn.addEventListener('click', () => {
+      const node = nodeById(state.selectedNodeId);
+      if (!node?.filePath) return;
+      state.fileFilter = state.fileFilter === node.filePath ? '' : node.filePath;
+      logTrace('file filter', state.fileFilter || 'cleared');
+      refreshSearch().catch((err) => logTrace('file filter error', err.message));
+    });
+    el.terminalReload.addEventListener('click', () => {
+      el.terminalStatus.textContent = 'terminal reconnecting';
+      el.terminalFrame.src = '/terminal/';
+    });
+    el.terminalPopout.addEventListener('click', () => window.open('/terminal/', '_blank', 'noopener'));
+    el.codePopout.addEventListener('click', () => window.open('https://code.home.timmcg.net', '_blank', 'noopener'));
+    el.terminalFrame.addEventListener('load', () => {
+      applyTerminalAppearance();
+      el.terminalStatus.textContent = `terminal ${state.terminalTheme}`;
+    });
+    (() => {
+      let panning = false;
+      let lastX = 0;
+      let lastY = 0;
+      el.graphSvg.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        const rect = el.graphSvg.getBoundingClientRect();
+        const offsetX = event.clientX - rect.left;
+        const offsetY = event.clientY - rect.top;
+        const worldBefore = screenToWorld(offsetX, offsetY);
+        const nextScale = clamp(state.graphViewport.scale * (event.deltaY < 0 ? 1.08 : 0.92), 0.55, 2.8);
+        const panX = offsetX - worldBefore.x * nextScale;
+        const panY = offsetY - worldBefore.y * nextScale;
+        setViewport({ scale: nextScale, panX, panY });
+        drawGraph();
+      }, { passive: false });
+      el.graphSvg.addEventListener('pointerdown', (event) => {
+        if (event.target !== el.graphSvg) return;
+        panning = true;
+        lastX = event.clientX;
+        lastY = event.clientY;
+        el.graphSvg.setPointerCapture(event.pointerId);
+      });
+      el.graphSvg.addEventListener('pointermove', (event) => {
+        if (!panning) return;
+        const dx = event.clientX - lastX;
+        const dy = event.clientY - lastY;
+        lastX = event.clientX;
+        lastY = event.clientY;
+        setViewport({
+          panX: state.graphViewport.panX + dx,
+          panY: state.graphViewport.panY + dy,
+        });
+        drawGraph();
+      });
+      const stopPan = (event) => {
+        if (!panning) return;
+        panning = false;
+        if (event.pointerId != null) {
+          try { el.graphSvg.releasePointerCapture(event.pointerId); } catch {}
+        }
+      };
+      el.graphSvg.addEventListener('pointerup', stopPan);
+      el.graphSvg.addEventListener('pointercancel', stopPan);
+      el.miniMapSvg.addEventListener('click', (event) => {
+        const rect = el.miniMapSvg.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * (state.graph.width || 1200);
+        const y = ((event.clientY - rect.top) / rect.height) * (state.graph.height || 760);
+        const stageRect = el.graphSvg.getBoundingClientRect();
+        setViewport({
+          panX: stageRect.width / 2 - x * state.graphViewport.scale,
+          panY: stageRect.height / 2 - y * state.graphViewport.scale,
+        });
+        drawGraph();
+      });
+    })();
+
+    const bootstrap = async () => {
+      loadSavedScenes();
+      loadScene();
+      syncControlsFromState();
+      renderSavedScenes();
+      logOp('boot', 'AI Hub Operator Console is loading');
+      logTrace('boot', 'Building memory-first interface');
+      await refreshBuild();
+      await refreshStats();
+      await refreshSearch();
+      await refreshReview();
+      setView('memory');
+    };
+
+    bootstrap().catch((err) => {
+      logTrace('bootstrap error', err.message);
+      el.infoDataPath.textContent = err.message;
+      el.memoryHealthPill.textContent = 'memory error';
+      el.memoryHealthPill.className = 'status-pill warn';
+    });
+  })();
+  </script>
+</body>
+</html>

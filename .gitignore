@@ -10,6 +10,11 @@ __pycache__/
 *.log
 apps/sessions/data/
 
+# Local scratch and one-off experiment space
+.scratch/
+apps/*/.scratch/
+scratch/
+
 # OS/editor
 .DS_Store
 .vscode/
