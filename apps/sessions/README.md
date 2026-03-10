@@ -71,6 +71,17 @@ Behavior:
 - Retries with exponential backoff on transient failures
 - Stores hard failures in DLQ: `~/.local/share/ai-hub-sessions/failed-events.jsonl`
 - Emits collector metrics for monitoring: `~/.local/share/ai-hub-sessions/metrics.prom`
+- Extracts structured message text from provider session logs to reduce noisy tool-output indexing.
+- Adds proposal intent signals when user text includes proposal keywords.
+
+Proposal keyword triggers (recommended phrases to mention verbatim):
+- `proposal: <what to adopt>`
+- `aikb proposal: <rule/change>`
+- `memory proposal: <rule/change>`
+- `promote to AIKB: <fact/rule>`
+- `rule update: <policy>`
+- `runbook update: <procedure>`
+- `follow-up task: <next action>`
 
 Suggested schedule:
 - Linux (`cron`): every 10 minutes
