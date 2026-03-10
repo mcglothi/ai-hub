@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Turing Desktop v2.0</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%2353d8b5'/%3E%3Cstop offset='1' stop-color='%2357a6ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='4' y='4' width='56' height='56' rx='14' fill='%23081629' stroke='url(%23g)' stroke-width='3'/%3E%3Cpath d='M18 23h28M18 32h20M18 41h14' stroke='url(%23g)' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='45' cy='41' r='5' fill='none' stroke='%2353d8b5' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -13,71 +14,357 @@
     :root {
       --bg-0: #071221;
       --bg-1: #0f1f34;
+      --bg-2: #142947;
       --surface: rgba(10, 18, 30, 0.85);
       --surface-2: rgba(16, 28, 43, 0.95);
+      --surface-3: rgba(18, 34, 54, 0.92);
       --border: rgba(130, 175, 220, 0.2);
       --accent: #53d8b5;
       --accent-2: #57a6ff;
+      --warning: #ffba66;
+      --danger: #ff8c8c;
       --text: #eef5ff;
       --text-dim: #9cb0c8;
       --radius: 12px;
       --header-h: 60px;
       --sidebar-w: 260px;
       --cmd-h: 70px;
+      --shadow-lg: 0 22px 56px rgba(3, 10, 21, 0.45);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; font-family: 'Sora', sans-serif; background: var(--bg-0); color: var(--text); overflow: hidden; }
+    html, body { height: 100%; font-family: 'Sora', sans-serif; color: var(--text); overflow: hidden; }
 
-    #app { display: flex; height: 100dvh; }
+    body {
+      background:
+        radial-gradient(1200px 900px at 12% -18%, rgba(87, 166, 255, 0.18) 0%, transparent 56%),
+        radial-gradient(900px 700px at 88% 6%, rgba(83, 216, 181, 0.12) 0%, transparent 52%),
+        linear-gradient(155deg, var(--bg-0), var(--bg-1) 55%, #091523);
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 320px;
+      height: 320px;
+      border-radius: 999px;
+      filter: blur(65px);
+      opacity: 0.22;
+      pointer-events: none;
+      z-index: 0;
+      animation: ambient-drift 18s ease-in-out infinite alternate;
+    }
+
+    body::before {
+      top: -120px;
+      left: -40px;
+      background: rgba(87, 166, 255, 0.72);
+    }
+
+    body::after {
+      right: -80px;
+      bottom: -120px;
+      background: rgba(83, 216, 181, 0.55);
+      animation-delay: -6s;
+    }
+
+    @keyframes ambient-drift {
+      from { transform: translate3d(0, -8px, 0) scale(0.98); }
+      to { transform: translate3d(8px, 16px, 0) scale(1.04); }
+    }
+
+    #app { display: flex; height: 100dvh; position: relative; z-index: 1; }
 
     aside#sidebar {
-      width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border);
-      display: flex; flex-direction: column; transition: transform 0.3s ease; z-index: 100;
+      width: var(--sidebar-w); background: rgba(9, 18, 31, 0.84); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; transition: transform 0.3s ease; z-index: 100; overflow-y: auto;
+      backdrop-filter: blur(18px);
     }
-    .sidebar-header { padding: 15px 20px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 1rem; display: flex; justify-content: space-between; align-items: center; }
-    .workspace-list { flex: 1; overflow-y: auto; padding: 10px; }
+    .sidebar-header {
+      padding: 18px 20px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .sidebar-brand { display: grid; gap: 8px; }
+    .sidebar-kicker {
+      font-size: 0.72rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+    }
+    .sidebar-title { font-weight: 700; font-size: 1.05rem; }
+    .sidebar-copy { font-size: 0.76rem; line-height: 1.45; color: var(--text-dim); max-width: 18rem; }
+    .workspace-list { flex: 1; padding: 14px 12px 20px; display: grid; gap: 10px; align-content: start; }
     .ws-item { 
-      padding: 10px 12px; border-radius: var(--radius); cursor: pointer; margin-bottom: 4px;
-      transition: background 0.2s; border: 1px solid transparent; overflow: hidden;
+      padding: 12px 13px; border-radius: 16px; cursor: pointer;
+      transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+      border: 1px solid rgba(130, 175, 220, 0.12);
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(18, 32, 50, 0.75), rgba(12, 22, 36, 0.78));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     }
-    .ws-item:hover { background: rgba(255,255,255,0.05); }
-    .ws-item.active { background: rgba(87, 166, 255, 0.15); border-color: var(--accent-2); }
-    .ws-item .name { font-weight: 600; font-size: 0.85rem; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
-    .ws-item .path { font-size: 0.65rem; color: var(--text-dim); white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+    .ws-item:hover { transform: translateY(-1px); border-color: rgba(87, 166, 255, 0.32); }
+    .ws-item.active {
+      background: linear-gradient(180deg, rgba(17, 39, 67, 0.92), rgba(12, 29, 48, 0.92));
+      border-color: rgba(87, 166, 255, 0.54);
+      box-shadow: 0 12px 28px rgba(2, 7, 17, 0.28);
+    }
+    .ws-item .name { font-weight: 600; font-size: 0.88rem; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+    .ws-item .path { font-size: 0.67rem; color: var(--text-dim); white-space: nowrap; text-overflow: ellipsis; overflow: hidden; margin-top: 4px; }
+    .ws-item .meta {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.63rem;
+      color: #b8cbe1;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
 
     main#content { flex: 1; display: flex; flex-direction: column; position: relative; min-width: 0; }
 
     header#main-header {
-      height: var(--header-h); background: var(--surface); border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; padding: 0 15px; gap: 10px; flex-shrink: 0;
+      min-height: var(--header-h); background: rgba(9, 18, 31, 0.72); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; gap: 14px; flex-shrink: 0;
+      backdrop-filter: blur(18px);
     }
 
-    .facet-tabs { display: flex; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 10px; flex-shrink: 0; }
+    .header-left,
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .shell-heading {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+      padding-right: 4px;
+    }
+
+    .shell-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .shell-title {
+      font-size: 1rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .shell-subtitle {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 28rem;
+    }
+
+    .facet-tabs {
+      display: flex;
+      background: rgba(0,0,0,0.24);
+      padding: 4px;
+      border-radius: 14px;
+      flex-shrink: 0;
+      border: 1px solid rgba(130, 175, 220, 0.14);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    }
     .facet-btn { 
-      padding: 6px 12px; border-radius: 8px; border: 0; background: transparent; 
-      color: var(--text-dim); font-weight: 600; font-size: 0.8rem; cursor: pointer;
+      padding: 8px 12px; border-radius: 10px; border: 0; background: transparent; 
+      color: var(--text-dim); font-weight: 600; font-size: 0.78rem; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 8px;
+      transition: background 140ms ease, color 140ms ease, transform 140ms ease;
     }
-    .facet-btn.active { background: var(--accent-2); color: #000; }
+    .facet-btn:hover { color: var(--text); transform: translateY(-1px); }
+    .facet-btn.active {
+      background: linear-gradient(120deg, rgba(87, 166, 255, 0.95), rgba(83, 216, 181, 0.9));
+      color: #04121d;
+      box-shadow: 0 10px 22px rgba(58, 137, 196, 0.28);
+    }
+    .facet-icon { font-size: 0.9rem; line-height: 1; }
 
-    .session-tabs { display: flex; gap: 6px; overflow-x: auto; flex: 1; padding: 0 5px; scrollbar-width: none; }
+    .session-tabs {
+      display: flex; gap: 8px; overflow-x: auto; flex: 1; padding: 2px 4px; scrollbar-width: none;
+      min-width: 0;
+    }
     .session-tabs::-webkit-scrollbar { display: none; }
     .session-tab {
-      padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.05);
-      font-size: 0.75rem; white-space: nowrap; cursor: pointer; border: 1px solid var(--border);
-      max-width: 150px; text-overflow: ellipsis; overflow: hidden;
+      padding: 8px 12px; border-radius: 14px; background: rgba(255,255,255,0.05);
+      font-size: 0.75rem; cursor: pointer; border: 1px solid rgba(130, 175, 220, 0.14);
+      min-width: 152px; max-width: 190px; overflow: hidden;
+      display: grid; gap: 6px;
+      transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
     }
-    .session-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(83, 216, 181, 0.1); }
+    .session-tab:hover { transform: translateY(-1px); border-color: rgba(87, 166, 255, 0.32); }
+    .session-tab.active {
+      border-color: rgba(83, 216, 181, 0.5);
+      background: linear-gradient(180deg, rgba(16, 36, 57, 0.98), rgba(10, 24, 41, 0.95));
+      box-shadow: inset 0 0 0 1px rgba(83, 216, 181, 0.16);
+    }
+    .session-tab-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .session-provider {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #d5e6fa;
+    }
+    .session-name {
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(130, 175, 220, 0.18);
+      background: rgba(255,255,255,0.04);
+      color: #d0dff0;
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+    .status-pill.ready { border-color: rgba(83, 216, 181, 0.35); color: #96f0da; }
+    .status-pill.degraded { border-color: rgba(255, 186, 102, 0.4); color: #ffd39a; }
+    .status-pill.offline { border-color: rgba(255, 140, 140, 0.4); color: #ffc5c5; }
+    .build-badge {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 0.65rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: #bcd4ef;
+      background: rgba(0,0,0,0.2);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    #context-strip {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, 1fr);
+      gap: 12px;
+      padding: 14px 18px 12px;
+      background: linear-gradient(180deg, rgba(9, 18, 31, 0.52), rgba(9, 18, 31, 0));
+    }
+
+    .context-card {
+      background: linear-gradient(160deg, rgba(16, 29, 47, 0.92), rgba(11, 21, 34, 0.9));
+      border: 1px solid rgba(130, 175, 220, 0.14);
+      border-radius: 18px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow-lg);
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .context-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -20% -60% auto;
+      width: 180px;
+      height: 180px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(87,166,255,0.18), transparent 66%);
+      pointer-events: none;
+    }
+
+    .context-kicker {
+      font-size: 0.66rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-dim);
+      font-weight: 700;
+    }
+
+    .context-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .context-title {
+      font-size: 1rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .context-copy {
+      color: var(--text-dim);
+      font-size: 0.76rem;
+      line-height: 1.45;
+    }
+
+    .context-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .context-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(130, 175, 220, 0.14);
+      font-size: 0.68rem;
+      color: #d5e6fa;
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+    }
+
+    .context-emphasis {
+      color: var(--accent);
+      font-weight: 700;
+    }
 
     #facet-container { flex: 1; position: relative; overflow: hidden; }
-    .facet-view { position: absolute; inset: 0; display: none; flex-direction: column; }
+    .facet-view {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      animation: panel-enter 180ms ease;
+    }
     .facet-view.active { display: flex; }
+
+    @keyframes panel-enter {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
     #shell-view { background: #000; padding: 5px; }
     .terminal-container { flex: 1; width: 100%; height: 100%; }
 
-    #assist-view { background: var(--bg-1); overflow-y: auto; padding: 15px; gap: 12px; scroll-behavior: smooth; }
-    .msg { max-width: 90%; padding: 10px 14px; border-radius: var(--radius); line-height: 1.4; font-size: 0.9rem; margin-bottom: 10px; word-wrap: break-word; }
+    #assist-view { background: linear-gradient(180deg, rgba(15, 31, 52, 0.96), rgba(9, 19, 31, 0.98)); overflow-y: auto; padding: 18px; gap: 12px; scroll-behavior: smooth; }
+    .msg { max-width: 90%; padding: 12px 15px; border-radius: 16px; line-height: 1.5; font-size: 0.9rem; margin-bottom: 10px; word-wrap: break-word; box-shadow: var(--shadow-lg); }
     .msg.user { align-self: flex-end; background: var(--accent-2); color: #000; border-bottom-right-radius: 2px; }
     .msg.assistant { align-self: flex-start; background: var(--surface-2); border: 1px solid var(--border); border-bottom-left-radius: 2px; }
     .msg pre { background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; overflow-x: auto; margin: 8px 0; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
@@ -85,7 +372,7 @@
 
     #edit-view iframe { width: 100%; height: 100%; border: 0; }
 
-    #memory-view { background: var(--bg-1); overflow-y: auto; padding: 12px; }
+    #memory-view { background: linear-gradient(180deg, rgba(15, 31, 52, 0.97), rgba(8, 16, 28, 0.98)); overflow-y: auto; padding: 14px; }
     .memory-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 10px; }
     .memory-card {
       grid-column: span 6;
@@ -96,8 +383,8 @@
       min-height: 120px;
     }
     .memory-card.full { grid-column: span 12; }
-    .memory-card.proposals { grid-column: span 8; }
-    .memory-card.graph { grid-column: span 8; }
+    .memory-card.proposals { grid-column: span 12; }
+    .memory-card.graph { grid-column: span 12; }
     .memory-title { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.04em; }
     .memory-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
     .memory-stat { border: 1px solid var(--border); border-radius: 10px; padding: 8px; background: rgba(0,0,0,0.2); }
@@ -112,9 +399,54 @@
       border: 1px solid var(--border); border-radius: 9px; background: rgba(0,0,0,0.2);
       color: var(--text); font-size: 0.8rem; font-weight: 600; padding: 7px 11px; cursor: pointer;
     }
-    .memory-list { display: grid; gap: 8px; max-height: 280px; overflow-y: auto; }
+    .memory-list { display: grid; gap: 8px; max-height: none; overflow: visible; }
     .memory-item { border: 1px solid var(--border); border-radius: 9px; padding: 7px 9px; background: rgba(0,0,0,0.18); font-size: 0.78rem; line-height: 1.35; }
     .memory-item .meta { color: var(--text-dim); font-size: 0.68rem; font-family: 'JetBrains Mono', monospace; margin-bottom: 4px; }
+    .memory-item.search-result {
+      position: relative;
+      padding: 9px 10px;
+      background: linear-gradient(160deg, rgba(14, 28, 44, 0.86), rgba(7, 16, 29, 0.86));
+      transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
+    }
+    .memory-item.search-result:hover {
+      border-color: rgba(87, 166, 255, 0.5);
+      transform: translateY(-1px);
+      background: linear-gradient(160deg, rgba(16, 34, 56, 0.92), rgba(8, 18, 32, 0.92));
+    }
+    .memory-event-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+    .memory-event-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .memory-event-icon {
+      width: 20px; height: 20px; border-radius: 999px; border: 1px solid var(--border);
+      display: inline-grid; place-items: center; font-size: 0.72rem;
+      background: rgba(87, 166, 255, 0.18); color: #b9ddff; flex-shrink: 0;
+    }
+    .memory-event-text { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .memory-event-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+    .memory-inline-actions { display: flex; justify-content: flex-end; margin-top: 6px; }
+    .memory-btn.inline {
+      padding: 4px 8px;
+      font-size: 0.68rem;
+      border-radius: 7px;
+      background: rgba(83, 216, 181, 0.14);
+      border-color: rgba(83, 216, 181, 0.48);
+      color: #baf7e6;
+    }
+    .memory-chip.kind-tool-call { border-color: rgba(126, 200, 255, 0.55); color: #96d8ff; }
+    .memory-chip.kind-tool-output { border-color: rgba(122, 222, 169, 0.55); color: #8ff0c0; }
+    .memory-chip.kind-message-user { border-color: rgba(255, 186, 102, 0.55); color: #ffd39a; }
+    .memory-chip.kind-message-assistant { border-color: rgba(173, 139, 255, 0.55); color: #d7beff; }
+    .memory-chip.kind-compacted { border-color: rgba(170, 190, 215, 0.5); color: #d0deea; }
+    .graph-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 9px; }
+    .graph-legend-item {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid var(--border); border-radius: 999px; padding: 3px 8px;
+      background: rgba(0,0,0,0.2); color: #d6e8ff; font-size: 0.66rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .graph-legend-dot {
+      width: 10px; height: 10px; border-radius: 999px; display: inline-block;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset;
+    }
     .memory-item.proposal-pill { cursor: pointer; }
     .memory-item.proposal-pill.active { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(83,216,181,0.25) inset; }
     .memory-proposals-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -126,6 +458,14 @@
       resize: vertical;
     }
     .memory-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .memory-preview {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: rgba(0,0,0,0.2);
+      padding: 8px;
+      display: grid;
+      gap: 8px;
+    }
     .memory-helper {
       border: 1px solid var(--border);
       border-radius: 9px;
@@ -145,17 +485,36 @@
       margin-right: 6px;
       margin-bottom: 4px;
     }
+    .memory-chip-btn {
+      background: rgba(0,0,0,0.2);
+      color: #d4e8ff;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .memory-chip-btn.active {
+      border-color: var(--accent);
+      color: #53d8b5;
+      box-shadow: 0 0 0 1px rgba(83,216,181,0.25) inset;
+    }
+    .memory-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 6px 0;
+    }
     .memory-chip.recommend-approve { border-color: rgba(83,216,181,0.65); color: #53d8b5; }
     .memory-chip.recommend-reject { border-color: rgba(255,130,130,0.6); color: #ff9a9a; }
     #memory-graph {
       width: 100%; height: 300px; border: 1px solid var(--border); border-radius: 10px;
       background: radial-gradient(circle at top, #122138, #08101c);
+      transition: height 180ms ease;
     }
     #memory-status { white-space: pre-line; font-size: 0.75rem; color: var(--text-dim); }
 
     #command-bar {
-      height: var(--cmd-h); background: var(--surface); border-top: 1px solid var(--border);
+      height: var(--cmd-h); background: rgba(9, 18, 31, 0.82); border-top: 1px solid var(--border);
       display: flex; align-items: center; padding: 0 15px; gap: 15px; flex-shrink: 0;
+      backdrop-filter: blur(18px);
     }
     #cmd-input {
       flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px;
@@ -193,7 +552,9 @@
       aside#sidebar { position: absolute; transform: translateX(-100%); width: 85%; max-width: 300px; }
       aside#sidebar.open { transform: translateX(0); box-shadow: 20px 0 50px rgba(0,0,0,0.5); }
       .sidebar-toggle { display: flex !important; }
+      .shell-heading { display: none; }
       .session-tabs { display: none; }
+      #context-strip { grid-template-columns: 1fr; padding-top: 12px; }
       .memory-card { grid-column: span 12; }
       .memory-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .memory-proposals-layout { grid-template-columns: 1fr; }
@@ -206,7 +567,11 @@
   <div id="app">
     <aside id="sidebar">
       <div class="sidebar-header">
-        <span>Workspaces</span>
+        <div class="sidebar-brand">
+          <div class="sidebar-kicker">AI Hub</div>
+          <div class="sidebar-title">Workspaces</div>
+          <div class="sidebar-copy">One home for operator chat, terminal control, code, and memory review.</div>
+        </div>
         <button id="add-ws-btn" title="New Workspace" style="background: transparent; border: 0; color: var(--accent); font-size: 1.5rem; cursor: pointer;">+</button>
       </div>
       <div id="workspace-list" class="workspace-list"></div>
@@ -214,19 +579,67 @@
 
     <main id="content">
       <header id="main-header">
-        <button id="menu-btn" class="cmd-btn sidebar-toggle">☰</button>
-        <div class="facet-tabs">
-          <button class="facet-btn active" data-facet="assist">Assist</button>
-          <button class="facet-btn" data-facet="shell">Shell</button>
-          <button class="facet-btn" data-facet="edit">Edit</button>
-          <button class="facet-btn" data-facet="memory">Memory</button>
+        <div class="header-left">
+          <button id="menu-btn" class="cmd-btn sidebar-toggle">☰</button>
+          <div class="shell-heading">
+            <div class="shell-label">Operator Surface</div>
+            <div class="shell-title">AI Hub Command Center</div>
+            <div id="shell-subtitle" class="shell-subtitle">A calmer shell for AI-assisted work across projects and machines.</div>
+          </div>
+          <div class="facet-tabs">
+            <button class="facet-btn" data-facet="assist"><span class="facet-icon">✦</span><span>Assist</span></button>
+            <button class="facet-btn" data-facet="shell"><span class="facet-icon">⌘</span><span>Shell</span></button>
+            <button class="facet-btn" data-facet="edit"><span class="facet-icon">▣</span><span>Edit</span></button>
+            <button class="facet-btn active" data-facet="memory"><span class="facet-icon">◌</span><span>Memory</span></button>
+          </div>
         </div>
-        <div id="session-tabs" class="session-tabs"></div>
-        <button id="add-session-btn" class="facet-btn" title="New Session">+</button>
+        <div class="header-right">
+          <div id="build-badge" class="build-badge">build · -</div>
+          <div id="session-tabs" class="session-tabs"></div>
+          <button id="add-session-btn" class="facet-btn" title="New Session"><span class="facet-icon">+</span><span>Launch</span></button>
+        </div>
       </header>
 
+      <section id="context-strip">
+        <div class="context-card">
+          <div class="context-kicker">Workspace</div>
+          <div class="context-head">
+            <div id="context-workspace-title" class="context-title">No workspace selected</div>
+            <div id="context-workspace-badge" class="status-pill">Awaiting workspace</div>
+          </div>
+          <div id="context-workspace-copy" class="context-copy">Create or select a workspace to anchor sessions, code, and memory search.</div>
+          <div class="context-meta">
+            <span id="context-workspace-path" class="context-chip">Path: —</span>
+            <span id="context-workspace-sessions" class="context-chip">Sessions: 0</span>
+          </div>
+        </div>
+        <div class="context-card">
+          <div class="context-kicker">Session</div>
+          <div class="context-head">
+            <div id="context-session-title" class="context-title">No active session</div>
+            <div id="context-session-status" class="status-pill">Idle</div>
+          </div>
+          <div id="context-session-copy" class="context-copy">Switch between providers without losing the workspace thread.</div>
+          <div class="context-meta">
+            <span id="context-session-provider" class="context-chip">Provider: —</span>
+            <span id="context-session-prompt" class="context-chip">Prompt: Ask or type command…</span>
+          </div>
+        </div>
+        <div class="context-card">
+          <div class="context-kicker">Mode</div>
+          <div class="context-head">
+            <div id="context-facet-title" class="context-title">Memory</div>
+            <div id="context-facet-badge" class="status-pill ready">Primary</div>
+          </div>
+          <div id="context-facet-copy" class="context-copy">Search AIKB signals, review proposals, and promote durable knowledge with less noise.</div>
+          <div class="context-meta">
+            <span id="context-facet-focus" class="context-chip">Focus: <span class="context-emphasis">Search + triage</span></span>
+          </div>
+        </div>
+      </section>
+
       <div id="facet-container">
-        <div id="assist-view" class="facet-view active">
+        <div id="assist-view" class="facet-view">
           <div id="chat-history" style="display: flex; flex-direction: column;"></div>
         </div>
         <div id="shell-view" class="facet-view">
@@ -235,7 +648,7 @@
         <div id="edit-view" class="facet-view">
           <iframe id="editor-frame" src=""></iframe>
         </div>
-        <div id="memory-view" class="facet-view">
+        <div id="memory-view" class="facet-view active">
           <div class="memory-grid">
             <div class="memory-card full">
               <div class="memory-title">Memory Overview</div>
@@ -246,7 +659,7 @@
                 <div class="memory-stat"><div class="label">Machines</div><div id="mem-machines" class="value">-</div></div>
               </div>
             </div>
-            <div class="memory-card">
+            <div class="memory-card full">
               <div class="memory-title">Harvester</div>
               <div class="memory-controls">
                 <input id="mem-max-events" class="memory-input" type="number" min="1" max="2000" value="250">
@@ -256,15 +669,41 @@
                 <button id="mem-harvest-btn" class="memory-btn">Run Harvest</button>
                 <button id="mem-refresh-btn" class="memory-btn">Refresh</button>
               </div>
+              <div class="meta">Proposal keywords: <code>proposal:</code>, <code>rule update:</code>, <code>runbook update:</code>, <code>promote to AIKB:</code>, <code>follow-up task:</code></div>
               <div id="memory-status">Idle.</div>
             </div>
-            <div class="memory-card">
+            <div class="memory-card full">
               <div class="memory-title">Search</div>
               <div class="memory-controls">
                 <input id="mem-query" class="memory-input" type="search" placeholder="Search memory + AIKB...">
                 <button id="mem-search-btn" class="memory-btn">Search</button>
               </div>
+              <div class="meta">Tip: Prefix intent with <code>proposal:</code> in chat to create clearer proposal signals in harvest.</div>
+              <div class="memory-controls">
+                <label class="meta" style="display:flex;align-items:center;gap:8px;">
+                  <input id="mem-raw-mode" type="checkbox">
+                  Raw Mode (show original event snippets)
+                </label>
+              </div>
+              <div id="mem-device-chips" class="memory-chip-row"></div>
+              <div id="mem-source-chips" class="memory-chip-row"></div>
+              <div id="mem-relation-chips" class="memory-chip-row"></div>
               <div id="mem-search-results" class="memory-list"></div>
+            </div>
+            <div class="memory-card graph">
+              <div class="memory-title">Graphical Search</div>
+              <div class="graph-legend">
+                <span class="graph-legend-item"><span class="graph-legend-dot" style="background:#53d8b5"></span>◉ query</span>
+                <span class="graph-legend-item"><span class="graph-legend-dot" style="background:#4f6f96"></span>▦ bucket</span>
+                <span class="graph-legend-item"><span class="graph-legend-dot" style="background:#ffba66"></span>✦ event</span>
+                <span class="graph-legend-item"><span class="graph-legend-dot" style="background:#78b8ff"></span>◈ device</span>
+                <span class="graph-legend-item"><span class="graph-legend-dot" style="background:#7da7ff"></span>⌁ source</span>
+                <span class="graph-legend-item"><span class="graph-legend-dot" style="background:#d1a6ff"></span>⇄ relation</span>
+                <span class="graph-legend-item"><span class="graph-legend-dot" style="background:#7cd0a3"></span>◌ entity</span>
+                <span class="graph-legend-item"><span class="graph-legend-dot" style="background:#7ec8ff"></span>▤ file</span>
+                <span class="graph-legend-item"><span class="graph-legend-dot" style="background:#d795ff"></span>✳ proposal</span>
+              </div>
+              <svg id="memory-graph" viewBox="0 0 800 300" preserveAspectRatio="xMidYMid meet"></svg>
             </div>
             <div class="memory-card proposals">
               <div class="memory-title">Proposals</div>
@@ -284,10 +723,6 @@
                   <div class="meta">Select a proposal to review.</div>
                 </div>
               </div>
-            </div>
-            <div class="memory-card graph">
-              <div class="memory-title">Graphical Search</div>
-              <svg id="memory-graph" viewBox="0 0 800 300" preserveAspectRatio="xMidYMid meet"></svg>
             </div>
           </div>
         </div>
@@ -318,9 +753,9 @@
       <h2>New Session</h2>
       <label style="font-size: 0.8rem; color: var(--text-dim);">Select Tool</label>
       <select id="session-provider">
-        <option value="claude">Claude Code</option>
+        <option value="codex" selected>Codex CLI</option>
         <option value="gemini">Gemini Code Assist</option>
-        <option value="codex">Codex CLI</option>
+        <option value="claude">Claude Code (subscription paused)</option>
         <option value="zsh">Zsh Shell</option>
       </select>
       <input type="text" id="session-title" placeholder="Session Title (optional)">
@@ -334,19 +769,81 @@
   <script src="https://unpkg.com/xterm/lib/xterm.js"></script>
   <script src="https://unpkg.com/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
   <script>
+    const UI_BUILD = 'pending';
     const state = {
       workspaces: [],
       activeWorkspace: null,
       sessions: [],
       activeSession: null,
-      facet: 'assist',
+      facet: 'memory',
       term: null,
       fit: null,
       socket: null,
       memoryLoaded: false,
       memoryLastSearch: null,
       memoryProposalsCache: [],
-      memorySelectedProposalId: null
+      memorySelectedProposalId: null,
+      memoryRawMode: false,
+      memoryDeviceFilter: 'all',
+      memorySourceFilter: 'all',
+      memoryRelationFilter: 'all',
+      memoryGraphFocusNode: null,
+      memoryGraphBound: false,
+      memoryGraphModel: { nodes: [], edges: [] },
+      memoryHasUserSearch: false,
+      memorySearchDebounce: null,
+      memorySearchSeq: 0,
+      memoryGraphLayout: { scale: 1, tx: 0, ty: 0, height: 300, positions: {}, dragNodeId: null, panning: false, lastX: 0, lastY: 0 }
+    };
+
+    const PROVIDER_META = {
+      claude: {
+        label: 'Claude',
+        icon: '✦',
+        availability: 'degraded',
+        note: 'Unavailable until subscription renewal.'
+      },
+      gemini: {
+        label: 'Gemini',
+        icon: '◎',
+        availability: 'ready',
+        note: 'Available for research and code assist.'
+      },
+      codex: {
+        label: 'Codex',
+        icon: '⌘',
+        availability: 'ready',
+        note: 'Available for code execution and editing.'
+      },
+      zsh: {
+        label: 'Shell',
+        icon: '>',
+        availability: 'ready',
+        note: 'Direct terminal workflow.'
+      }
+    };
+
+    const FACET_META = {
+      assist: {
+        title: 'Assist',
+        copy: 'Conversation-first mode for threaded prompts, chat history, and fast operator questions.',
+        focus: 'Prompt + response'
+      },
+      shell: {
+        title: 'Shell',
+        copy: 'Live terminal control for tmux-backed sessions, command output, and fast operational loops.',
+        focus: 'Command execution'
+      },
+      edit: {
+        title: 'Edit',
+        copy: 'Code-server workspace for direct edits while preserving the current project context.',
+        focus: 'Code + files'
+      },
+      memory: {
+        title: 'Memory',
+        copy: 'Search AIKB signals, review proposals, and promote durable knowledge with less noise.',
+        focus: 'Search + triage'
+      }
     };
 
     const api = async (path, opts = {}) => {
@@ -374,6 +871,13 @@
       return res.json();
     };
 
+    const activeScrollContainer = () => {
+      if (state.facet === 'memory') return document.getElementById('memory-view');
+      if (state.facet === 'assist') return document.getElementById('assist-view');
+      if (state.facet === 'shell') return document.getElementById('shell-view');
+      return document.getElementById('facet-container');
+    };
+
     const el = {
       wsList: document.getElementById('workspace-list'),
       sessionTabs: document.getElementById('session-tabs'),
@@ -390,6 +894,22 @@
       addWsBtn: document.getElementById('add-ws-btn'),
       addSessionBtn: document.getElementById('add-session-btn'),
       sessionCreateBtn: document.getElementById('session-create-btn'),
+      buildBadge: document.getElementById('build-badge'),
+      shellSubtitle: document.getElementById('shell-subtitle'),
+      contextWorkspaceTitle: document.getElementById('context-workspace-title'),
+      contextWorkspaceBadge: document.getElementById('context-workspace-badge'),
+      contextWorkspaceCopy: document.getElementById('context-workspace-copy'),
+      contextWorkspacePath: document.getElementById('context-workspace-path'),
+      contextWorkspaceSessions: document.getElementById('context-workspace-sessions'),
+      contextSessionTitle: document.getElementById('context-session-title'),
+      contextSessionStatus: document.getElementById('context-session-status'),
+      contextSessionCopy: document.getElementById('context-session-copy'),
+      contextSessionProvider: document.getElementById('context-session-provider'),
+      contextSessionPrompt: document.getElementById('context-session-prompt'),
+      contextFacetTitle: document.getElementById('context-facet-title'),
+      contextFacetBadge: document.getElementById('context-facet-badge'),
+      contextFacetCopy: document.getElementById('context-facet-copy'),
+      contextFacetFocus: document.getElementById('context-facet-focus'),
       memHealth: document.getElementById('mem-health'),
       memEvents: document.getElementById('mem-events'),
       memProposalsNew: document.getElementById('mem-proposals-new'),
@@ -402,6 +922,10 @@
       memSearchResults: document.getElementById('mem-search-results'),
       memGraph: document.getElementById('memory-graph'),
       memQuery: document.getElementById('mem-query'),
+      memRawMode: document.getElementById('mem-raw-mode'),
+      memDeviceChips: document.getElementById('mem-device-chips'),
+      memSourceChips: document.getElementById('mem-source-chips'),
+      memRelationChips: document.getElementById('mem-relation-chips'),
       memMaxEvents: document.getElementById('mem-max-events'),
       memStateName: document.getElementById('mem-state-name'),
       memHarvestBtn: document.getElementById('mem-harvest-btn'),
@@ -409,8 +933,94 @@
       memSearchBtn: document.getElementById('mem-search-btn')
     };
 
+    const refreshBuildBadge = async () => {
+      if (!el.buildBadge) return;
+      el.buildBadge.textContent = `build · ${UI_BUILD}`;
+      try {
+        const res = await fetch('/build-info', { cache: 'no-store' });
+        if (!res.ok) return;
+        const info = await res.json();
+        const build = String(info?.build || UI_BUILD);
+        el.buildBadge.textContent = `build · ${build.slice(0, 19)}`;
+      } catch {
+        // Keep fallback badge text.
+      }
+    };
+    refreshBuildBadge();
+
+    const MEMORY_RAW_MODE_KEY = 'aihub.memory.rawMode';
+    state.memoryRawMode = localStorage.getItem(MEMORY_RAW_MODE_KEY) === '1';
+    if (el.memRawMode) el.memRawMode.checked = state.memoryRawMode;
+
     const closeModal = (id) => document.getElementById(id).classList.remove('active');
     const openModal = (id) => document.getElementById(id).classList.add('active');
+
+    const providerMeta = (provider) => PROVIDER_META[provider] || {
+      label: provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : 'Unknown',
+      icon: '•',
+      availability: 'offline',
+      note: 'Provider state unknown.'
+    };
+
+    const providerStatusLabel = (provider) => {
+      const availability = providerMeta(provider).availability;
+      if (availability === 'ready') return 'Ready';
+      if (availability === 'degraded') return 'Limited';
+      return 'Offline';
+    };
+
+    const updateFacetContext = () => {
+      const facet = FACET_META[state.facet] || FACET_META.memory;
+      document.body.dataset.facet = state.facet;
+      if (el.contextFacetTitle) el.contextFacetTitle.textContent = facet.title;
+      if (el.contextFacetCopy) el.contextFacetCopy.textContent = facet.copy;
+      if (el.contextFacetFocus) el.contextFacetFocus.innerHTML = `Focus: <span class="context-emphasis">${facet.focus}</span>`;
+      if (el.contextFacetBadge) {
+        el.contextFacetBadge.textContent = state.facet === 'memory' ? 'Primary' : 'Live';
+        el.contextFacetBadge.className = `status-pill ${state.facet === 'memory' ? 'ready' : ''}`.trim();
+      }
+      if (el.shellSubtitle) el.shellSubtitle.textContent = facet.copy;
+    };
+
+    const updateWorkspaceContext = () => {
+      const ws = state.activeWorkspace;
+      const sessionCount = state.sessions.length;
+      if (!ws) {
+        el.contextWorkspaceTitle.textContent = 'No workspace selected';
+        el.contextWorkspaceBadge.textContent = 'Awaiting workspace';
+        el.contextWorkspaceBadge.className = 'status-pill';
+        el.contextWorkspaceCopy.textContent = 'Create or select a workspace to anchor sessions, code, and memory search.';
+        el.contextWorkspacePath.textContent = 'Path: —';
+        el.contextWorkspaceSessions.textContent = 'Sessions: 0';
+        return;
+      }
+      el.contextWorkspaceTitle.textContent = ws.name;
+      el.contextWorkspaceBadge.textContent = sessionCount ? 'Active' : 'Empty';
+      el.contextWorkspaceBadge.className = `status-pill ${sessionCount ? 'ready' : 'degraded'}`;
+      el.contextWorkspaceCopy.textContent = 'Project context stays stable while you shift across chat, shell, edit, and memory.';
+      el.contextWorkspacePath.textContent = `Path: ${ws.root_dir.replace('/home/mcglothi/Code', '~')}`;
+      el.contextWorkspaceSessions.textContent = `Sessions: ${sessionCount}`;
+    };
+
+    const updateSessionContext = () => {
+      const session = state.activeSession;
+      if (!session) {
+        el.contextSessionTitle.textContent = 'No active session';
+        el.contextSessionStatus.textContent = 'Idle';
+        el.contextSessionStatus.className = 'status-pill';
+        el.contextSessionCopy.textContent = 'Switch between providers without losing the workspace thread.';
+        el.contextSessionProvider.textContent = 'Provider: —';
+        el.contextSessionPrompt.textContent = 'Prompt: Ask or type command…';
+        return;
+      }
+      const meta = providerMeta(session.provider);
+      el.contextSessionTitle.textContent = session.title || meta.label;
+      el.contextSessionStatus.textContent = providerStatusLabel(session.provider);
+      el.contextSessionStatus.className = `status-pill ${meta.availability}`;
+      el.contextSessionCopy.textContent = meta.note;
+      el.contextSessionProvider.textContent = `Provider: ${meta.label}`;
+      el.contextSessionPrompt.textContent = `Prompt: Message ${meta.label}…`;
+    };
 
     const initTerm = () => {
       if (state.term) return;
@@ -457,8 +1067,13 @@
         <div class="ws-item ${state.activeWorkspace?.workspace_id === ws.workspace_id ? 'active' : ''}" onclick="selectWorkspaceById('${ws.workspace_id}')">
           <div class="name">${ws.name}</div>
           <div class="path">${ws.root_dir.replace("/home/mcglothi/Code", "~")}</div>
+          <div class="meta">
+            <span>${state.activeWorkspace?.workspace_id === ws.workspace_id ? 'Current' : 'Workspace'}</span>
+            <span>${ws.slug || 'project'}</span>
+          </div>
         </div>
       `).join('');
+      updateWorkspaceContext();
     };
 
     window.selectWorkspaceById = (id) => selectWorkspace(state.workspaces.find(w => w.workspace_id === id));
@@ -467,6 +1082,7 @@
       console.log('Selecting Workspace:', ws.name);
       state.activeWorkspace = ws;
       renderWorkspaces();
+      updateWorkspaceContext();
       try {
         state.sessions = await api(`/sessions/v2?workspace_id=${ws.workspace_id}`);
         renderSessions();
@@ -487,12 +1103,12 @@
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ workspace_id: ws.workspace_id, provider: 'zsh', title: 'Shell' })
         });
-        const claude = await api('/sessions/v2', {
+        const codex = await api('/sessions/v2', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ workspace_id: ws.workspace_id, provider: 'claude', title: 'Claude' })
+          body: JSON.stringify({ workspace_id: ws.workspace_id, provider: 'codex', title: 'Codex' })
         });
-        state.sessions = [shell, claude];
+        state.sessions = [shell, codex];
         renderSessions();
         selectSession(shell);
       } catch (err) {
@@ -501,11 +1117,20 @@
     };
 
     const renderSessions = () => {
+      if (!state.sessions.some((s) => s.session_id === state.activeSession?.session_id)) {
+        state.activeSession = null;
+      }
       el.sessionTabs.innerHTML = state.sessions.map(s => `
         <div class="session-tab ${state.activeSession?.session_id === s.session_id ? 'active' : ''}" onclick="selectSessionById('${s.session_id}')">
-          ${s.title}
+          <div class="session-tab-top">
+            <span class="session-provider">${providerMeta(s.provider).icon} ${providerMeta(s.provider).label}</span>
+            <span class="status-pill ${providerMeta(s.provider).availability}">${providerStatusLabel(s.provider)}</span>
+          </div>
+          <div class="session-name">${escapeHtml(s.title || providerMeta(s.provider).label)}</div>
         </div>
       `).join('');
+      updateWorkspaceContext();
+      updateSessionContext();
     };
 
     window.selectSessionById = (id) => selectSession(state.sessions.find(s => s.session_id === id));
@@ -517,7 +1142,8 @@
       initTerm();
       connectWS(s.session_id);
       loadHistory(s.session_id);
-      el.cmdInput.placeholder = `Message ${s.provider}...`;
+      el.cmdInput.placeholder = `Message ${providerMeta(s.provider).label}...`;
+      updateSessionContext();
     };
 
     const loadHistory = async (id) => {
@@ -543,89 +1169,687 @@
       return new Date(Number(ts) * 1000).toLocaleString();
     };
 
-    const renderMemoryGraph = (search) => {
-      const q = search?.query || (state.memoryLastSearch ? state.memoryLastSearch.query : 'memory');
-      const aikbHits = (search?.aikb || []).slice(0, 16);
-      const eventHits = (search?.events || []).slice(0, 10);
-      const ns = 'http://www.w3.org/2000/svg';
-      el.memGraph.innerHTML = '';
+    const stripAnsi = (text) => String(text || '')
+      .replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
 
-      const nodes = [{ id: 'q', label: q, x: 400, y: 150, kind: 'q' }];
-      const edges = [];
-      const radius = 110;
-      let nodeCount = 0;
+    const safeJsonParse = (text) => {
+      try { return JSON.parse(String(text || '')); } catch { return null; }
+    };
 
-      for (let i = 0; i < aikbHits.length; i++) {
-        const angle = (Math.PI * 2 * i) / Math.max(1, aikbHits.length);
-        const label = (aikbHits[i].path || '').split('/').pop() || `hit-${i + 1}`;
-        nodes.push({ id: `a${i}`, label, x: 400 + Math.cos(angle) * radius, y: 150 + Math.sin(angle) * radius, kind: 'a' });
-        edges.push({ s: 'q', t: `a${i}` });
-        nodeCount += 1;
+    const clampText = (text, n = 160) => {
+      const s = String(text || '').replace(/\s+/g, ' ').trim();
+      return s.length > n ? `${s.slice(0, n - 1)}…` : s;
+    };
+
+    const slug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    const extractFilePaths = (text) => {
+      const re = /(?:[A-Za-z0-9._-]+\/)+[A-Za-z0-9._-]+\.(?:md|py|js|ts|tsx|json|yaml|yml|sh|toml|txt)/g;
+      const matches = String(text || '').match(re) || [];
+      return [...new Set(matches)].slice(0, 8);
+    };
+
+    const extractKeywords = (text) => {
+      const base = String(text || '').toLowerCase();
+      const terms = ['opensoak', 'memory-core', 'memory home', 'home-assistant', 'pihole', 'truenas', 'turing', 'tesla', 'feynman', 'cliparr', 'ansible', 'docker', 'systemctl', 'git', 'npm', 'grafana', 'authentik'];
+      return terms.filter((t) => base.includes(t)).map((t) => t.replace(/\s+/g, '-')).slice(0, 8);
+    };
+
+    const summarizeToolOutput = (output) => {
+      const lines = stripAnsi(output)
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const noisy = /^(Chunk ID:|Wall time:|Process exited with code|Original token count:|Output:|## main\.\.\.)/i;
+      const useful = lines.find((line) => !noisy.test(line));
+      const title = useful || 'Tool output';
+      const preview = lines.slice(0, 10)
+        .filter((line) => !/^Chunk ID:|^Wall time:|^Original token count:|^Output:/i.test(line))
+        .join(' ');
+      return { title: clampText(title, 96), preview: clampText(preview || title, 240), isNoisy: !useful };
+    };
+
+    const titleCase = (text) => String(text || '')
+      .split(/[\s_-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+    const summarizeFunctionCallArgs = (argsRaw) => {
+      const raw = String(argsRaw || '').trim();
+      if (!raw) return { short: '', preview: '' };
+      let parsed = null;
+      try { parsed = JSON.parse(raw); } catch { parsed = null; }
+      if (parsed && typeof parsed === 'object') {
+        const cmd = typeof parsed.cmd === 'string' ? parsed.cmd : '';
+        if (cmd) return { short: clampText(cmd, 56), preview: clampText(`Command: ${cmd}`, 240) };
+        const query = typeof parsed.q === 'string' ? parsed.q : '';
+        if (query) return { short: clampText(query, 56), preview: clampText(`Query: ${query}`, 240) };
+        const path = typeof parsed.path === 'string' ? parsed.path : '';
+        if (path) return { short: clampText(path, 56), preview: clampText(`Path: ${path}`, 240) };
+      }
+      return { short: clampText(raw.replace(/\s+/g, ' '), 56), preview: clampText(raw.replace(/\s+/g, ' '), 240) };
+    };
+
+    const extractMessageText = (payload) => {
+      const content = Array.isArray(payload?.content) ? payload.content : [];
+      const parts = [];
+      for (const item of content) {
+        if (!item || typeof item !== 'object') continue;
+        if (typeof item.text === 'string') parts.push(item.text);
+        if (typeof item.output_text === 'string') parts.push(item.output_text);
+        if (typeof item.input_text === 'string') parts.push(item.input_text);
+      }
+      return parts.join(' ').trim();
+    };
+
+    const semanticEventLabel = (ev) => {
+      const generic = new Set(['response-item', 'event-msg', 'session-log-line', 'event', 'message']);
+      const t = String(ev?.title || '').trim();
+      if (t && !generic.has(slug(t))) return t;
+      if (ev?.entities?.length) return ev.entities[0];
+      if (ev?.files?.length) return ev.files[0].split('/').pop() || ev.files[0];
+      if (ev?.relation && ev?.device) return `${ev.relation} @ ${ev.device}`;
+      if (ev?.relation) return ev.relation;
+      return 'event';
+    };
+
+    const relationIcon = (relation) => {
+      const r = String(relation || '').toLowerCase();
+      if (r.includes('tool-call')) return '🛠';
+      if (r.includes('tool-output')) return '📤';
+      if (r.includes('message-user') || r.includes('user_message')) return '👤';
+      if (r.includes('message-assistant') || r.includes('agent_message')) return '🤖';
+      if (r.includes('compacted')) return '🗜';
+      if (r.includes('reasoning')) return '🧠';
+      if (r.includes('proposal')) return '💡';
+      return '•';
+    };
+
+    const graphNodeIcon = (kind) => {
+      const k = String(kind || '');
+      if (k === 'query') return '◉';
+      if (k === 'bucket') return '▦';
+      if (k === 'event') return '✦';
+      if (k === 'source') return '⌁';
+      if (k === 'device') return '◈';
+      if (k === 'relation') return '⇄';
+      if (k === 'entity') return '◌';
+      if (k === 'file') return '▤';
+      if (k === 'proposal') return '✳';
+      return '•';
+    };
+
+    const eventInsight = (event, query) => {
+      const src = String(event?.source || 'unknown');
+      const eventType = String(event?.event_type || 'event');
+      const ts = Number(event?.ts || 0);
+      const metadata = event?.metadata || {};
+      const device = String(metadata?.device || 'unknown');
+      const provider = String(metadata?.provider || 'unknown');
+      const rawSnippet = String(event?.snippet || '');
+      const parsed = safeJsonParse(rawSnippet);
+      const envelopeType = String(parsed?.type || '').toLowerCase();
+      const payload = parsed?.payload || {};
+      const payloadType = String(payload?.type || '').toLowerCase();
+      const payloadRole = String(payload?.role || '').toLowerCase();
+      const q = String(query || '').toLowerCase();
+
+      let title = eventType;
+      let preview = clampText(rawSnippet, 220);
+      let relation = payloadType || eventType;
+      let isNoisy = false;
+
+      if (payloadType === 'function_call_output') {
+        const summarized = summarizeToolOutput(payload.output || '');
+        title = summarized.title;
+        preview = summarized.preview;
+        relation = 'tool-output';
+        isNoisy = summarized.isNoisy;
+      } else if (payloadType === 'function_call') {
+        const fn = String(payload?.name || 'tool');
+        const argSummary = summarizeFunctionCallArgs(payload?.arguments || '');
+        title = `Tool call: ${fn}`;
+        preview = clampText(argSummary.preview || `Invoked ${fn}`, 220);
+        relation = 'tool-call';
+        isNoisy = true;
+      } else if (payloadType === 'event_msg') {
+        const innerType = String(payload?.payload?.type || '').toLowerCase();
+        const msgText = payload?.payload?.message || payload?.message || '';
+        title = clampText(msgText || titleCase(innerType || 'Agent update'), 96);
+        preview = clampText(msgText || rawSnippet, 220);
+        relation = innerType ? slug(innerType) : 'agent-update';
+      } else if (payloadType === 'message') {
+        const txt = extractMessageText(payload);
+        const roleLabel = payloadRole ? titleCase(payloadRole) : 'Message';
+        title = clampText(txt || `${roleLabel} message`, 96);
+        preview = clampText(txt || rawSnippet, 220);
+        relation = payloadRole ? `message-${slug(payloadRole)}` : payload?.phase ? `message-${slug(payload.phase)}` : 'message';
+      } else if (payloadType === 'reasoning') {
+        title = 'Reasoning event';
+        preview = 'Structured reasoning payload';
+        relation = 'reasoning';
+        isNoisy = true;
+      } else if (envelopeType === 'compacted') {
+        title = 'Compacted transcript snapshot';
+        preview = clampText('Session history compacted to reduce context size.', 220);
+        relation = 'compacted';
+        isNoisy = true;
+      } else if (parsed && parsed.text) {
+        title = clampText(parsed.text, 96);
+        preview = clampText(parsed.text, 220);
       }
 
-      for (let i = 0; i < eventHits.length; i++) {
-        const angle = (Math.PI * 2 * i) / Math.max(1, eventHits.length);
-        const label = (eventHits[i].event_type || 'event').slice(0, 20);
-        nodes.push({
-          id: `e${i}`,
-          label,
-          x: 400 + Math.cos(angle) * (radius - 26),
-          y: 150 + Math.sin(angle) * (radius - 26),
-          kind: 'e'
+      if (['response_item', 'event_msg', 'session_log_line', 'event'].includes(slug(title))) {
+        const fallback = titleCase((relation || eventType || 'event').replace(/^message-/, ''));
+        title = clampText(fallback || 'Event', 96);
+      }
+
+      const fullText = `${title} ${preview} ${rawSnippet}`.toLowerCase();
+      const hasQueryHit = !!q && fullText.includes(q);
+      const files = extractFilePaths(`${preview}\n${rawSnippet}`);
+      const entities = extractKeywords(`${title}\n${preview}\n${rawSnippet}`);
+      const baseScore = (hasQueryHit ? 80 : 0) + (isNoisy ? 0 : 24) + Math.min(20, files.length * 4 + entities.length * 2);
+      const recencyBoost = ts ? Math.max(0, Math.min(20, Math.floor((Date.now() / 1000 - ts) < 3600 ? 20 : 0))) : 0;
+
+      return {
+        src, device, provider, eventType, ts, rawSnippet, title, preview, relation, isNoisy, hasQueryHit, files, entities,
+        eventId: String(event?.event_id || ''),
+        eventMetadata: metadata,
+        score: baseScore + recencyBoost,
+      };
+    };
+
+    const applyEventFilters = (enriched) => enriched.filter((ev) => {
+      if (state.memoryDeviceFilter !== 'all' && ev.device !== state.memoryDeviceFilter) return false;
+      if (state.memorySourceFilter !== 'all' && ev.src !== state.memorySourceFilter) return false;
+      if (state.memoryRelationFilter !== 'all' && ev.relation !== state.memoryRelationFilter) return false;
+      return true;
+    });
+
+    const rankDedupDiverseEvents = (enriched, limit = 12) => {
+      const ranked = [...enriched].sort((a, b) => b.score - a.score);
+      const out = [];
+      const seen = new Set();
+      const perRelation = new Map();
+      const perSource = new Map();
+      const perDevice = new Map();
+      const dedupeKeyOf = (ev) => `${ev.relation}:${ev.title.toLowerCase()}:${ev.device || 'unknown'}`;
+
+      // Pass 1: ensure at least one high-scoring event per device (if available)
+      const seededDevices = new Set();
+      for (const ev of ranked) {
+        const d = ev.device || 'unknown';
+        if (seededDevices.has(d)) continue;
+        const dedupeKey = dedupeKeyOf(ev);
+        if (seen.has(dedupeKey)) continue;
+        seededDevices.add(d);
+        seen.add(dedupeKey);
+        perRelation.set(ev.relation, (perRelation.get(ev.relation) || 0) + 1);
+        perSource.set(ev.src, (perSource.get(ev.src) || 0) + 1);
+        perDevice.set(d, (perDevice.get(d) || 0) + 1);
+        out.push(ev);
+        if (out.length >= limit) return out.slice(0, limit);
+      }
+
+      // Pass 2: fill remaining with diversity caps
+      for (const ev of ranked) {
+        const dedupeKey = dedupeKeyOf(ev);
+        if (seen.has(dedupeKey)) continue;
+        const rCount = perRelation.get(ev.relation) || 0;
+        const sCount = perSource.get(ev.src) || 0;
+        const dCount = perDevice.get(ev.device || 'unknown') || 0;
+        if (rCount >= 3 || sCount >= 4 || dCount >= 4) continue;
+        seen.add(dedupeKey);
+        perRelation.set(ev.relation, rCount + 1);
+        perSource.set(ev.src, sCount + 1);
+        perDevice.set(ev.device || 'unknown', dCount + 1);
+        out.push(ev);
+        if (out.length >= limit) break;
+      }
+      return out;
+    };
+
+    const selectDisplayEvents = (events, query, limit = 12) => {
+      const enriched = (events || []).map((e) => eventInsight(e, query));
+      const filtered = applyEventFilters(enriched);
+      return (state.memoryRawMode ? filtered : rankDedupDiverseEvents(filtered, limit)).slice(0, limit);
+    };
+
+    const renderFilterChips = (events, query) => {
+      const enriched = (events || []).map((e) => eventInsight(e, query));
+      const devices = [...new Set(enriched.map((e) => e.device || 'unknown'))].slice(0, 12);
+      const sources = [...new Set(enriched.map((e) => e.src))].slice(0, 14);
+      const relations = [...new Set(enriched.map((e) => e.relation))].slice(0, 18);
+
+      const renderRow = (container, values, selected, onSelect) => {
+        if (!container) return;
+        const allBtn = `<button class="memory-chip memory-chip-btn ${selected === 'all' ? 'active' : ''}" data-value="all">All</button>`;
+        const rest = values.map((v) => `<button class="memory-chip memory-chip-btn ${selected === v ? 'active' : ''}" data-value="${escapeHtml(v)}">${escapeHtml(v)}</button>`).join('');
+        container.innerHTML = allBtn + rest;
+        container.querySelectorAll('button[data-value]').forEach((btn) => {
+          btn.addEventListener('click', () => onSelect(btn.dataset.value || 'all'));
         });
-        edges.push({ s: 'q', t: `e${i}` });
-        nodeCount += 1;
-      }
+      };
 
-      if (nodeCount === 0) {
-        for (let i = 0; i < 8; i++) {
-          const angle = (Math.PI * 2 * i) / 8;
-          nodes.push({
-            id: `f${i}`,
-            label: `node-${i + 1}`,
-            x: 400 + Math.cos(angle) * (radius - 12),
-            y: 150 + Math.sin(angle) * (radius - 12),
-            kind: 'f'
-          });
-          edges.push({ s: 'q', t: `f${i}` });
+      renderRow(el.memDeviceChips, devices, state.memoryDeviceFilter, (value) => {
+        state.memoryDeviceFilter = value;
+        if (state.memoryLastSearch) renderMemorySearch(state.memoryLastSearch);
+      });
+      renderRow(el.memSourceChips, sources, state.memorySourceFilter, (value) => {
+        state.memorySourceFilter = value;
+        if (state.memoryLastSearch) renderMemorySearch(state.memoryLastSearch);
+      });
+      renderRow(el.memRelationChips, relations, state.memoryRelationFilter, (value) => {
+        state.memoryRelationFilter = value;
+        if (state.memoryLastSearch) renderMemorySearch(state.memoryLastSearch);
+      });
+    };
+
+    const setMemoryGraphHeight = (pixelHeight, viewHeight) => {
+      const px = Math.max(260, Math.min(680, Number(pixelHeight) || 300));
+      const vh = Math.max(260, Math.min(560, Number(viewHeight) || 300));
+      state.memoryGraphLayout.height = vh;
+      el.memGraph.style.height = `${px}px`;
+      el.memGraph.setAttribute('viewBox', `0 0 800 ${vh}`);
+    };
+
+    const topicStopWords = new Set([
+      'with', 'from', 'that', 'this', 'have', 'into', 'were', 'when', 'where', 'what', 'your', 'just', 'then', 'them',
+      'about', 'after', 'before', 'only', 'also', 'over', 'under', 'onto', 'will', 'would', 'could', 'should',
+      'event', 'response', 'item', 'output', 'function', 'call', 'message', 'memory', 'search', 'graph', 'results'
+    ]);
+
+    const extractPopularTopics = (events = [], aikb = []) => {
+      const counts = new Map();
+      const bump = (raw, weight = 1) => {
+        const k = slug(raw);
+        if (!k || k.length < 3 || topicStopWords.has(k)) return;
+        counts.set(k, (counts.get(k) || 0) + weight);
+      };
+
+      const enriched = (events || []).map((e) => eventInsight(e, state.memoryLastSearch?.query || 'memory'));
+      enriched.forEach((ev) => {
+        bump(ev.device || 'unknown', 3.2);
+        bump(ev.src || 'unknown', 2.1);
+        bump(ev.relation || 'signal', 1.7);
+        ev.entities.slice(0, 4).forEach((ent) => bump(ent, 2.5));
+        ev.files.slice(0, 3).forEach((fp) => bump((fp.split('/').pop() || fp).replace(/\.[a-z0-9]+$/i, ''), 1.6));
+        const words = `${ev.title} ${ev.preview}`.toLowerCase().match(/[a-z][a-z0-9-]{3,}/g) || [];
+        words.slice(0, 12).forEach((w) => bump(w, 0.7));
+      });
+      (aikb || []).forEach((h) => bump((h.path || '').split('/').pop() || 'aikb', 1.4));
+
+      return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 24)
+        .map(([term, weight]) => ({ term, weight }));
+    };
+
+    const initializeNodePosition = (node) => {
+      const saved = state.memoryGraphLayout.positions[node.id];
+      if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+        node.x = saved.x;
+        node.y = saved.y;
+        return;
+      }
+      const h = state.memoryGraphLayout.height || 300;
+      const anchors = {
+        query: [400, h * 0.5],
+        bucket: node.id.includes('events') ? [220, h * 0.5] : node.id.includes('aikb') ? [580, h * 0.32] : [580, h * 0.72],
+        source: [120, h * 0.28],
+        device: [120, h * 0.5],
+        relation: [120, h * 0.74],
+        entity: [400, h * 0.18],
+        file: [400, h * 0.88],
+        event: [240, h * 0.5],
+        'aikb-hit': [580, h * 0.34],
+        proposal: [580, h * 0.72],
+      };
+      const [cx, cy] = anchors[node.kind] || [400, h * 0.5];
+      const jitter = () => (Math.random() - 0.5) * 26;
+      node.x = cx + jitter();
+      node.y = cy + jitter();
+    };
+
+    const runForceLayout = (nodes, edges, iterations = 90) => {
+      const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+      const movable = nodes.filter((n) => n.kind !== 'query' && n.kind !== 'bucket');
+      const springs = edges
+        .map((e) => ({ s: nodeMap.get(e.s), t: nodeMap.get(e.t) }))
+        .filter((e) => e.s && e.t);
+      const h = state.memoryGraphLayout.height || 300;
+
+      for (let iter = 0; iter < iterations; iter++) {
+        for (const n of movable) {
+          n.vx = (n.vx || 0) * 0.86;
+          n.vy = (n.vy || 0) * 0.86;
+        }
+
+        for (let i = 0; i < movable.length; i++) {
+          for (let j = i + 1; j < movable.length; j++) {
+            const a = movable[i];
+            const b = movable[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const d2 = Math.max(36, dx * dx + dy * dy);
+            const f = 2200 / d2;
+            const inv = 1 / Math.sqrt(d2);
+            const fx = dx * inv * f;
+            const fy = dy * inv * f;
+            a.vx += fx; a.vy += fy;
+            b.vx -= fx; b.vy -= fy;
+          }
+        }
+
+        for (const { s, t } of springs) {
+          const dx = t.x - s.x;
+          const dy = t.y - s.y;
+          const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+          const target = s.kind === 'bucket' || t.kind === 'bucket' ? 82 : 66;
+          const k = 0.014;
+          const f = (dist - target) * k;
+          const fx = (dx / dist) * f;
+          const fy = (dy / dist) * f;
+          if (s.kind !== 'query' && s.kind !== 'bucket') { s.vx += fx; s.vy += fy; }
+          if (t.kind !== 'query' && t.kind !== 'bucket') { t.vx -= fx; t.vy -= fy; }
+        }
+
+        for (const n of movable) {
+          n.x += n.vx || 0;
+          n.y += n.vy || 0;
+          n.x = Math.max(30, Math.min(770, n.x));
+          n.y = Math.max(24, Math.min(h - 12, n.y));
         }
       }
+    };
 
+    const drawMemoryGraph = () => {
+      const { nodes, edges } = state.memoryGraphModel || { nodes: [], edges: [] };
+      el.memGraph.innerHTML = '';
+      const ns = 'http://www.w3.org/2000/svg';
+
+      if (!nodes.length) {
+        const msg = document.createElementNS(ns, 'text');
+        msg.setAttribute('x', '400');
+        msg.setAttribute('y', String(Math.floor((state.memoryGraphLayout.height || 300) * 0.5)));
+        msg.setAttribute('fill', '#a7bfd9');
+        msg.setAttribute('font-size', '13');
+        msg.setAttribute('text-anchor', 'middle');
+        msg.textContent = 'No memory hits yet. Run Search or Harvest.';
+        el.memGraph.appendChild(msg);
+        return;
+      }
+
+      const viewport = document.createElementNS(ns, 'g');
+      viewport.setAttribute('transform', `translate(${state.memoryGraphLayout.tx} ${state.memoryGraphLayout.ty}) scale(${state.memoryGraphLayout.scale})`);
+      el.memGraph.appendChild(viewport);
+
+      const nodeMap = new Map(nodes.map((n) => [n.id, n]));
       edges.forEach((e) => {
-        const s = nodes.find((n) => n.id === e.s);
-        const t = nodes.find((n) => n.id === e.t);
+        const s = nodeMap.get(e.s);
+        const t = nodeMap.get(e.t);
         if (!s || !t) return;
         const line = document.createElementNS(ns, 'line');
         line.setAttribute('x1', s.x);
         line.setAttribute('y1', s.y);
         line.setAttribute('x2', t.x);
         line.setAttribute('y2', t.y);
-        line.setAttribute('stroke', 'rgba(130, 175, 220, 0.35)');
+        line.setAttribute('stroke', 'rgba(130, 175, 220, 0.28)');
         line.setAttribute('stroke-width', '1');
-        el.memGraph.appendChild(line);
+        viewport.appendChild(line);
       });
+
+      const colors = {
+        query: '#53d8b5',
+        bucket: '#4f6f96',
+        event: '#ffba66',
+        source: '#7da7ff',
+        device: '#78b8ff',
+        relation: '#d1a6ff',
+        entity: '#7cd0a3',
+        file: '#7ec8ff',
+        'aikb-hit': '#57a6ff',
+        proposal: '#d795ff',
+      };
 
       nodes.forEach((n) => {
         const g = document.createElementNS(ns, 'g');
+        g.setAttribute('data-node-id', n.id);
+        g.style.cursor = n.kind === 'query' || n.kind === 'bucket' ? 'pointer' : 'grab';
         const c = document.createElementNS(ns, 'circle');
         c.setAttribute('cx', n.x);
         c.setAttribute('cy', n.y);
-        c.setAttribute('r', n.kind === 'q' ? 16 : 9);
-        c.setAttribute('fill',
-          n.kind === 'q' ? '#53d8b5' :
-          n.kind === 'a' ? '#57a6ff' :
-          n.kind === 'e' ? '#ffba66' : '#7ec8ff'
-        );
+        const selected = state.memoryGraphFocusNode && state.memoryGraphFocusNode === n.id;
+        const baseR = n.kind === 'query' ? 15 : n.kind === 'bucket' ? 11 : 8;
+        const radius = Math.max(6, Math.min(20, baseR + Math.min(8, Number(n.weight || 0) * 0.8)));
+        c.setAttribute('r', String(radius));
+        c.setAttribute('fill', colors[n.kind] || '#7ec8ff');
+        if (selected) {
+          c.setAttribute('stroke', '#ffffff');
+          c.setAttribute('stroke-width', '2');
+        }
         g.appendChild(c);
+
+        const icon = document.createElementNS(ns, 'text');
+        icon.setAttribute('x', String(n.x));
+        icon.setAttribute('y', String(Number(n.y) + 3));
+        icon.setAttribute('fill', '#f3f8ff');
+        icon.setAttribute('font-size', '8');
+        icon.setAttribute('text-anchor', 'middle');
+        icon.textContent = graphNodeIcon(n.kind);
+        g.appendChild(icon);
+
         const t = document.createElementNS(ns, 'text');
-        t.setAttribute('x', Number(n.x) + 12);
+        t.setAttribute('x', Number(n.x) + radius + 3);
         t.setAttribute('y', Number(n.y) + 4);
         t.setAttribute('fill', '#dcecff');
-        t.setAttribute('font-size', '11');
-        t.textContent = n.label.slice(0, 42);
+        t.setAttribute('font-size', n.kind === 'bucket' ? '10' : '11');
+        t.textContent = n.label.slice(0, n.kind === 'bucket' ? 18 : 34);
         g.appendChild(t);
-        el.memGraph.appendChild(g);
+
+        g.addEventListener('pointerdown', (ev) => {
+          ev.stopPropagation();
+          state.memoryGraphLayout.dragNodeId = n.id;
+          state.memoryGraphLayout.lastX = ev.clientX;
+          state.memoryGraphLayout.lastY = ev.clientY;
+        });
+        g.addEventListener('click', () => {
+          state.memoryGraphFocusNode = n.id;
+          if (n.filter?.device) state.memoryDeviceFilter = n.filter.device;
+          if (n.filter?.source) state.memorySourceFilter = n.filter.source;
+          if (n.filter?.relation) state.memoryRelationFilter = n.filter.relation;
+          if (state.memoryLastSearch) renderMemorySearch(state.memoryLastSearch);
+        });
+        viewport.appendChild(g);
       });
+    };
+
+    const bindMemoryGraphInteractions = () => {
+      if (state.memoryGraphBound) return;
+      state.memoryGraphBound = true;
+
+      const toGraphCoords = (ev) => {
+        const rect = el.memGraph.getBoundingClientRect();
+        const x = (ev.clientX - rect.left - state.memoryGraphLayout.tx) / state.memoryGraphLayout.scale;
+        const y = (ev.clientY - rect.top - state.memoryGraphLayout.ty) / state.memoryGraphLayout.scale;
+        return { x, y };
+      };
+
+      el.memGraph.addEventListener('pointerdown', (ev) => {
+        state.memoryGraphLayout.panning = true;
+        state.memoryGraphLayout.lastX = ev.clientX;
+        state.memoryGraphLayout.lastY = ev.clientY;
+      });
+
+      window.addEventListener('pointermove', (ev) => {
+        const dragNodeId = state.memoryGraphLayout.dragNodeId;
+        if (dragNodeId) {
+          const node = (state.memoryGraphModel.nodes || []).find((n) => n.id === dragNodeId);
+          if (node) {
+            const pt = toGraphCoords(ev);
+            node.x = pt.x;
+            node.y = pt.y;
+            state.memoryGraphLayout.positions[node.id] = { x: node.x, y: node.y };
+            drawMemoryGraph();
+          }
+          return;
+        }
+        if (state.memoryGraphLayout.panning) {
+          const dx = ev.clientX - state.memoryGraphLayout.lastX;
+          const dy = ev.clientY - state.memoryGraphLayout.lastY;
+          state.memoryGraphLayout.tx += dx;
+          state.memoryGraphLayout.ty += dy;
+          state.memoryGraphLayout.lastX = ev.clientX;
+          state.memoryGraphLayout.lastY = ev.clientY;
+          drawMemoryGraph();
+        }
+      });
+
+      window.addEventListener('pointerup', () => {
+        state.memoryGraphLayout.dragNodeId = null;
+        state.memoryGraphLayout.panning = false;
+      });
+
+      el.memGraph.addEventListener('wheel', (ev) => {
+        // Keep page scroll natural; only zoom graph when user explicitly holds a modifier.
+        if (!(ev.ctrlKey || ev.metaKey || ev.altKey)) return;
+        ev.preventDefault();
+        const rect = el.memGraph.getBoundingClientRect();
+        const px = ev.clientX - rect.left;
+        const py = ev.clientY - rect.top;
+        const oldScale = state.memoryGraphLayout.scale;
+        // Continuous zoom curve for finer pinch/wheel control (smaller increments than fixed 10% steps).
+        const sensitivity = 0.0026;
+        const rawScale = oldScale * Math.exp(-ev.deltaY * sensitivity);
+        const nextScale = Math.max(0.55, Math.min(2.8, rawScale));
+        const gx = (px - state.memoryGraphLayout.tx) / oldScale;
+        const gy = (py - state.memoryGraphLayout.ty) / oldScale;
+        state.memoryGraphLayout.scale = nextScale;
+        state.memoryGraphLayout.tx = px - gx * nextScale;
+        state.memoryGraphLayout.ty = py - gy * nextScale;
+        drawMemoryGraph();
+      }, { passive: false });
+    };
+
+    const renderMemoryTopicCloud = (search, proposals = []) => {
+      const topics = extractPopularTopics(search?.events || [], search?.aikb || []);
+      setMemoryGraphHeight(topics.length ? 520 : 340, topics.length ? 420 : 300);
+      const nodes = [];
+      const edges = [];
+      const addNode = (id, label, kind, meta = {}) => {
+        const n = { id, label, kind, ...meta };
+        nodes.push(n);
+        return n;
+      };
+      addNode('q', 'popular-topics', 'query');
+      topics.forEach((t, idx) => {
+        const id = `topic:${slug(t.term)}:${idx}`;
+        addNode(id, t.term, 'entity', { weight: t.weight });
+        edges.push({ s: 'q', t: id });
+      });
+      (proposals || []).slice(0, 6).forEach((p, i) => {
+        const label = String(p.summary || p.kind || `proposal-${i + 1}`).replace(/^[^:]+:\s*/, '').slice(0, 28);
+        const id = `proposal:${p.proposal_id || i}`;
+        addNode(id, label, 'proposal', { weight: 2.8 });
+        edges.push({ s: 'q', t: id });
+      });
+      nodes.forEach((n) => initializeNodePosition(n));
+      runForceLayout(nodes, edges, 90);
+      for (const n of nodes) {
+        state.memoryGraphLayout.positions[n.id] = { x: n.x, y: n.y };
+      }
+      state.memoryGraphModel = { nodes, edges };
+      bindMemoryGraphInteractions();
+      drawMemoryGraph();
+    };
+
+    const renderMemoryGraph = (search, proposals = [], displayEvents = []) => {
+      const q = search?.query || (state.memoryLastSearch ? state.memoryLastSearch.query : 'memory');
+      const aikbHits = (search?.aikb || []).slice(0, 10);
+      const eventHits = displayEvents.slice(0, 10);
+      const proposalHits = (proposals || []).slice(0, 8);
+      const explicitQuery = (el.memQuery.value || '').trim();
+      const shouldShowTopicCloud = !explicitQuery && !state.memoryHasUserSearch;
+
+      if (shouldShowTopicCloud) {
+        renderMemoryTopicCloud(search, proposals);
+        return;
+      }
+
+      const hasResults = eventHits.length || aikbHits.length || proposalHits.length;
+      setMemoryGraphHeight(hasResults ? 520 : 340, hasResults ? 420 : 300);
+
+      const nodeMap = new Map();
+      const nodes = [];
+      const edges = [];
+
+      const addNode = (id, label, kind, meta = {}) => {
+        if (nodeMap.has(id)) return nodeMap.get(id);
+        const n = { id, label, kind, ...meta };
+        nodeMap.set(id, n);
+        nodes.push(n);
+        return n;
+      };
+      const addEdge = (s, t) => edges.push({ s, t });
+
+      addNode('q', q, 'query');
+      if (eventHits.length) addNode('bucket:events', 'Runtime Events', 'bucket');
+      if (aikbHits.length) addNode('bucket:aikb', 'AIKB Hits', 'bucket');
+      if (proposalHits.length) addNode('bucket:proposals', 'Proposals', 'bucket');
+
+      if (nodeMap.has('bucket:events')) addEdge('q', 'bucket:events');
+      if (nodeMap.has('bucket:aikb')) addEdge('q', 'bucket:aikb');
+      if (nodeMap.has('bucket:proposals')) addEdge('q', 'bucket:proposals');
+
+      eventHits.forEach((ev, i) => {
+        const eId = `event:${i}:${slug(ev.title)}`;
+        addNode(eId, semanticEventLabel(ev), 'event', { ref: ev });
+        addEdge('bucket:events', eId);
+        const srcId = `src:${slug(ev.src)}`;
+        addNode(srcId, ev.src, 'source', { filter: { source: ev.src } });
+        addEdge(srcId, eId);
+        const devId = `dev:${slug(ev.device || 'unknown')}`;
+        addNode(devId, ev.device || 'unknown', 'device', { filter: { device: ev.device || 'unknown' } });
+        addEdge(devId, eId);
+        const relId = `rel:${slug(ev.relation)}`;
+        addNode(relId, ev.relation, 'relation', { filter: { relation: ev.relation } });
+        addEdge(relId, eId);
+        ev.entities.slice(0, 3).forEach((ent) => {
+          const id = `ent:${slug(ent)}`;
+          addNode(id, ent, 'entity');
+          addEdge(eId, id);
+        });
+        ev.files.slice(0, 2).forEach((fp) => {
+          const leaf = fp.split('/').pop() || fp;
+          const id = `file:${slug(fp)}`;
+          addNode(id, leaf, 'file');
+          addEdge(eId, id);
+        });
+      });
+
+      aikbHits.forEach((h, i) => {
+        const leaf = (h.path || '').split('/').pop() || `hit-${i + 1}`;
+        const id = `aikb:${slug(h.path || `hit-${i}`)}`;
+        addNode(id, `${leaf}:${h.line || '-'}`, 'aikb-hit');
+        addEdge('bucket:aikb', id);
+      });
+
+      proposalHits.forEach((p, i) => {
+        const title = String(p.summary || '').replace(/^[^:]+:\s*/, '').slice(0, 32) || `${p.kind || 'proposal'}-${i + 1}`;
+        const id = `proposal:${p.proposal_id || i}`;
+        addNode(id, title, 'proposal');
+        addEdge('bucket:proposals', id);
+      });
+
+      nodes.forEach((n) => initializeNodePosition(n));
+      runForceLayout(nodes, edges, 80);
+      for (const n of nodes) {
+        state.memoryGraphLayout.positions[n.id] = { x: n.x, y: n.y };
+      }
+      state.memoryGraphModel = { nodes, edges };
+      bindMemoryGraphInteractions();
+      drawMemoryGraph();
     };
 
     const escapeHtml = (value) => String(value || '')
@@ -672,6 +1896,7 @@
       const evidencePretty = escapeHtml(JSON.stringify(p.evidence || {}, null, 2));
       const guide = proposalGuidance(p);
       const chipClass = guide.recommendation === 'Approve' ? 'recommend-approve' : 'recommend-reject';
+      const suggestedFile = String((p.payload || {}).suggested_file || '_runtime/memory-proposals-applied.md');
       el.memProposalDetail.innerHTML = `
         <div class="detail-title">Proposal Detail</div>
         <div class="meta">${escapeHtml(p.proposal_id)} · ${escapeHtml(p.status)} · ${fmtTs(p.created_ts)}</div>
@@ -690,6 +1915,8 @@
         <textarea id="mem-proposal-payload" class="memory-textarea">${payloadPretty}</textarea>
         <label class="meta" for="mem-proposal-notes">Review Notes</label>
         <textarea id="mem-proposal-notes" class="memory-textarea" placeholder="Optional review notes">${escapeHtml(p.review_notes || '')}</textarea>
+        <label class="meta" for="mem-proposal-target-file">Apply Destination (AIKB relative path)</label>
+        <input id="mem-proposal-target-file" class="memory-input" type="text" value="${escapeHtml(suggestedFile)}" placeholder="_runtime/memory-proposals-applied.md">
         <details>
           <summary class="meta">Evidence</summary>
           <pre class="memory-textarea" style="min-height: 120px;">${evidencePretty}</pre>
@@ -698,6 +1925,11 @@
           <button id="mem-proposal-save-btn" class="memory-btn">Save Edit</button>
           <button id="mem-proposal-accept-btn" class="memory-btn">Approve (Keep)</button>
           <button id="mem-proposal-reject-btn" class="memory-btn">Reject (Noise)</button>
+          <button id="mem-proposal-preview-apply-btn" class="memory-btn">Preview Apply</button>
+          <button id="mem-proposal-apply-btn" class="memory-btn">Apply to AIKB</button>
+        </div>
+        <div id="mem-proposal-apply-preview" class="memory-preview">
+          <div class="meta">Apply preview not loaded yet.</div>
         </div>
       `;
       document.getElementById('mem-proposal-save-btn').addEventListener('click', () => {
@@ -708,6 +1940,12 @@
       });
       document.getElementById('mem-proposal-reject-btn').addEventListener('click', () => {
         setSelectedProposalStatus('rejected').catch((err) => { el.memStatus.textContent = `Reject failed: ${err.message}`; });
+      });
+      document.getElementById('mem-proposal-preview-apply-btn').addEventListener('click', () => {
+        previewApplySelectedProposal().catch((err) => { el.memStatus.textContent = `Preview failed: ${err.message}`; });
+      });
+      document.getElementById('mem-proposal-apply-btn').addEventListener('click', () => {
+        applySelectedProposal().catch((err) => { el.memStatus.textContent = `Apply failed: ${err.message}`; });
       });
     };
 
@@ -782,12 +2020,123 @@
       await refreshMemory();
     };
 
+    const previewApplySelectedProposal = async () => {
+      const p = selectedProposal();
+      if (!p) return;
+      const targetFile = (document.getElementById('mem-proposal-target-file')?.value || '').trim();
+      const out = await memoryApi(`/memory/proposals/${encodeURIComponent(p.proposal_id)}/apply-preview`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ file: targetFile || undefined }),
+      });
+      const previewEl = document.getElementById('mem-proposal-apply-preview');
+      if (!previewEl) return;
+      const existing = escapeHtml(out.preview?.existing_tail || '');
+      const append = escapeHtml(out.preview?.append_block || '');
+      previewEl.innerHTML = `
+        <div class="meta"><strong>Target:</strong> ${escapeHtml(out.file || targetFile)}</div>
+        <div class="meta"><strong>Existing tail:</strong></div>
+        <pre class="memory-textarea" style="min-height: 120px;">${existing || '(new file / no existing content)'}</pre>
+        <div class="meta"><strong>Append block:</strong></div>
+        <pre class="memory-textarea" style="min-height: 160px;">${append}</pre>
+      `;
+      el.memStatus.textContent = `Preview ready for ${p.proposal_id.slice(0, 8)}.`;
+    };
+
+    const applySelectedProposal = async () => {
+      const p = selectedProposal();
+      if (!p) return;
+      const targetFile = (document.getElementById('mem-proposal-target-file')?.value || '').trim();
+      const reviewNotes = (document.getElementById('mem-proposal-notes')?.value || '').trim() || null;
+      const out = await memoryApi(`/memory/proposals/${encodeURIComponent(p.proposal_id)}/apply`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          file: targetFile || undefined,
+          review_notes: reviewNotes,
+        }),
+      });
+      el.memStatus.textContent = `Applied ${p.proposal_id.slice(0, 8)} to ${out.file}.`;
+      await refreshMemory();
+    };
+
+    const inferProposalKindFromEvent = (ev) => {
+      const rel = String(ev?.relation || '').toLowerCase();
+      const text = `${ev?.title || ''} ${ev?.preview || ''}`.toLowerCase();
+      if (rel.includes('error') || rel.includes('failure') || text.includes('runbook') || text.includes('policy') || text.includes('standard')) return 'runbook_update';
+      if (rel.includes('message-user') || rel.includes('task') || text.includes('next step') || text.includes('todo')) return 'task';
+      if (text.includes('prefer') || text.includes('ui') || text.includes('layout')) return 'preference';
+      return 'task';
+    };
+
+    const createProposalFromEvent = async (ev) => {
+      const defaultSummary = clampText(ev?.preview || ev?.title || 'Operator-created proposal candidate', 220);
+      const summaryInput = window.prompt('Proposal summary', defaultSummary);
+      if (summaryInput == null) return;
+      const summary = summaryInput.trim();
+      if (!summary) {
+        el.memStatus.textContent = 'Proposal summary is required.';
+        return;
+      }
+      const kind = inferProposalKindFromEvent(ev);
+      el.memStatus.textContent = `Creating proposal from "${clampText(ev?.title || 'event', 50)}"...`;
+      const out = await memoryApi('/memory/proposals/from-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind,
+          summary,
+          state_name: 'default',
+          max_events: 2000,
+          event: {
+            event_id: ev?.eventId || undefined,
+            event_type: ev?.eventType || undefined,
+            source: ev?.src || undefined,
+            ts: ev?.ts || undefined,
+            device: ev?.device || undefined,
+            provider: ev?.provider || undefined,
+            title: ev?.title || '',
+            preview: ev?.preview || '',
+            snippet: ev?.rawSnippet || '',
+            metadata: ev?.eventMetadata || {},
+            relation: ev?.relation || '',
+          },
+        }),
+      });
+      const createdCount = Array.isArray(out?.created) ? out.created.length : 0;
+      const harvestCreated = Number(out?.harvest?.created || 0);
+      el.memStatus.textContent = createdCount
+        ? `Created ${createdCount} proposal(s) from selected event.`
+        : harvestCreated > 0
+          ? `Harvest created ${harvestCreated} proposal(s).`
+          : 'Proposal signal submitted; no new proposals this run.';
+      await refreshMemory();
+    };
+
     const renderMemorySearch = (data) => {
       const rows = [];
-      (data.events || []).slice(0, 10).forEach((e) => rows.push(`
-        <div class="memory-item">
-          <div class="meta">event · ${e.source || 'unknown'} · ${e.event_type || 'event'}</div>
-          <div>${(e.snippet || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      const query = data.query || state.memoryLastSearch?.query || '';
+      renderFilterChips(data.events || [], query);
+      const displayEvents = selectDisplayEvents(data.events || [], query, 10);
+      displayEvents.slice(0, 10).forEach((e, idx) => rows.push(`
+        <div class="memory-item search-result" data-event-idx="${idx}" style="cursor:pointer;">
+          <div class="memory-event-head">
+            <div class="memory-event-title">
+              <span class="memory-event-icon">${relationIcon(e.relation)}</span>
+              <div class="memory-event-text">${escapeHtml(semanticEventLabel(e))}</div>
+            </div>
+            <div class="meta">${fmtTs(e.ts)}</div>
+          </div>
+          <div class="meta">${escapeHtml(e.device || 'unknown-device')} · ${escapeHtml(e.src)} · ${escapeHtml(e.relation)}</div>
+          <div>${escapeHtml(state.memoryRawMode ? clampText(e.rawSnippet, 280) : e.preview)}</div>
+          <div class="memory-event-badges">
+            <span class="memory-chip kind-${escapeHtml(slug(e.relation))}">${escapeHtml(e.relation)}</span>
+            <span class="memory-chip">${escapeHtml(e.device || 'unknown')}</span>
+            <span class="memory-chip">${escapeHtml(e.src)}</span>
+          </div>
+          <div class="memory-inline-actions">
+            <button class="memory-btn inline" data-create-proposal-idx="${idx}">Create Proposal</button>
+          </div>
         </div>
       `));
       (data.aikb || []).slice(0, 10).forEach((h) => rows.push(`
@@ -797,39 +2146,83 @@
         </div>
       `));
       el.memSearchResults.innerHTML = rows.join('') || '<div class="memory-item">No results.</div>';
-      renderMemoryGraph(data);
+      el.memSearchResults.querySelectorAll('[data-event-idx]').forEach((node) => {
+        node.addEventListener('click', () => {
+          const idx = Number(node.getAttribute('data-event-idx'));
+          const ev = displayEvents[idx];
+          state.memoryGraphFocusNode = ev ? `event:${idx}:${slug(ev.title)}` : null;
+          renderMemoryGraph(data, state.memoryProposalsCache, displayEvents);
+        });
+      });
+      el.memSearchResults.querySelectorAll('[data-create-proposal-idx]').forEach((node) => {
+        node.addEventListener('click', async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const idx = Number(node.getAttribute('data-create-proposal-idx'));
+          const ev = displayEvents[idx];
+          if (!ev) return;
+          try {
+            await createProposalFromEvent(ev);
+          } catch (err) {
+            el.memStatus.textContent = `Create proposal failed: ${err.message}`;
+          }
+        });
+      });
+      renderMemoryGraph(data, state.memoryProposalsCache, displayEvents);
     };
 
     const refreshMemory = async () => {
       el.memStatus.textContent = 'Refreshing memory...';
       const selectedStatus = el.memProposalStatus.value || '';
-      const [health, stats, proposals] = await Promise.all([
+      const explicitQuery = (el.memQuery.value || '').trim();
+      if (!explicitQuery) state.memoryHasUserSearch = false;
+      const query = explicitQuery || 'memory';
+      const [health, stats, proposals, searchOut] = await Promise.all([
         memoryApi('/memory/health'),
         memoryApi('/memory/stats'),
         memoryApi(`/memory/proposals?status=${encodeURIComponent(selectedStatus)}&limit=80`),
+        memoryApi(`/memory/search?q=${encodeURIComponent(query)}&limit=50`).catch(() => ({ query, aikb: [], events: [], counts: {} })),
       ]);
       el.memHealth.textContent = health.status || 'unknown';
       el.memEvents.textContent = String(stats.events_total ?? '-');
       el.memProposalsNew.textContent = String(stats.proposals_new ?? '-');
       el.memMachines.textContent = String(stats.observer_machines ?? '-');
       renderMemoryProposals(proposals.proposals || []);
-      renderMemoryGraph({
-        query: state.memoryLastSearch?.query || 'memory',
-        aikb: state.memoryLastSearch?.aikb || [],
-        events: state.memoryLastSearch?.events || [],
-      });
+      state.memoryLastSearch = searchOut;
+      renderMemoryGraph(searchOut, proposals.proposals || []);
       el.memStatus.textContent = `Updated ${new Date().toLocaleTimeString()}`;
       state.memoryLoaded = true;
     };
 
-    const runMemorySearch = async () => {
-      const q = el.memQuery.value.trim();
+    const runMemorySearch = async ({ query = null, silent = false } = {}) => {
+      const q = (query == null ? el.memQuery.value : query).trim();
       if (!q) { el.memStatus.textContent = 'Enter a memory search query.'; return; }
-      el.memStatus.textContent = `Searching "${q}"...`;
-      const out = await memoryApi(`/memory/search?q=${encodeURIComponent(q)}&limit=20`);
+      const seq = ++state.memorySearchSeq;
+      if (!silent) el.memStatus.textContent = `Searching "${q}"...`;
+      const out = await memoryApi(`/memory/search?q=${encodeURIComponent(q)}&limit=50`);
+      if (seq !== state.memorySearchSeq) return;
+      state.memoryHasUserSearch = true;
       state.memoryLastSearch = out;
       renderMemorySearch(out);
       el.memStatus.textContent = `Search complete: ${out.counts?.events || 0} events, ${out.counts?.aikb || 0} AIKB hits.`;
+    };
+
+    const queueMemoryLiveSearch = () => {
+      if (state.memorySearchDebounce) clearTimeout(state.memorySearchDebounce);
+      const q = el.memQuery.value.trim();
+      if (!q) {
+        state.memoryHasUserSearch = false;
+        if (state.memoryLastSearch) {
+          renderMemoryGraph(state.memoryLastSearch, state.memoryProposalsCache);
+        }
+        el.memStatus.textContent = 'Type to search memory.';
+        return;
+      }
+      state.memorySearchDebounce = setTimeout(() => {
+        runMemorySearch({ query: q, silent: true }).catch((err) => {
+          el.memStatus.textContent = `Search failed: ${err.message}`;
+        });
+      }, 260);
     };
 
     const runHarvest = async () => {
@@ -845,11 +2238,32 @@
       await refreshMemory();
     };
 
+    const isEditableTarget = (target) => {
+      if (!target || !(target instanceof Element)) return false;
+      if (target.isContentEditable) return true;
+      const tag = target.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+    };
+
+    const moveProposalSelection = (delta) => {
+      const list = state.memoryProposalsCache || [];
+      if (!list.length) return;
+      const currentIndex = Math.max(0, list.findIndex((p) => p.proposal_id === state.memorySelectedProposalId));
+      const nextIndex = (currentIndex + delta + list.length) % list.length;
+      state.memorySelectedProposalId = list[nextIndex].proposal_id;
+      renderMemoryProposals(list);
+      renderProposalDetail(state.memorySelectedProposalId);
+      const activeNode = [...el.memProposals.querySelectorAll('.proposal-pill')]
+        .find((node) => node.dataset.proposalId === state.memorySelectedProposalId);
+      activeNode?.scrollIntoView({ block: 'nearest' });
+    };
+
     el.facetBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         state.facet = btn.dataset.facet;
         el.facetBtns.forEach(b => b.classList.toggle('active', b === btn));
         el.views.forEach(v => v.classList.toggle('active', v.id === `${state.facet}-view`));
+        updateFacetContext();
         if (state.facet === 'shell') setTimeout(() => { if (state.fit) state.fit.fit(); state.term?.focus(); }, 50);
         if (state.facet === 'assist' && state.activeSession) loadHistory(state.activeSession.session_id);
         if (state.facet === 'memory' && !state.memoryLoaded) {
@@ -900,24 +2314,76 @@
       refreshMemory().catch((err) => { el.memStatus.textContent = `Proposal filter failed: ${err.message}`; });
     });
     el.memSearchBtn.addEventListener('click', () => {
+      if (state.memorySearchDebounce) clearTimeout(state.memorySearchDebounce);
       runMemorySearch().catch((err) => { el.memStatus.textContent = `Search failed: ${err.message}`; });
+    });
+    el.memRawMode.addEventListener('change', () => {
+      state.memoryRawMode = !!el.memRawMode.checked;
+      localStorage.setItem(MEMORY_RAW_MODE_KEY, state.memoryRawMode ? '1' : '0');
+      if (state.memoryLastSearch) renderMemorySearch(state.memoryLastSearch);
     });
     el.memQuery.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        if (state.memorySearchDebounce) clearTimeout(state.memorySearchDebounce);
         runMemorySearch().catch((err) => { el.memStatus.textContent = `Search failed: ${err.message}`; });
       }
     });
+    el.memQuery.addEventListener('input', () => {
+      queueMemoryLiveSearch();
+    });
     el.memHarvestBtn.addEventListener('click', () => {
       runHarvest().catch((err) => { el.memStatus.textContent = `Harvest failed: ${err.message}`; });
+    });
+    el.sidebar.addEventListener('wheel', (e) => {
+      const target = activeScrollContainer();
+      if (!target) return;
+      const sidebarCanScroll = el.sidebar.scrollHeight > el.sidebar.clientHeight;
+      if (!sidebarCanScroll) {
+        target.scrollBy({ top: e.deltaY, left: 0, behavior: 'auto' });
+        e.preventDefault();
+      }
+    }, { passive: false });
+    document.addEventListener('keydown', (e) => {
+      if (state.facet !== 'memory') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isEditableTarget(e.target)) return;
+
+      const key = e.key.toLowerCase();
+      if (key === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        moveProposalSelection(1);
+        return;
+      }
+      if (key === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        moveProposalSelection(-1);
+        return;
+      }
+      if (key === 'a') {
+        e.preventDefault();
+        setSelectedProposalStatus('approved').catch((err) => { el.memStatus.textContent = `Accept failed: ${err.message}`; });
+        return;
+      }
+      if (key === 'r') {
+        e.preventDefault();
+        setSelectedProposalStatus('rejected').catch((err) => { el.memStatus.textContent = `Reject failed: ${err.message}`; });
+        return;
+      }
+      if (key === 's') {
+        e.preventDefault();
+        updateSelectedProposalContent().catch((err) => { el.memStatus.textContent = `Save failed: ${err.message}`; });
+      }
     });
     el.sessionCreateBtn.addEventListener('click', async () => {
       const provider = document.getElementById('session-provider').value;
       const customTitle = document.getElementById('session-title').value;
       if (!state.activeWorkspace) return;
+
+      const meta = providerMeta(provider);
       
       el.sessionCreateBtn.disabled = true;
-      el.sessionCreateBtn.textContent = 'Launching...';
+      el.sessionCreateBtn.textContent = meta.availability === 'degraded' ? 'Launching limited provider...' : 'Launching...';
       
       try {
         const s = await api('/sessions/v2', {
@@ -938,7 +2404,11 @@
     });
 
     window.addEventListener('resize', () => { if (state.fit) state.fit.fit(); });
+    updateFacetContext();
+    updateWorkspaceContext();
+    updateSessionContext();
     loadWorkspaces();
+    refreshMemory().catch((err) => { el.memStatus.textContent = `Memory load failed: ${err.message}`; });
   </script>
 </body>
 </html>

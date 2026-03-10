@@ -7,10 +7,43 @@ const { createProxyServer } = require('http-proxy');
 const multer = require('multer');
 const fs = require('fs/promises');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+const APP_BUILD = process.env.APP_BUILD || new Date().toISOString();
+const APP_STARTED_AT = new Date().toISOString();
+
+app.get(['/','/index.html'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/build-info', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.json({
+    app: 'chat-wrapper',
+    build: APP_BUILD,
+    started_at: APP_STARTED_AT,
+  });
+});
+
+app.use(express.static(path.join(__dirname, 'public'), {
+  cacheControl: false,
+  etag: false,
+  lastModified: false,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  },
+}));
 
 const CLAUDE_BIN = process.env.CLAUDE_BIN || '/usr/bin/claude';
 const GEMINI_BIN = process.env.GEMINI_BIN || '/usr/bin/gemini';
@@ -66,6 +99,52 @@ function toBool(value, fallback = false) {
   return fallback;
 }
 
+function normalizeRelPath(input, fallback = '_runtime/memory-proposals-applied.md') {
+  const raw = String(input || '').trim();
+  const candidate = raw || fallback;
+  const normalized = path.posix.normalize(candidate.replace(/\\/g, '/'));
+  if (!normalized || normalized === '.' || normalized.startsWith('../') || path.posix.isAbsolute(normalized)) {
+    return fallback;
+  }
+  return normalized;
+}
+
+function proposalToMarkdownBlock(proposal) {
+  const payloadPretty = JSON.stringify(proposal.payload || {}, null, 2);
+  const lines = [
+    '',
+    `### Memory Proposal Applied — ${new Date().toISOString()}`,
+    `- Proposal ID: \`${proposal.proposal_id}\``,
+    `- Kind: \`${proposal.kind}\``,
+    `- Confidence: \`${Number(proposal.confidence || 0).toFixed(2)}\``,
+    `- Summary: ${String(proposal.summary || '').trim() || '(none)'}`,
+  ];
+
+  const evidence = proposal.evidence && typeof proposal.evidence === 'object' ? proposal.evidence : {};
+  if (evidence.event_id) lines.push(`- Event: \`${evidence.event_id}\``);
+  if (evidence.source) lines.push(`- Source: \`${evidence.source}\``);
+  if (evidence.event_type) lines.push(`- Event Type: \`${evidence.event_type}\``);
+  if (evidence.ts) lines.push(`- Event TS: \`${evidence.ts}\``);
+
+  lines.push('', '```json', payloadPretty, '```', '');
+  return lines.join('\n');
+}
+
+async function ensureTargetFile(absPath, relPath) {
+  await fs.mkdir(path.dirname(absPath), { recursive: true });
+  try {
+    await fs.access(absPath);
+  } catch {
+    const header = [
+      '# Memory Proposal Applications',
+      '',
+      'Auto-appended proposal applications from AI Hub review flow.',
+      '',
+    ].join('\n');
+    await fs.writeFile(absPath, header, 'utf8');
+  }
+}
+
 async function memoryRequest(method, path, { params = null, body = null, expectJson = true } = {}) {
   const url = new URL(`${MEMORY_CORE_URL}${path}`);
   if (params) {
@@ -116,6 +195,21 @@ function extractQueryTokens(text) {
     if (tokens.length >= 8) break;
   }
   return tokens;
+}
+
+function normalizeProposalKind(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (['fact', 'preference', 'task', 'runbook_update'].includes(raw)) return raw;
+  return 'task';
+}
+
+function summarizeForProposal(text, fallback = 'Operator-created proposal candidate') {
+  const clean = String(text || '')
+    .replace(/\s+/g, ' ')
+    .replace(/\u0000/g, '')
+    .trim();
+  if (!clean) return fallback;
+  return clean.slice(0, 320);
 }
 
 function runRg(args, { timeoutMs = 1200, maxBytes = 320000 } = {}) {
@@ -413,9 +507,12 @@ app.get('/memory/metrics', async (_req, res) => {
 
 app.get('/memory/proposals', async (req, res) => {
   try {
+    const hasStatus = Object.prototype.hasOwnProperty.call(req.query, 'status');
+    let status = hasStatus ? String(req.query.status ?? '') : 'new';
+    if (status.toLowerCase() === 'all') status = '';
     const out = await memoryRequest('GET', '/api/v1/proposals', {
       params: {
-        status: req.query.status || 'new',
+        status,
         kind: req.query.kind || '',
         limit: req.query.limit || 50,
       },
@@ -468,11 +565,13 @@ app.get('/memory/search', async (req, res) => {
   if (!req.query.q) {
     return res.status(400).json({ error: 'q query param required' });
   }
+  const requestedLimit = Number(req.query.limit || 20);
+  const safeLimit = Math.max(1, Math.min(50, Number.isFinite(requestedLimit) ? requestedLimit : 20));
   try {
     const out = await memoryRequest('GET', '/api/v1/search', {
       params: {
         q: req.query.q,
-        limit: req.query.limit || 20,
+        limit: safeLimit,
       },
     });
     res.json(out);
@@ -490,6 +589,164 @@ app.post('/memory/harvest', async (req, res) => {
       },
     });
     res.json(out);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.post('/memory/proposals/from-event', async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const event = body.event && typeof body.event === 'object' ? body.event : {};
+    const kind = normalizeProposalKind(body.kind);
+    const stateName = String(body.state_name || 'default').trim() || 'default';
+    const maxEvents = Math.max(1, Math.min(2000, Number(body.max_events || 2000)));
+    const summary = summarizeForProposal(
+      body.summary || event.preview || event.title || event.snippet || event.rawSnippet || ''
+    );
+
+    const manualId = `manual-${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}`;
+    const signalText = `[proposal:${kind}] ${summary} [manual:${manualId}]`;
+    const envelope = {
+      timestamp: new Date().toISOString(),
+      type: 'response_item',
+      payload: {
+        type: 'message',
+        role: 'user',
+        content: [{ type: 'input_text', text: signalText }],
+      },
+    };
+    const content = JSON.stringify(envelope);
+    const ingestEvent = {
+      event_id: crypto.createHash('sha256').update(`${manualId}|${content}`).digest('hex').slice(0, 32),
+      ts: Math.floor(Date.now() / 1000),
+      source: 'ai-memory-sync',
+      event_type: 'response_item',
+      content,
+      metadata: {
+        device: String(event.device || 'ai-home'),
+        provider: String(event.provider || 'manual'),
+        role: 'user',
+        file_path: String(event.file_path || '/manual/ai-home'),
+        filename: String(event.filename || 'manual-proposal.jsonl'),
+        line_index: Number.isFinite(Number(event.line_index)) ? Number(event.line_index) : 0,
+        proposal_intent: true,
+        proposal_kind_hint: kind,
+        proposal_keywords: ['manual-create'],
+        manual_proposal_id: manualId,
+        evidence_event_id: event.event_id || event.eventId || null,
+        evidence_event_type: event.event_type || event.eventType || null,
+        evidence_source: event.source || event.src || null,
+        evidence_snippet: summarizeForProposal(event.snippet || event.rawSnippet || event.preview || '', ''),
+      },
+      redact: true,
+    };
+
+    await memoryRequest('POST', '/api/v1/events', { body: { events: [ingestEvent] } });
+    const harvest = await memoryRequest('POST', '/api/v1/proposals/harvest', {
+      body: { max_events: maxEvents, state_name: stateName },
+    });
+    const proposalsOut = await memoryRequest('GET', '/api/v1/proposals', {
+      params: { status: 'new', limit: 80 },
+    });
+    const proposals = Array.isArray(proposalsOut?.proposals) ? proposalsOut.proposals : [];
+    let created = proposals.filter((p) => {
+      const payload = p && typeof p.payload === 'object' ? p.payload : {};
+      const marker = String(payload?.manual_proposal_id || '');
+      if (marker === manualId) return true;
+      return String(p?.summary || '').includes(summary.slice(0, 48));
+    });
+    const harvestCreated = Number(harvest?.created || 0);
+    if (!created.length && harvestCreated > 0) {
+      created = [...proposals]
+        .sort((a, b) => Number(b?.created_ts || 0) - Number(a?.created_ts || 0))
+        .slice(0, Math.min(harvestCreated, 5));
+    }
+
+    res.json({
+      status: 'ok',
+      manual_id: manualId,
+      harvest,
+      created,
+    });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.post('/memory/proposals/:proposalId/apply-preview', async (req, res) => {
+  try {
+    const proposalOut = await memoryRequest('GET', `/api/v1/proposals/${encodeURIComponent(req.params.proposalId)}`);
+    const proposal = proposalOut.proposal || proposalOut;
+    if (!proposal || !proposal.proposal_id) {
+      return res.status(404).json({ error: 'proposal not found' });
+    }
+
+    const suggested = proposal.payload && typeof proposal.payload === 'object' ? proposal.payload.suggested_file : '';
+    const relPath = normalizeRelPath(req.body?.file || suggested || '');
+    const absPath = path.resolve(AIKB_PATH, relPath);
+    const aikbRoot = path.resolve(AIKB_PATH);
+    if (!absPath.startsWith(`${aikbRoot}${path.sep}`) && absPath !== aikbRoot) {
+      return res.status(400).json({ error: 'target path must stay within AIKB_PATH' });
+    }
+
+    let existing = '';
+    try {
+      existing = await fs.readFile(absPath, 'utf8');
+    } catch {
+      existing = '';
+    }
+
+    const appendBlock = proposalToMarkdownBlock(proposal);
+    const existingLines = existing ? existing.split('\n') : [];
+    const tail = existingLines.slice(Math.max(0, existingLines.length - 40)).join('\n');
+
+    res.json({
+      proposal_id: proposal.proposal_id,
+      file: relPath,
+      preview: {
+        existing_tail: tail,
+        append_block: appendBlock,
+      },
+    });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.post('/memory/proposals/:proposalId/apply', async (req, res) => {
+  try {
+    const proposalOut = await memoryRequest('GET', `/api/v1/proposals/${encodeURIComponent(req.params.proposalId)}`);
+    const proposal = proposalOut.proposal || proposalOut;
+    if (!proposal || !proposal.proposal_id) {
+      return res.status(404).json({ error: 'proposal not found' });
+    }
+
+    const suggested = proposal.payload && typeof proposal.payload === 'object' ? proposal.payload.suggested_file : '';
+    const relPath = normalizeRelPath(req.body?.file || suggested || '');
+    const absPath = path.resolve(AIKB_PATH, relPath);
+    const aikbRoot = path.resolve(AIKB_PATH);
+    if (!absPath.startsWith(`${aikbRoot}${path.sep}`) && absPath !== aikbRoot) {
+      return res.status(400).json({ error: 'target path must stay within AIKB_PATH' });
+    }
+
+    await ensureTargetFile(absPath, relPath);
+    const block = proposalToMarkdownBlock(proposal);
+    await fs.appendFile(absPath, block, 'utf8');
+
+    const patchOut = await memoryRequest('PATCH', `/api/v1/proposals/${encodeURIComponent(req.params.proposalId)}`, {
+      body: {
+        status: 'applied',
+        review_notes: req.body?.review_notes == null ? null : String(req.body.review_notes),
+        applied_file: relPath,
+      },
+    });
+
+    res.json({
+      status: 'ok',
+      file: relPath,
+      proposal: patchOut.proposal || null,
+    });
   } catch (err) {
     res.status(502).json({ error: err.message });
   }
