@@ -1093,9 +1093,9 @@
           <button id="refresh-btn" class="action-btn secondary" type="button">Refresh</button>
         </div>
         <select id="depth-filter" class="select-input">
-          <option value="1">Depth 1 · direct hits</option>
-          <option value="2" selected>Depth 2 · devices and sources</option>
-          <option value="3">Depth 3 · relations and proposals</option>
+          <option value="1">Depth 1 · adjacent topics</option>
+          <option value="2" selected>Depth 2 · topics and evidence</option>
+          <option value="3">Depth 3 · topics, evidence, and proposals</option>
         </select>
         <select id="event-cap-filter" class="select-input">
           <option value="8">8 events</option>
@@ -1165,8 +1165,8 @@
           <div class="card graph-card">
             <div class="card-head">
               <div class="card-title">
-                <h2>Organic Relationship View</h2>
-                <p>Results are arranged as a living field instead of a static list: query, devices, sources, relations, AIKB hits, and proposals all stay visible together.</p>
+                <h2>Topic Neighborhood View</h2>
+                <p>Results cluster around adjacent concepts instead of noisy provenance labels, so the graph shows what your search is actually about before you drill into where each memory came from.</p>
               </div>
               <div class="chip-row">
                 <span id="graph-chip" class="chip mono">graph idle</span>
@@ -1176,9 +1176,9 @@
             </div>
             <div class="legend">
               <span class="legend-item"><span class="dot" style="background:#8ae6c2"></span>query</span>
+              <span class="legend-item"><span class="dot" style="background:#ffd36e"></span>adjacent topic</span>
               <span class="legend-item"><span class="dot" style="background:#6ec7ff"></span>AIKB hit</span>
-              <span class="legend-item"><span class="dot" style="background:#ffbc7b"></span>event</span>
-              <span class="legend-item"><span class="dot" style="background:#7bb4ff"></span>device or source</span>
+              <span class="legend-item"><span class="dot" style="background:#ffbc7b"></span>event evidence</span>
               <span class="legend-item"><span class="dot" style="background:#d7a1ff"></span>proposal</span>
             </div>
             <div class="graph-controls">
@@ -1245,7 +1245,7 @@
             </div>
             <div class="info-card">
               <div class="label">Query Reasoning</div>
-              <div id="info-query-reasoning" class="value">Graph neighborhoods are built from events, AIKB hits, sources, devices, and proposals connected to the active query.</div>
+              <div id="info-query-reasoning" class="value">Graph neighborhoods are built from topic co-occurrence across matching events and AIKB notes, with provenance available in the inspector instead of dominating the graph.</div>
             </div>
           </div>
 
@@ -1765,6 +1765,7 @@
       showContextBtn: document.getElementById('show-context-btn'),
       filterFileBtn: document.getElementById('filter-file-btn'),
       infoDataPath: document.getElementById('info-data-path'),
+      infoQueryReasoning: document.getElementById('info-query-reasoning'),
       opsLog: document.getElementById('ops-log'),
       traceList: document.getElementById('trace-list'),
       terminalFrame: document.getElementById('terminal-frame'),
@@ -2104,6 +2105,71 @@
 
     const relationLabel = (event) => String(event?.event_type || event?.relation || 'event');
 
+    const TOPIC_STOPWORDS = new Set([
+      'about', 'after', 'again', 'against', 'all', 'also', 'and', 'another', 'around', 'because', 'before', 'being',
+      'between', 'brief', 'but', 'can', 'could', 'does', 'dont', 'each', 'else', 'for', 'from', 'have', 'here', 'into',
+      'just', 'keep', 'less', 'like', 'look', 'lots', 'make', 'more', 'most', 'much', 'near',
+      'nearby', 'need', 'next', 'only', 'other', 'over', 'really', 'same', 'seems', 'show', 'some',
+      'sort', 'still', 'than', 'that', 'the', 'their', 'them', 'then', 'there', 'these', 'they', 'this',
+      'those', 'through', 'topic', 'very', 'want', 'what', 'when', 'where', 'which', 'while', 'with',
+      'word', 'would', 'your', 'plan', 'week', 'idea', 'new', 'see', 'set', 'state', 'too', 'lands',
+    ]);
+
+    const TOPIC_NOISE = new Set([
+      'adjacent', 'agent', 'assistant', 'authentik', 'backfill', 'browser', 'build', 'captured', 'chat',
+      'check', 'claude', 'cleanly', 'codex', 'context', 'core', 'device', 'event', 'events', 'field',
+      'file', 'function', 'gemini', 'graph', 'history', 'home', 'json',
+      'jsonl', 'line', 'memory', 'message', 'messages', 'metadata', 'model', 'models', 'note', 'notes',
+      'nodes', 'openai', 'operator', 'output', 'path', 'payload', 'proposal', 'proposals', 'provider',
+      'query', 'reasoning', 'record', 'records', 'relation', 'response', 'results', 'search', 'session',
+      'source', 'sync', 'system', 'text', 'tool', 'trace', 'unknown', 'user', 'yaml',
+    ]);
+
+    const TOPIC_EVENT_BLACKLIST = new Set([
+      'agent_message', 'assistant_message', 'assistantmessage', 'session_log_line',
+      'turn_context', 'reasoning', 'function_call', 'function_output',
+    ]);
+
+    const normalizeTopicToken = (token) => String(token || '')
+      .toLowerCase()
+      .replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
+
+    const extractTopicTerms = (text, queryTerms = new Set()) => {
+      const seen = new Set();
+      const matches = String(text || '').match(/[A-Za-z0-9][A-Za-z0-9_-]{2,}/g) || [];
+      matches.forEach((token) => {
+        const normalized = normalizeTopicToken(token);
+        if (!normalized) return;
+        if (/^\d+$/.test(normalized)) return;
+        if (normalized.length < 3) return;
+        if (TOPIC_STOPWORDS.has(normalized)) return;
+        if (TOPIC_NOISE.has(normalized)) return;
+        if (queryTerms.has(normalized)) return;
+        if (normalized.startsWith('session-')) return;
+        if (normalized.includes('home.timmcg')) return;
+        if (normalized.endsWith('.json') || normalized.endsWith('.jsonl') || normalized.endsWith('.md')) return;
+        seen.add(normalized);
+      });
+      return [...seen];
+    };
+
+    const topicLabel = (topic) => String(topic || '')
+      .split(/[-_]/g)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+    const scoreTopic = (entry) => (
+      (entry.eventCount || 0) * 1.35 +
+      (entry.aikbCount || 0) * 1.8 +
+      (entry.proposalCount || 0) * 0.65
+    );
+
+    const topicEligibleRecord = (record) => {
+      const kind = normalizeTopicToken(record?.kind || record?.eventType || '');
+      return !TOPIC_EVENT_BLACKLIST.has(kind) && !kind.startsWith('agent');
+    };
+
     const buildGraph = (query, searchOut, proposals) => {
       const nodes = [];
       const edges = [];
@@ -2127,6 +2193,14 @@
         });
       };
 
+      const addEdge = (from, to, weight = 1, reason = '') => edges.push({
+        id: `${from}::${to}`,
+        from,
+        to,
+        weight,
+        reason,
+      });
+
       addNode({
         id: 'query',
         kind: 'query',
@@ -2136,7 +2210,7 @@
         r: 24,
         fill: '#8ae6c2',
         detail: `Search query "${query}" anchors this graph.`,
-        reason: `You searched for "${query}". Every node shown here is connected to that search response.`,
+        reason: `You searched for "${query}". The graph now highlights adjacent topics first, then the evidence supporting those topics.`,
       });
 
       const filteredEvents = state.fileFilter
@@ -2145,269 +2219,289 @@
       const events = filteredEvents.slice(0, eventCap);
       const hits = (searchOut?.aikb || []).slice(0, 8);
       const proposalRows = depth >= 3 ? (proposals || []).slice(0, 8) : [];
+      const queryTerms = new Set(extractTopicTerms(query));
+      const topicEntries = new Map();
+      const visibleTopicIds = new Set();
 
-      const addEdge = (from, to, weight = 1, reason = '') => edges.push({
-        id: `${from}::${to}`,
-        from,
-        to,
-        weight,
-        reason,
-      });
+      const registerTopicUsage = (term, evidenceKind, evidenceId) => {
+        if (!term) return;
+        const entry = topicEntries.get(term) || {
+          id: `topic:${term}`,
+          term,
+          label: topicLabel(term),
+          count: 0,
+          eventCount: 0,
+          aikbCount: 0,
+          proposalCount: 0,
+          evidenceIds: new Set(),
+        };
+        entry.count += 1;
+        entry.evidenceIds.add(evidenceId);
+        if (evidenceKind === 'event') entry.eventCount += 1;
+        if (evidenceKind === 'aikb') entry.aikbCount += 1;
+        if (evidenceKind === 'proposal') entry.proposalCount += 1;
+        topicEntries.set(term, entry);
+      };
 
-      events.forEach((event, index) => {
-        const eventId = `event-${index}`;
-        const device = String(event?.metadata?.device || 'unknown');
-        const source = String(event?.source || 'unknown');
-        const relation = relationLabel(event);
-        const tone = classifyResultTone(summarizeEvent(event), 'tone-history');
-        const eventFill = toneFill(tone);
-        const eventCol = index % 4;
-        const eventRow = Math.floor(index / 4);
-        const radialAngle = (Math.PI * 2 * index) / Math.max(events.length, 1);
-        const layoutX = layout === 'radial'
-          ? width * 0.5 + Math.cos(radialAngle) * 220
-          : layout === 'constellation'
-            ? width * (0.18 + eventCol * 0.2)
-            : width * (0.2 + eventCol * 0.18);
-        const layoutY = layout === 'radial'
-          ? height * 0.48 + Math.sin(radialAngle) * 180
-          : layout === 'constellation'
-            ? height * (0.24 + eventRow * 0.18)
-            : height * (0.22 + eventRow * 0.2);
+      const eventRows = events.map((event, index) => {
         const summary = summarizeEvent(event);
-        addNode({
-          id: eventId,
+        const topicTerms = topicEligibleRecord(summary)
+          ? extractTopicTerms(summary?.summary || '', queryTerms)
+          : [];
+        const row = {
+          id: `event-${index}`,
           kind: 'event',
-          label: summary?.title || String(event?.title || relation || `event ${index + 1}`),
-          x: layoutX,
-          y: layoutY,
-          r: 16,
-          fill: eventFill,
+          label: summary?.title || String(event?.title || relationLabel(event) || `event ${index + 1}`),
           detail: summary?.summary || event?.snippet || '(no snippet)',
-          meta: `${device} · ${source} · ${summary?.sourceRef || relation}`,
-          reason: `This event matched the active query directly. It comes from ${summary?.sourceRef || 'the captured event stream'} on ${device} via ${source}.`,
+          meta: `${String(event?.metadata?.device || 'unknown')} · ${String(event?.source || 'unknown')} · ${summary?.sourceRef || relationLabel(event)}`,
+          reason: `This event matched the active query directly. Its text contributes adjacent topics, while provenance stays available in the inspector.`,
           sourceRef: summary?.sourceRef,
           filePath: summary?.filePath,
           lineNumber: summary?.lineNumber,
           record: summary,
           raw: event,
+          fill: toneFill(classifyResultTone(summary, 'tone-history')),
+          topics: topicTerms,
+          provider: String(event?.metadata?.provider || 'unknown'),
+        };
+        topicTerms.forEach((term) => registerTopicUsage(term, 'event', row.id));
+        return row;
+      });
+
+      const hitRows = hits.map((hit, index) => {
+        const topicTerms = extractTopicTerms(`${hit?.path || ''} ${hit?.snippet || ''}`, queryTerms);
+        const row = {
+          id: `aikb-${index}`,
+          kind: 'aikb',
+          label: (hit?.path || '').split('/').pop() || `AIKB ${index + 1}`,
+          detail: hit?.snippet || '(no snippet)',
+          meta: `${hit?.path || 'AIKB'}:${hit?.line || '-'}`,
+          reason: `This AIKB note matched the active query and adds durable context to the adjacent topic neighborhood.`,
+          raw: hit,
+          fill: toneFill('tone-aikb'),
+          topics: topicTerms,
+        };
+        topicTerms.forEach((term) => registerTopicUsage(term, 'aikb', row.id));
+        return row;
+      });
+
+      const proposalRowsWithTopics = proposalRows.map((proposal, index) => {
+        const topicTerms = extractTopicTerms(`${proposal?.summary || ''} ${proposal?.payload?.raw_text || ''} ${proposal?.payload?.suggested_section || ''}`, queryTerms);
+        const row = {
+          id: `proposal-${index}`,
+          kind: 'proposal',
+          label: proposal?.summary || `proposal ${index + 1}`,
+          detail: JSON.stringify(proposal?.payload || {}, null, 2),
+          meta: `${proposal?.kind || 'proposal'} · ${proposal?.status || 'unknown'}`,
+          reason: `This proposal is visible because the current depth includes review candidates that overlap the active topic neighborhood.`,
+          raw: proposal,
+          fill: toneFill('tone-proposal'),
+          topics: topicTerms,
+        };
+        topicTerms.forEach((term) => registerTopicUsage(term, 'proposal', row.id));
+        return row;
+      });
+
+      const topTopics = [...topicEntries.values()]
+        .filter((entry) => entry.count > 0)
+        .sort((a, b) => scoreTopic(b) - scoreTopic(a) || a.label.localeCompare(b.label))
+        .slice(0, depth === 1 ? 10 : depth === 2 ? 14 : 16);
+
+      topTopics.forEach((entry, index) => {
+        visibleTopicIds.add(entry.id);
+        const angle = (Math.PI * 2 * index) / Math.max(topTopics.length, 1);
+        const orbit = layout === 'radial' ? 205 : layout === 'constellation' ? 225 : 215;
+        addNode({
+          id: entry.id,
+          kind: 'topic',
+          label: entry.label,
+          x: width * 0.5 + Math.cos(angle) * orbit,
+          y: height * 0.48 + Math.sin(angle) * (orbit * 0.72),
+          r: 15 + Math.min(entry.count, 4),
+          fill: '#ffd36e',
+          detail: `${entry.label} appears across ${entry.evidenceIds.size} matching memories.`,
+          meta: `${entry.eventCount} events · ${entry.aikbCount} AIKB${entry.proposalCount ? ` · ${entry.proposalCount} proposals` : ''}`,
+          reason: `${entry.label} is shown because it repeatedly appears beside "${query}" in the visible result set.`,
+          record: {
+            kind: 'topic',
+            summary: `${entry.label} is an adjacent concept extracted from matching text.`,
+            eventType: 'topic',
+            supportCount: entry.evidenceIds.size,
+          },
         });
-        addEdge('query', eventId, 1.8, `The query directly retrieved this event as a top match.`);
+        addEdge('query', entry.id, 1.55 + Math.min(entry.count, 3) * 0.18, `${entry.label} is one of the strongest co-occurring topics beside "${query}".`);
+      });
 
-        if (depth >= 2) {
-          const deviceId = `device:${device}`;
-          addNode({
-            id: deviceId,
-            kind: 'device',
-            label: device,
-            x: width * 0.12,
-            y: height * (0.16 + ((index % 6) * 0.11)),
-            r: 13,
-            fill: '#7bb4ff',
-            detail: `Observer machine ${device}`,
-            reason: `This device is included because at least one matched event originated from ${device}.`,
-          });
-          addEdge(deviceId, eventId, 1.1, `This event originated from ${device}.`);
+      const addEvidenceNode = (row, index, total, ringRadius = 340) => {
+        const angle = (Math.PI * 2 * index) / Math.max(total, 1);
+        const layoutX = layout === 'radial'
+          ? width * 0.5 + Math.cos(angle) * ringRadius
+          : layout === 'constellation'
+            ? width * (0.18 + (index % 4) * 0.2)
+            : width * 0.5 + Math.cos(angle) * (ringRadius * 0.95);
+        const layoutY = layout === 'radial'
+          ? height * 0.48 + Math.sin(angle) * (ringRadius * 0.74)
+          : layout === 'constellation'
+            ? height * (0.2 + Math.floor(index / 4) * 0.18)
+            : height * 0.48 + Math.sin(angle) * (ringRadius * 0.58);
+        addNode({
+          id: row.id,
+          kind: row.kind,
+          label: row.label,
+          x: layoutX,
+          y: layoutY,
+          r: row.kind === 'aikb' ? 14 : 12,
+          fill: row.fill,
+          detail: row.detail,
+          meta: row.meta,
+          reason: row.reason,
+          sourceRef: row.sourceRef,
+          filePath: row.filePath,
+          lineNumber: row.lineNumber,
+          record: row.record,
+          raw: row.raw,
+        });
 
-          const sourceId = `source:${source}`;
-          addNode({
-            id: sourceId,
-            kind: 'source',
-            label: source,
-            x: width * 0.86,
-            y: height * (0.18 + ((index % 6) * 0.11)),
-            r: 13,
-            fill: '#6ec7ff',
-            detail: `Source ${source}`,
-            reason: `This source is included because it produced one or more of the matched events.`,
-          });
-          addEdge(sourceId, eventId, 1, `This event was emitted by source ${source}.`);
+        const linkedTopics = row.topics
+          .map((term) => topicEntries.get(term))
+          .filter((entry) => entry && visibleTopicIds.has(entry.id))
+          .sort((a, b) => scoreTopic(b) - scoreTopic(a))
+          .slice(0, 3);
+
+        if (!linkedTopics.length) {
+          addEdge('query', row.id, 0.92, `This ${row.kind === 'aikb' ? 'AIKB note' : 'event'} matched the query directly even though it did not yield one of the strongest visible adjacent topics.`);
+          return;
         }
 
-        if (depth >= 3) {
-          const relationId = `relation:${relation}`;
-          addNode({
-            id: relationId,
-            kind: 'relation',
-            label: relation,
-            x: width * (0.34 + ((index % 5) * 0.1)),
-            y: height * 0.1,
-            r: 12,
-            fill: '#d7a1ff',
-            detail: `Relation kind ${relation}`,
-            reason: `This relation label is included so you can see the semantic shape of the retrieved events.`,
-          });
-          addEdge(relationId, eventId, 0.85, `This event carries the relation label ${relation}.`);
-        }
+        linkedTopics.forEach((entry, topicIndex) => {
+          addEdge(entry.id, row.id, 0.9 - topicIndex * 0.08, `${row.label} mentions ${entry.label}, so it acts as supporting evidence for that topic.`);
+        });
+      };
 
-        if (state.expandedNodeIds.has(eventId)) {
-          const provider = String(event?.metadata?.provider || 'unknown');
-          const providerId = `provider:${provider}:${index}`;
+      if (depth >= 2) {
+        const visibleEvidence = topTopics.length
+          ? [...eventRows, ...hitRows].filter((row) => row.topics.some((term) => visibleTopicIds.has(`topic:${term}`)))
+          : [...eventRows, ...hitRows];
+        visibleEvidence.forEach((row, index) => addEvidenceNode(row, index, visibleEvidence.length));
+      }
+
+      if (depth >= 3) {
+        proposalRowsWithTopics.forEach((row, index) => {
+          addNode({
+            id: row.id,
+            kind: row.kind,
+            label: row.label,
+            x: width * 0.82,
+            y: height * (0.24 + index * 0.08),
+            r: 13,
+            fill: row.fill,
+            detail: row.detail,
+            meta: row.meta,
+            reason: row.reason,
+            raw: row.raw,
+          });
+
+          const linkedTopics = row.topics
+            .map((term) => topicEntries.get(term))
+            .filter((entry) => entry && visibleTopicIds.has(entry.id))
+            .sort((a, b) => scoreTopic(b) - scoreTopic(a))
+            .slice(0, 2);
+
+          if (!linkedTopics.length) {
+            addEdge('query', row.id, 1.05, `This proposal is included because it is part of the current review queue for the active search context.`);
+          } else {
+            linkedTopics.forEach((entry, topicIndex) => {
+              addEdge(entry.id, row.id, 0.84 - topicIndex * 0.08, `${row.label} overlaps with the adjacent topic ${entry.label}.`);
+            });
+          }
+        });
+      }
+
+      [...state.expandedNodeIds].forEach((expandedId) => {
+        if (!expandedId.startsWith('topic:')) return;
+        const topicTerm = expandedId.split(':').slice(1).join(':');
+        const extraRows = [...eventRows, ...hitRows]
+          .filter((row) => row.topics.includes(topicTerm))
+          .slice(depth >= 2 ? eventCap : 0, (depth >= 2 ? eventCap : 0) + 6);
+        extraRows.forEach((row, index) => {
+          const nodeId = `expanded:${expandedId}:${index}`;
+          addNode({
+            id: nodeId,
+            kind: row.kind,
+            label: row.label,
+            x: width * 0.5 + Math.cos((Math.PI * 2 * index) / Math.max(extraRows.length, 1)) * 430,
+            y: height * 0.48 + Math.sin((Math.PI * 2 * index) / Math.max(extraRows.length, 1)) * 310,
+            r: row.kind === 'aikb' ? 12 : 11,
+            fill: row.fill,
+            detail: row.detail,
+            meta: row.meta,
+            reason: `Expanded from ${topicLabel(topicTerm)} to reveal more evidence that mentions this adjacent topic.`,
+            sourceRef: row.sourceRef,
+            filePath: row.filePath,
+            lineNumber: row.lineNumber,
+            record: row.record,
+            raw: row.raw,
+          });
+          addEdge(expandedId, nodeId, 0.78, `${row.label} is additional evidence connected to ${topicLabel(topicTerm)}.`);
+        });
+      });
+
+      [...eventRows, ...hitRows].forEach((row, index) => {
+        if (!state.expandedNodeIds.has(row.id)) return;
+        const angle = (Math.PI * 2 * index) / Math.max(eventRows.length + hitRows.length, 1);
+        const provider = row.record?.provider || row.provider || '';
+        if (provider) {
+          const providerId = `provider:${provider}:${row.id}`;
           addNode({
             id: providerId,
             kind: 'provider',
             label: provider,
-            x: width * 0.5 + Math.cos(radialAngle + 0.4) * 340,
-            y: height * 0.48 + Math.sin(radialAngle + 0.4) * 280,
+            x: width * 0.5 + Math.cos(angle + 0.35) * 420,
+            y: height * 0.48 + Math.sin(angle + 0.35) * 320,
             r: 11,
             fill: '#8ae6c2',
             detail: `Provider ${provider}`,
-            reason: `Expanded from ${eventId} to expose the provider behind this event.`,
+            reason: `Expanded from ${row.label} to expose the provider behind this evidence.`,
           });
-          addEdge(providerId, eventId, 0.9, `This expanded provider emitted or handled the selected event.`);
-
-          const filePath = String(event?.metadata?.file_path || '').trim();
-          if (filePath) {
-            const fileId = `file:${index}`;
-            addNode({
-              id: fileId,
-              kind: 'file',
-              label: filePath.split('/').pop() || 'session file',
-              x: width * 0.5 + Math.cos(radialAngle - 0.35) * 360,
-              y: height * 0.48 + Math.sin(radialAngle - 0.35) * 300,
-              r: 11,
-              fill: '#6ec7ff',
-              detail: filePath,
-              meta: `line ${event?.metadata?.line_index ?? '-'}`,
-              reason: `Expanded from ${eventId} to show the backing file path for this event.`,
-            });
-            addEdge(fileId, eventId, 0.9, `This file path backs the selected event.`);
-          }
+          addEdge(providerId, row.id, 0.82, `This provider emitted or handled the selected evidence node.`);
         }
-      });
 
-      hits.forEach((hit, index) => {
-        const hitId = `aikb-${index}`;
-        addNode({
-          id: hitId,
-          kind: 'aikb',
-          label: (hit?.path || '').split('/').pop() || `AIKB ${index + 1}`,
-          x: width * (0.38 + ((index % 4) * 0.12)),
-          y: height * 0.82,
-          r: 14,
-          fill: toneFill('tone-aikb'),
-          detail: hit?.snippet || '(no snippet)',
-          meta: `${hit?.path || 'AIKB'}:${hit?.line || '-'}`,
-          reason: `This AIKB note matched the active query lexically and is shown as durable long-term context.`,
-          raw: hit,
-        });
-        addEdge('query', hitId, 1.4, `The query matched this AIKB note directly.`);
-
-        if (state.expandedNodeIds.has(hitId)) {
-          const fullPath = String(hit?.path || '').trim();
-          const parts = fullPath.split('/').filter(Boolean).slice(-3);
-          parts.forEach((part, offset) => {
-            const partId = `aikb-path:${index}:${offset}`;
-            addNode({
-              id: partId,
-              kind: 'path',
-              label: part,
-              x: width * (0.22 + offset * 0.12),
-              y: height * (0.78 - index * 0.04),
-              r: 10,
-              fill: '#6ec7ff',
-              detail: fullPath,
-              reason: `Expanded from an AIKB hit to show the durable path context around this note.`,
-            });
-            addEdge(partId, hitId, 0.72, `This path segment helps explain where the AIKB hit lives canonically.`);
-          });
-        }
-      });
-
-      proposalRows.forEach((proposal, index) => {
-        const proposalId = `proposal-${index}`;
-        addNode({
-          id: proposalId,
-          kind: 'proposal',
-          label: proposal?.summary || `proposal ${index + 1}`,
-          x: width * 0.76,
-          y: height * (0.26 + (index * 0.08)),
-          r: 13,
-          fill: toneFill('tone-proposal'),
-          detail: JSON.stringify(proposal?.payload || {}, null, 2),
-          meta: `${proposal?.kind || 'proposal'} · ${proposal?.status || 'unknown'}`,
-          reason: `This proposal is visible because the current depth includes durable review candidates beside retrieved events.`,
-          raw: proposal,
-        });
-        addEdge('query', proposalId, 1.15, `This proposal is part of the current review queue and included at the current depth.`);
-
-        if (state.expandedNodeIds.has(proposalId)) {
-          const suggestedFile = String(proposal?.payload?.suggested_file || '').trim();
-          if (suggestedFile) {
-            const targetId = `proposal-target:${index}`;
-            addNode({
-              id: targetId,
-              kind: 'file',
-              label: suggestedFile.split('/').pop() || 'target file',
-              x: width * 0.88,
-              y: height * (0.22 + index * 0.09),
-              r: 11,
-              fill: '#d7a1ff',
-              detail: suggestedFile,
-              reason: `Expanded from the proposal to expose its suggested AIKB destination.`,
-            });
-            addEdge(targetId, proposalId, 0.82, `This file is the proposed durable destination for the selected proposal.`);
-          }
-        }
-      });
-
-      const expandRelatedEvents = (predicate, anchorId, palette, reasonBuilder) => {
-        const extraEvents = (searchOut?.events || [])
-          .filter(predicate)
-          .slice(eventCap, eventCap + 4);
-        extraEvents.forEach((event, index) => {
-          const nodeId = `expanded:${anchorId}:${index}`;
-          const relatedSummary = summarizeEvent(event);
-          const relatedTone = classifyResultTone(relatedSummary, 'tone-history');
+        const filePath = String(row.filePath || row.raw?.path || '').trim();
+        if (filePath) {
+          const fileId = `file:${row.id}`;
           addNode({
-            id: nodeId,
-            kind: 'event',
-            label: relatedSummary?.title || String(event?.title || relationLabel(event) || `related event ${index + 1}`),
-            x: width * (0.3 + (index % 2) * 0.42),
-            y: height * (0.14 + index * 0.12),
-            r: 12,
-            fill: toneFill(relatedTone) || palette,
-            detail: relatedSummary?.summary || event?.snippet || '(no snippet)',
-            meta: `${String(event?.metadata?.device || 'unknown')} · ${String(event?.source || 'unknown')} · ${relatedSummary?.sourceRef || 'session event'}`,
-            reason: reasonBuilder(event),
-            sourceRef: relatedSummary?.sourceRef,
-            filePath: relatedSummary?.filePath,
-            lineNumber: relatedSummary?.lineNumber,
-            record: relatedSummary,
-            raw: event,
+            id: fileId,
+            kind: 'file',
+            label: filePath.split('/').pop() || 'source file',
+            x: width * 0.5 + Math.cos(angle - 0.32) * 445,
+            y: height * 0.48 + Math.sin(angle - 0.32) * 338,
+            r: 11,
+            fill: '#6ec7ff',
+            detail: filePath,
+            meta: row.lineNumber ? `line ${row.lineNumber}` : '',
+            reason: `Expanded from ${row.label} to show the backing file path for this evidence node.`,
           });
-          addEdge(anchorId, nodeId, 0.78, `Expanded from ${anchorId} to reveal a semantically related event outside the default event cap.`);
-        });
-      };
+          addEdge(fileId, row.id, 0.82, `This file path backs the selected evidence node.`);
+        }
+      });
 
-      [...state.expandedNodeIds].forEach((expandedId) => {
-        if (expandedId.startsWith('device:')) {
-          const device = expandedId.split(':').slice(1).join(':');
-          expandRelatedEvents(
-            (event) => String(event?.metadata?.device || 'unknown') === device,
-            expandedId,
-            '#90cbff',
-            () => `Expanded from ${device} to show additional events from this observer beyond the default visible set.`,
-          );
-        }
-        if (expandedId.startsWith('source:')) {
-          const source = expandedId.split(':').slice(1).join(':');
-          expandRelatedEvents(
-            (event) => String(event?.source || 'unknown') === source,
-            expandedId,
-            '#7ed9ff',
-            () => `Expanded from ${source} to show more events produced by this source.`,
-          );
-        }
-        if (expandedId.startsWith('relation:')) {
-          const relation = expandedId.split(':').slice(1).join(':');
-          expandRelatedEvents(
-            (event) => relationLabel(event) === relation,
-            expandedId,
-            '#ebb0ff',
-            () => `Expanded from the ${relation} relation to reveal other events with the same semantic shape.`,
-          );
-        }
+      proposalRowsWithTopics.forEach((row, index) => {
+        if (!state.expandedNodeIds.has(row.id)) return;
+        const suggestedFile = String(row.raw?.payload?.suggested_file || '').trim();
+        if (!suggestedFile) return;
+        const targetId = `proposal-target:${index}`;
+        addNode({
+          id: targetId,
+          kind: 'file',
+          label: suggestedFile.split('/').pop() || 'target file',
+          x: width * 0.9,
+          y: height * (0.21 + index * 0.09),
+          r: 11,
+          fill: '#d7a1ff',
+          detail: suggestedFile,
+          reason: `Expanded from the proposal to expose its suggested AIKB destination.`,
+        });
+        addEdge(targetId, row.id, 0.82, `This file is the proposed durable destination for the selected proposal.`);
       });
 
       return { nodes, edges, width, height };
@@ -3313,6 +3407,12 @@
       if (el.reviewQueuePill) el.reviewQueuePill.textContent = `${state.proposals.length} visible`;
       el.graphChip.textContent = `graph ${(performance.now() - started).toFixed(0)}ms`;
       el.infoDataPath.textContent = `Search came from /memory/search with ${events} event hits and ${aikb} AIKB hits. Proposal context came from /memory/proposals with filter "${el.proposalFilter.value || 'all'}".${state.fileFilter ? ` File filter: ${state.fileFilter}` : ''}`;
+      if (el.infoQueryReasoning) {
+        const topicCount = state.graph.nodes.filter((node) => node.kind === 'topic').length;
+        el.infoQueryReasoning.textContent = topicCount
+          ? `The graph is surfacing ${topicCount} adjacent topics extracted from matching events and AIKB notes. Click a topic to inspect its support, then expand if you want more evidence instead of provenance clutter.`
+          : 'This search did not yield strong adjacent topic terms, so the graph is falling back to direct evidence nodes and the inspector for context.';
+      }
       logOp('search', `${query} -> ${events} events, ${aikb} AIKB, ${state.proposals.length} proposals`);
       logTrace('graph rebuild', `${state.graph.nodes.length} nodes and ${state.graph.edges.length} edges`);
       if (!proposalById(state.selectedProposalId) && state.proposals[0]?.proposal_id) {
