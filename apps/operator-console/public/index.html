@@ -782,11 +782,11 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .terminal-wrap,
-    .code-wrap,
-    .models-wrap {
+    .view.active.terminal-wrap,
+    .view.active.code-wrap,
+    .view.active.models-wrap {
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: 1fr auto;
       gap: 14px;
       padding: 14px;
       min-height: 0;
@@ -801,6 +801,16 @@
       min-height: 0;
     }
 
+    #terminal-view,
+    #code-view {
+      align-content: stretch;
+    }
+
+    #terminal-view .surface-frame,
+    #code-view .surface-frame {
+      min-height: clamp(560px, 72vh, 980px);
+    }
+
     .toolbar-block {
       display: grid;
       gap: 12px;
@@ -811,6 +821,11 @@
       flex-wrap: wrap;
       gap: 10px;
       align-items: center;
+    }
+
+    .control-row.compact {
+      align-items: flex-end;
+      gap: 12px;
     }
 
     .range-group {
@@ -1495,11 +1510,12 @@
       </section>
 
       <section id="terminal-view" class="view terminal-wrap">
+        <iframe id="terminal-frame" class="surface-frame" src="/terminal/" title="Terminal" loading="eager" referrerpolicy="same-origin"></iframe>
         <div class="card toolbar-block">
           <div class="card-head">
             <div class="card-title">
               <h2>Remote Shell</h2>
-              <p>Keep the always-on home-lab shell, but make it more yours. Presets tune font, color, contrast, and density without leaving the page.</p>
+              <p>Keep the shell front and center. Styling controls stay below so the first screen gives you immediate working room.</p>
             </div>
             <div class="chip-row">
               <span id="terminal-status" class="chip mono">terminal pending</span>
@@ -1512,13 +1528,13 @@
             <button class="theme-btn" data-theme="amber" type="button">Amber</button>
             <button class="theme-btn" data-theme="classic" type="button">Classic</button>
           </div>
-            <div class="control-row">
-              <select id="font-select" class="select-input">
-                <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
-                <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
-                <option value="'Fira Code', monospace">Fira Code</option>
-                <option value="'SF Mono', Menlo, monospace">SF Mono</option>
-              </select>
+          <div class="control-row compact">
+            <select id="font-select" class="select-input">
+              <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
+              <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+              <option value="'Fira Code', monospace">Fira Code</option>
+              <option value="'SF Mono', Menlo, monospace">SF Mono</option>
+            </select>
             <div class="range-group">
               <label class="mono" for="scale-input">Scale</label>
               <input id="scale-input" class="range-input" type="range" min="0.8" max="1.45" step="0.05" value="1">
@@ -1543,15 +1559,15 @@
             <button id="terminal-popout" class="action-btn secondary" type="button">Open Fullscreen</button>
           </div>
         </div>
-        <iframe id="terminal-frame" class="surface-frame" src="/terminal/" title="Terminal" loading="eager" referrerpolicy="same-origin"></iframe>
       </section>
 
       <section id="code-view" class="view code-wrap">
+        <iframe id="code-frame" class="surface-frame" src="https://code.home.timmcg.net" title="Code Server" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
         <div class="card toolbar-block">
           <div class="card-head">
             <div class="card-title">
               <h2>Code Surface</h2>
-              <p>Keep code-server embedded so project edits stay one click away while memory search remains the primary orientation layer.</p>
+              <p>Give the editor the full first-screen footprint. Secondary actions stay below so you land directly in the working surface.</p>
             </div>
             <div class="chip-row">
               <span class="chip mono">origin: code.home.timmcg.net</span>
@@ -1561,7 +1577,6 @@
             <button id="code-popout" class="action-btn secondary" type="button">Open Fullscreen</button>
           </div>
         </div>
-        <iframe id="code-frame" class="surface-frame" src="https://code.home.timmcg.net" title="Code Server" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
       </section>
     </main>
   </div>
