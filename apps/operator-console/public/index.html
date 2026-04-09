@@ -1709,6 +1709,7 @@
       graphZoomOutBtn: document.getElementById('graph-zoom-out-btn'),
       graphZoomInBtn: document.getElementById('graph-zoom-in-btn'),
       graphSvg: document.getElementById('graph-svg'),
+      graphCard: document.querySelector('.graph-card'),
       miniMapSvg: document.getElementById('mini-map-svg'),
       graphViewportNote: document.getElementById('graph-viewport-note'),
       graphChip: document.getElementById('graph-chip'),
@@ -2106,19 +2107,19 @@
     const relationLabel = (event) => String(event?.event_type || event?.relation || 'event');
 
     const TOPIC_STOPWORDS = new Set([
-      'about', 'after', 'again', 'against', 'all', 'also', 'and', 'another', 'around', 'because', 'before', 'being',
-      'between', 'brief', 'but', 'can', 'could', 'does', 'dont', 'each', 'else', 'for', 'from', 'have', 'here', 'into',
-      'just', 'keep', 'less', 'like', 'look', 'lots', 'make', 'more', 'most', 'much', 'near',
+      'about', 'active', 'added', 'after', 'again', 'against', 'all', 'also', 'and', 'another', 'around', 'because', 'before', 'being',
+      'between', 'brief', 'but', 'can', 'committed', 'configure', 'could', 'does', 'dont', 'each', 'else', 'for', 'from', 'have', 'here', 'into',
+      'just', 'keep', 'less', 'lightweight', 'like', 'look', 'lots', 'make', 'more', 'most', 'much', 'near',
       'nearby', 'need', 'next', 'only', 'other', 'over', 'really', 'same', 'seems', 'show', 'some',
-      'sort', 'still', 'than', 'that', 'the', 'their', 'them', 'then', 'there', 'these', 'they', 'this',
+      'removed', 'sort', 'still', 'than', 'that', 'the', 'their', 'them', 'then', 'there', 'these', 'they', 'this',
       'those', 'through', 'topic', 'very', 'want', 'what', 'when', 'where', 'which', 'while', 'with',
-      'word', 'would', 'your', 'plan', 'week', 'idea', 'new', 'see', 'set', 'state', 'too', 'lands',
+      'updated', 'word', 'would', 'your', 'plan', 'week', 'idea', 'new', 'see', 'set', 'state', 'status', 'too', 'trigger', 'lands',
     ]);
 
     const TOPIC_NOISE = new Set([
-      'adjacent', 'agent', 'assistant', 'authentik', 'backfill', 'browser', 'build', 'captured', 'chat',
+      'adjacent', 'agent', 'agents', 'assistant', 'authentik', 'backfill', 'browser', 'build', 'captured', 'chat',
       'check', 'claude', 'cleanly', 'codex', 'context', 'core', 'device', 'event', 'events', 'field',
-      'file', 'function', 'gemini', 'graph', 'history', 'home', 'json',
+      'file', 'function', 'gemini', 'git', 'graph', 'history', 'home', 'json',
       'jsonl', 'line', 'memory', 'message', 'messages', 'metadata', 'model', 'models', 'note', 'notes',
       'nodes', 'openai', 'operator', 'output', 'path', 'payload', 'proposal', 'proposals', 'provider',
       'query', 'reasoning', 'record', 'records', 'relation', 'response', 'results', 'search', 'session',
@@ -2130,44 +2131,105 @@
       'turn_context', 'reasoning', 'function_call', 'function_output',
     ]);
 
+    const TOPIC_PHRASE_BLACKLIST = new Set([
+      'does sound', 'heavy traffic', 'next week', 'welcome package',
+      'sounds like', 'this way', 'quick assesment', 'idea about',
+    ]);
+
     const normalizeTopicToken = (token) => String(token || '')
       .toLowerCase()
       .replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
 
+    const topicTokenEligible = (token, queryTerms = new Set()) => {
+      const normalized = normalizeTopicToken(token);
+      if (!normalized) return false;
+      if (/^\d+$/.test(normalized)) return false;
+      if (normalized.length < 3) return false;
+      if (TOPIC_STOPWORDS.has(normalized)) return false;
+      if (TOPIC_NOISE.has(normalized)) return false;
+      if (queryTerms.has(normalized)) return false;
+      if (normalized.startsWith('session-')) return false;
+      if (normalized.includes('home.timmcg')) return false;
+      if (normalized.endsWith('.json') || normalized.endsWith('.jsonl') || normalized.endsWith('.md')) return false;
+      return true;
+    };
+
     const extractTopicTerms = (text, queryTerms = new Set()) => {
       const seen = new Set();
-      const matches = String(text || '').match(/[A-Za-z0-9][A-Za-z0-9_-]{2,}/g) || [];
-      matches.forEach((token) => {
-        const normalized = normalizeTopicToken(token);
-        if (!normalized) return;
-        if (/^\d+$/.test(normalized)) return;
-        if (normalized.length < 3) return;
-        if (TOPIC_STOPWORDS.has(normalized)) return;
-        if (TOPIC_NOISE.has(normalized)) return;
-        if (queryTerms.has(normalized)) return;
-        if (normalized.startsWith('session-')) return;
-        if (normalized.includes('home.timmcg')) return;
-        if (normalized.endsWith('.json') || normalized.endsWith('.jsonl') || normalized.endsWith('.md')) return;
-        seen.add(normalized);
+      const rawTokens = String(text || '').match(/[A-Za-z0-9][A-Za-z0-9_-]{1,}/g) || [];
+      const tokens = rawTokens
+        .map((token) => normalizeTopicToken(token))
+        .filter(Boolean);
+
+      tokens.forEach((token) => {
+        if (!topicTokenEligible(token, queryTerms)) return;
+        seen.add(token);
       });
-      return [...seen];
+
+      for (let index = 0; index < tokens.length - 1; index += 1) {
+        const first = tokens[index];
+        const second = tokens[index + 1];
+        if (!topicTokenEligible(first, queryTerms) || !topicTokenEligible(second, queryTerms)) continue;
+        const phrase = `${first} ${second}`;
+        if (TOPIC_PHRASE_BLACKLIST.has(phrase)) continue;
+        seen.add(phrase);
+      }
+
+      for (let index = 0; index < tokens.length - 2; index += 1) {
+        const first = tokens[index];
+        const second = tokens[index + 1];
+        const third = tokens[index + 2];
+        if (!topicTokenEligible(first, queryTerms) || !topicTokenEligible(second, queryTerms) || !topicTokenEligible(third, queryTerms)) continue;
+        const phrase = `${first} ${second} ${third}`;
+        if (TOPIC_PHRASE_BLACKLIST.has(phrase)) continue;
+        if (first.length + second.length + third.length < 10) continue;
+        seen.add(phrase);
+      }
+
+      return [...seen].filter((term) => {
+        if (TOPIC_PHRASE_BLACKLIST.has(term)) return false;
+        if (term.includes('  ')) return false;
+        return true;
+      });
     };
 
     const topicLabel = (topic) => String(topic || '')
-      .split(/[-_]/g)
+      .split(/[ _-]/g)
       .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .map((part) => (/^\d+[a-z]+$/i.test(part) ? part.toLowerCase() : part.charAt(0).toUpperCase() + part.slice(1)))
       .join(' ');
 
     const scoreTopic = (entry) => (
-      (entry.eventCount || 0) * 1.35 +
-      (entry.aikbCount || 0) * 1.8 +
-      (entry.proposalCount || 0) * 0.65
+      (entry.eventWeight || 0) * 1.25 +
+      (entry.aikbWeight || 0) * 1.8 +
+      (entry.proposalWeight || 0) * 0.7 +
+      (entry.phraseBoost || 0)
     );
 
     const topicEligibleRecord = (record) => {
       const kind = normalizeTopicToken(record?.kind || record?.eventType || '');
+      const filePath = String(record?.filePath || '').toLowerCase();
+      if (filePath.includes('rollout-')) return false;
+      if (filePath.endsWith('history.jsonl')) return false;
       return !TOPIC_EVENT_BLACKLIST.has(kind) && !kind.startsWith('agent');
+    };
+
+    const topicWeightForRecord = (record) => {
+      const type = normalizeTopicToken(record?.eventType || record?.kind || '');
+      if (type.endsWith('user') || type.includes('_user')) return 1.9;
+      if (type.endsWith('assistant') || type.includes('_assistant')) return 0.75;
+      if (type.includes('gemini')) return 0.65;
+      return 1;
+    };
+
+    const seedWordsForTerms = (terms) => new Set(
+      terms.flatMap((term) => String(term || '').split(' ').map((part) => normalizeTopicToken(part)).filter(Boolean))
+    );
+
+    const termOverlapsSeed = (term, seedWords) => {
+      if (!seedWords.size) return true;
+      const parts = String(term || '').split(' ').map((part) => normalizeTopicToken(part)).filter(Boolean);
+      return parts.some((part) => seedWords.has(part));
     };
 
     const buildGraph = (query, searchOut, proposals) => {
@@ -2222,8 +2284,14 @@
       const queryTerms = new Set(extractTopicTerms(query));
       const topicEntries = new Map();
       const visibleTopicIds = new Set();
+      const userSeedTerms = events.flatMap((event) => {
+        const summary = summarizeEvent(event);
+        if (!topicEligibleRecord(summary) || topicWeightForRecord(summary) < 1.5) return [];
+        return extractTopicTerms(summary?.summary || '', queryTerms);
+      });
+      const userSeedWords = seedWordsForTerms(userSeedTerms);
 
-      const registerTopicUsage = (term, evidenceKind, evidenceId) => {
+      const registerTopicUsage = (term, evidenceKind, evidenceId, weight = 1) => {
         if (!term) return;
         const entry = topicEntries.get(term) || {
           id: `topic:${term}`,
@@ -2233,20 +2301,36 @@
           eventCount: 0,
           aikbCount: 0,
           proposalCount: 0,
+          eventWeight: 0,
+          aikbWeight: 0,
+          proposalWeight: 0,
+          phraseBoost: term.includes(' ') ? 0.8 : 0,
           evidenceIds: new Set(),
         };
-        entry.count += 1;
+        entry.count += weight;
         entry.evidenceIds.add(evidenceId);
-        if (evidenceKind === 'event') entry.eventCount += 1;
-        if (evidenceKind === 'aikb') entry.aikbCount += 1;
-        if (evidenceKind === 'proposal') entry.proposalCount += 1;
+        if (evidenceKind === 'event') {
+          entry.eventCount += 1;
+          entry.eventWeight += weight;
+        }
+        if (evidenceKind === 'aikb') {
+          entry.aikbCount += 1;
+          entry.aikbWeight += weight;
+        }
+        if (evidenceKind === 'proposal') {
+          entry.proposalCount += 1;
+          entry.proposalWeight += weight;
+        }
         topicEntries.set(term, entry);
       };
 
       const eventRows = events.map((event, index) => {
         const summary = summarizeEvent(event);
+        const roleWeight = topicWeightForRecord(summary);
         const topicTerms = topicEligibleRecord(summary)
-          ? extractTopicTerms(summary?.summary || '', queryTerms)
+          ? extractTopicTerms(summary?.summary || '', queryTerms).filter((term) => (
+            roleWeight >= 1.5 || !userSeedWords.size || termOverlapsSeed(term, userSeedWords)
+          ))
           : [];
         const row = {
           id: `event-${index}`,
@@ -2264,7 +2348,7 @@
           topics: topicTerms,
           provider: String(event?.metadata?.provider || 'unknown'),
         };
-        topicTerms.forEach((term) => registerTopicUsage(term, 'event', row.id));
+        topicTerms.forEach((term) => registerTopicUsage(term, 'event', row.id, term.includes(' ') ? roleWeight * 1.15 : roleWeight));
         return row;
       });
 
@@ -2281,7 +2365,7 @@
           fill: toneFill('tone-aikb'),
           topics: topicTerms,
         };
-        topicTerms.forEach((term) => registerTopicUsage(term, 'aikb', row.id));
+        topicTerms.forEach((term) => registerTopicUsage(term, 'aikb', row.id, term.includes(' ') ? 1.45 : 1.15));
         return row;
       });
 
@@ -2298,12 +2382,12 @@
           fill: toneFill('tone-proposal'),
           topics: topicTerms,
         };
-        topicTerms.forEach((term) => registerTopicUsage(term, 'proposal', row.id));
+        topicTerms.forEach((term) => registerTopicUsage(term, 'proposal', row.id, term.includes(' ') ? 0.85 : 0.65));
         return row;
       });
 
       const topTopics = [...topicEntries.values()]
-        .filter((entry) => entry.count > 0)
+        .filter((entry) => entry.count > 0.6)
         .sort((a, b) => scoreTopic(b) - scoreTopic(a) || a.label.localeCompare(b.label))
         .slice(0, depth === 1 ? 10 : depth === 2 ? 14 : 16);
 
@@ -2314,13 +2398,14 @@
         addNode({
           id: entry.id,
           kind: 'topic',
+          queryTerm: entry.term,
           label: entry.label,
           x: width * 0.5 + Math.cos(angle) * orbit,
           y: height * 0.48 + Math.sin(angle) * (orbit * 0.72),
           r: 15 + Math.min(entry.count, 4),
           fill: '#ffd36e',
           detail: `${entry.label} appears across ${entry.evidenceIds.size} matching memories.`,
-          meta: `${entry.eventCount} events · ${entry.aikbCount} AIKB${entry.proposalCount ? ` · ${entry.proposalCount} proposals` : ''}`,
+          meta: `${entry.eventCount} events · ${entry.aikbCount} AIKB${entry.proposalCount ? ` · ${entry.proposalCount} proposals` : ''} · score ${scoreTopic(entry).toFixed(1)}`,
           reason: `${entry.label} is shown because it repeatedly appears beside "${query}" in the visible result set.`,
           record: {
             kind: 'topic',
@@ -2670,6 +2755,12 @@
       drawGraph();
     };
 
+    const scrollToSearchResults = () => {
+      const target = el.graphCard || el.graphSvg || el.resultList;
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
     const drawGraph = () => {
       const svg = el.graphSvg;
       const ns = 'http://www.w3.org/2000/svg';
@@ -2776,7 +2867,13 @@
           svg.releasePointerCapture(event.pointerId);
           runForce();
         });
-        group.addEventListener('click', () => selectNode(node.id));
+        group.addEventListener('click', () => {
+          if (node.kind === 'topic' && node.queryTerm) {
+            refreshSearch(node.queryTerm, { scrollToResults: true }).catch((err) => logTrace('topic drill error', err.message));
+            return;
+          }
+          selectNode(node.id);
+        });
         group.addEventListener('dblclick', () => {
           if (state.pinnedNodePositions[node.id]) {
             delete state.pinnedNodePositions[node.id];
@@ -3388,8 +3485,10 @@
       logTrace('memory stats', `${fmtNum(stats.events_total)} events, ${fmtNum(stats.proposals_new)} new proposals`);
     };
 
-    const refreshSearch = async (query = el.queryInput.value.trim() || 'memory') => {
+    const refreshSearch = async (query = el.queryInput.value.trim() || 'memory', options = {}) => {
       const started = performance.now();
+      const { scrollToResults = false } = options;
+      el.queryInput.value = query;
       el.hudQuery.textContent = `query: ${query}`;
       const search = await fetchJson(`/memory/search?q=${encodeURIComponent(query)}&limit=40`);
       const proposals = await fetchJson(`/memory/proposals?status=${encodeURIComponent(el.proposalFilter.value)}&limit=40`);
@@ -3419,6 +3518,7 @@
         state.selectedProposalId = state.proposals[0].proposal_id;
       }
       selectNode(nodeById(state.selectedNodeId) ? state.selectedNodeId : 'query');
+      if (scrollToResults) scrollToSearchResults();
     };
 
     const refreshReview = async () => {
@@ -3511,7 +3611,7 @@
     };
 
     el.navBtns.forEach((btn) => btn.addEventListener('click', () => setView(btn.dataset.view)));
-    el.searchBtn.addEventListener('click', () => refreshSearch().catch((err) => logTrace('search error', err.message)));
+    el.searchBtn.addEventListener('click', () => refreshSearch(undefined, { scrollToResults: true }).catch((err) => logTrace('search error', err.message)));
     el.refreshBtn.addEventListener('click', () => {
       Promise.all([refreshStats(), refreshSearch()]).catch((err) => logTrace('refresh error', err.message));
     });
@@ -3613,7 +3713,7 @@
     el.queryInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
-        refreshSearch().catch((err) => logTrace('search error', err.message));
+        refreshSearch(undefined, { scrollToResults: true }).catch((err) => logTrace('search error', err.message));
       }
     });
     document.addEventListener('keydown', (event) => {
