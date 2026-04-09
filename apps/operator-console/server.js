@@ -971,6 +971,66 @@ app.patch('/memory/proposals/:proposalId', async (req, res) => {
   }
 });
 
+app.post('/memory/proposals/bulk-review', async (req, res) => {
+  try {
+    const actions = Array.isArray(req.body?.actions) ? req.body.actions.slice(0, 250) : [];
+    if (!actions.length) {
+      return res.status(400).json({ error: 'actions array required' });
+    }
+
+    const allowedStatuses = new Set(['new', 'approved', 'rejected', 'applied']);
+    const results = [];
+
+    for (const action of actions) {
+      const proposalId = String(action?.proposal_id || '').trim();
+      const status = String(action?.status || '').trim();
+      const reviewNotes = action?.review_notes == null ? null : String(action.review_notes);
+      const appliedFile = action?.applied_file == null ? null : String(action.applied_file);
+
+      if (!proposalId || !allowedStatuses.has(status)) {
+        results.push({
+          proposal_id: proposalId || null,
+          ok: false,
+          error: 'invalid proposal_id or status',
+        });
+        continue;
+      }
+
+      try {
+        const out = await memoryRequest('PATCH', `/api/v1/proposals/${encodeURIComponent(proposalId)}`, {
+          body: {
+            status,
+            review_notes: reviewNotes,
+            applied_file: appliedFile,
+          },
+        });
+        results.push({
+          proposal_id: proposalId,
+          ok: true,
+          proposal: out.proposal || null,
+        });
+      } catch (err) {
+        results.push({
+          proposal_id: proposalId,
+          ok: false,
+          error: err.message,
+        });
+      }
+    }
+
+    const updated = results.filter((item) => item.ok).length;
+    const failed = results.length - updated;
+    res.json({
+      requested: actions.length,
+      updated,
+      failed,
+      results,
+    });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 app.put('/memory/proposals/:proposalId', async (req, res) => {
   try {
     const out = await memoryRequest('PUT', `/api/v1/proposals/${encodeURIComponent(req.params.proposalId)}`, {

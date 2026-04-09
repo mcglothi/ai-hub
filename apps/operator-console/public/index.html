@@ -615,6 +615,12 @@
       min-height: 0;
     }
 
+    .review-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
     .trace-item,
     .result-item,
     .proposal-item,
@@ -671,6 +677,42 @@
       line-height: 1.4;
     }
 
+    .proposal-topline,
+    .recommendation-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .recommend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 11px;
+      font-family: 'IBM Plex Mono', monospace;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+
+    .recommend-chip.approve {
+      border-color: rgba(138, 230, 194, 0.42);
+      background: rgba(138, 230, 194, 0.12);
+    }
+
+    .recommend-chip.reject {
+      border-color: rgba(255, 148, 148, 0.45);
+      background: rgba(255, 148, 148, 0.13);
+    }
+
+    .recommend-chip.review {
+      border-color: rgba(255, 188, 123, 0.4);
+      background: rgba(255, 188, 123, 0.12);
+    }
+
     .result-meta-row {
       display: flex;
       flex-wrap: wrap;
@@ -692,6 +734,22 @@
     .review-detail-grid {
       display: grid;
       gap: 14px;
+    }
+
+    .detail-guidance {
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(10, 18, 28, 0.78);
+      padding: 12px 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .detail-guidance .value {
+      font-size: 12px;
+      line-height: 1.55;
+      color: #dceaf8;
+      white-space: pre-wrap;
     }
 
     .detail-stack,
@@ -1014,6 +1072,7 @@
       }
 
       .review-layout,
+      .review-summary-grid,
       .detail-meta-grid,
       .preview-grid,
       .model-grid {
@@ -1089,8 +1148,8 @@
       <div class="toolbar" id="memory-toolbar">
         <div class="search-wrap">
           <input id="query-input" class="text-input" type="search" value="memory" placeholder="Search memory and AIKB">
-          <button id="search-btn" class="action-btn primary" type="button">Search</button>
-          <button id="refresh-btn" class="action-btn secondary" type="button">Refresh</button>
+          <button id="search-btn" class="action-btn primary" type="button" title="Run the current memory search query and rebuild the topic graph from matching events and AIKB notes.">Search</button>
+          <button id="refresh-btn" class="action-btn secondary" type="button" title="Refresh memory health, queue counts, and the current search without changing filters.">Refresh</button>
         </div>
         <select id="depth-filter" class="select-input">
           <option value="1">Depth 1 · adjacent topics</option>
@@ -1326,15 +1385,34 @@
               </div>
             </div>
             <div class="control-row">
-              <select id="proposal-filter" class="select-input">
+              <select id="proposal-filter" class="select-input" title="Choose which proposal status bucket to review.">
                 <option value="new">New proposals</option>
                 <option value="approved">Approved proposals</option>
                 <option value="rejected">Rejected proposals</option>
                 <option value="applied">Applied proposals</option>
                 <option value="">All proposals</option>
               </select>
-              <button id="harvest-btn" class="action-btn primary" type="button">Harvest</button>
-              <button id="review-refresh-btn" class="action-btn secondary" type="button">Refresh Queue</button>
+              <button id="harvest-btn" class="action-btn primary" type="button" title="Scan recent memory events and generate any new proposal candidates that match the current harvester rules.">Harvest</button>
+              <button id="review-refresh-btn" class="action-btn secondary" type="button" title="Reload the current proposal queue and recompute the recommendation summary without running a new harvest.">Refresh Queue</button>
+              <button id="review-auto-btn" class="action-btn secondary" type="button" title="Apply the current recommendation engine to visible proposals. Obvious noise is rejected, obvious keepers are approved, and ambiguous items are left for manual review.">Apply Recommendations</button>
+            </div>
+            <div class="review-summary-grid">
+              <div class="meta-card">
+                <div class="label">Visible</div>
+                <div id="review-visible-count" class="value">-</div>
+              </div>
+              <div class="meta-card">
+                <div class="label">Recommend Keep</div>
+                <div id="review-approve-count" class="value">-</div>
+              </div>
+              <div class="meta-card">
+                <div class="label">Recommend Reject</div>
+                <div id="review-reject-count" class="value">-</div>
+              </div>
+              <div class="meta-card">
+                <div class="label">Needs Eyes</div>
+                <div id="review-review-count" class="value">-</div>
+              </div>
             </div>
           </div>
 
@@ -1385,6 +1463,11 @@
                   </div>
                 </div>
 
+                <div class="detail-guidance">
+                  <div class="label">Recommendation Engine</div>
+                  <div id="proposal-recommendation-meta" class="value">The review assistant will explain whether this looks durable, noisy, or ambiguous.</div>
+                </div>
+
                 <div class="detail-stack">
                   <div class="label-block">
                     <label for="proposal-summary-input">Summary</label>
@@ -1408,11 +1491,11 @@
                 </div>
 
                 <div class="control-row">
-                  <button id="proposal-save-btn" class="action-btn secondary" type="button">Save Edit</button>
-                  <button id="proposal-approve-btn" class="action-btn secondary" type="button">Approve</button>
-                  <button id="proposal-reject-btn" class="action-btn secondary" type="button">Reject</button>
-                  <button id="proposal-preview-btn" class="action-btn primary" type="button">Preview Apply</button>
-                  <button id="proposal-apply-btn" class="action-btn primary" type="button">Apply to AIKB</button>
+                  <button id="proposal-save-btn" class="action-btn secondary" type="button" title="Save edits to the proposal summary and payload without changing its review status.">Save Edit</button>
+                  <button id="proposal-approve-btn" class="action-btn secondary" type="button" title="Keep this proposal in the durable queue as a likely memory worth preserving or applying later.">Approve</button>
+                  <button id="proposal-reject-btn" class="action-btn secondary" type="button" title="Mark this proposal as noise so it leaves the active triage queue.">Reject</button>
+                  <button id="proposal-preview-btn" class="action-btn primary" type="button" title="Preview the exact markdown block that would be appended to AIKB before committing the apply action.">Preview Apply</button>
+                  <button id="proposal-apply-btn" class="action-btn primary" type="button" title="Append this proposal to the chosen AIKB file and mark the proposal as applied.">Apply to AIKB</button>
                 </div>
 
                 <div id="proposal-detail-status" class="status-note">
@@ -1699,7 +1782,12 @@
       eventCapFilter: document.getElementById('event-cap-filter'),
       harvestBtn: document.getElementById('harvest-btn'),
       reviewRefreshBtn: document.getElementById('review-refresh-btn'),
+      reviewAutoBtn: document.getElementById('review-auto-btn'),
       reviewQueuePill: document.getElementById('review-queue-pill'),
+      reviewVisibleCount: document.getElementById('review-visible-count'),
+      reviewApproveCount: document.getElementById('review-approve-count'),
+      reviewRejectCount: document.getElementById('review-reject-count'),
+      reviewReviewCount: document.getElementById('review-review-count'),
       layoutFilter: document.getElementById('layout-filter'),
       motionFilter: document.getElementById('motion-filter'),
       glowFilter: document.getElementById('glow-filter'),
@@ -1726,6 +1814,7 @@
       proposalConfidenceMeta: document.getElementById('proposal-confidence-meta'),
       proposalDestinationMeta: document.getElementById('proposal-destination-meta'),
       proposalEvidenceMeta: document.getElementById('proposal-evidence-meta'),
+      proposalRecommendationMeta: document.getElementById('proposal-recommendation-meta'),
       proposalSummaryInput: document.getElementById('proposal-summary-input'),
       proposalPayloadInput: document.getElementById('proposal-payload-input'),
       proposalFileInput: document.getElementById('proposal-file-input'),
@@ -3095,6 +3184,98 @@
 
     const safeProposalPayload = (proposal) => proposal?.payload && typeof proposal.payload === 'object' ? proposal.payload : {};
 
+    const proposalPreviewText = (proposal) => {
+      const payload = safeProposalPayload(proposal);
+      const raw = String(payload.raw_text || payload.evidence_snippet || '').replace(/\s+/g, ' ').trim();
+      if (raw) return raw.slice(0, 220);
+      const markdown = String(payload.proposed_markdown || '').replace(/\s+/g, ' ').trim();
+      if (markdown) return markdown.slice(0, 220);
+      return JSON.stringify(payload).slice(0, 220);
+    };
+
+    const proposalGuidance = (proposal) => {
+      const payload = safeProposalPayload(proposal);
+      const raw = String(payload.raw_text || payload.evidence_snippet || '').toLowerCase();
+      const summary = String(proposal?.summary || '').toLowerCase();
+      const evidence = proposal?.evidence && typeof proposal.evidence === 'object' ? proposal.evidence : {};
+      const eventType = String(evidence.event_type || '').toLowerCase();
+      const confidence = Number(proposal?.confidence || 0);
+      const hasSuggestedFile = Boolean(String(payload.suggested_file || '').trim());
+      const looksEnvelope = summary.includes('{"session_id"')
+        || summary.includes('{"timestamp"')
+        || raw.includes('<local-command-caveat>')
+        || raw.includes('"session_id"')
+        || raw.includes('"timestamp"');
+      const firstPerson = /\b(i|we)\s+(have|had|am|just|updated|deployed|redeployed|installed|fixed|refined|added|changed)\b/.test(summary)
+        || /\b(i|we)\s+(have|had|am|just|updated|deployed|redeployed|installed|fixed|refined|added|changed)\b/.test(raw);
+      const deployish = /\b(deployed|redeployed|deployment|shipped|rolled out|rollout|live now|now running|installed|updated|refined|fixed)\b/.test(summary)
+        || /\b(deployed|redeployed|deployment|shipped|rolled out|rollout|live now|now running|installed|updated|refined|fixed)\b/.test(raw);
+      const assistantAdvice = /\bpro tip\b/.test(raw) || /\bwould you like\b/.test(raw);
+      const oneOffTask = /(lets|let's|go ahead|what'?s next|continue work|for now|next step)/.test(raw || summary);
+      const isSessionTask = proposal?.kind === 'task' && eventType === 'session_log_line';
+      const looksDurableFact = hasSuggestedFile && confidence >= 0.82 && !firstPerson && !deployish;
+      const looksDurableRunbook = proposal?.kind === 'runbook_update' && hasSuggestedFile && confidence >= 0.78 && !firstPerson;
+
+      let label = 'Needs review';
+      let tone = 'review';
+      let targetStatus = null;
+      const reasons = [];
+
+      if (looksEnvelope) {
+        label = 'Reject noise';
+        tone = 'reject';
+        targetStatus = 'rejected';
+        reasons.push('This looks like envelope or tooling payload rather than durable memory.');
+      } else if (assistantAdvice) {
+        label = 'Reject chatter';
+        tone = 'reject';
+        targetStatus = 'rejected';
+        reasons.push('This includes assistant coaching or conversational advice, not a durable fact.');
+      } else if (isSessionTask && oneOffTask) {
+        label = 'Reject one-off';
+        tone = 'reject';
+        targetStatus = 'rejected';
+        reasons.push('This reads like a one-session instruction instead of reusable knowledge.');
+      } else if (firstPerson && deployish && confidence <= 0.8) {
+        label = 'Reject progress';
+        tone = 'reject';
+        targetStatus = 'rejected';
+        reasons.push('This looks like first-person progress chatter from a session rollout, which usually creates queue noise.');
+      } else if (looksDurableRunbook) {
+        label = 'Approve keeper';
+        tone = 'approve';
+        targetStatus = 'approved';
+        reasons.push('This has a concrete runbook destination and reads like a durable operational update.');
+      } else if (looksDurableFact) {
+        label = 'Approve keeper';
+        tone = 'approve';
+        targetStatus = 'approved';
+        reasons.push('This looks like a durable fact with a clear landing place in AIKB.');
+      } else {
+        reasons.push('This item is ambiguous enough that a human pass is still helpful before changing its status.');
+      }
+
+      if (hasSuggestedFile) reasons.push(`Suggested destination: ${payload.suggested_file}`);
+      return { label, tone, targetStatus, reasons };
+    };
+
+    const reviewRecommendationStats = () => state.proposals.reduce((acc, proposal) => {
+      const guide = proposalGuidance(proposal);
+      acc.visible += 1;
+      if (guide.targetStatus === 'approved') acc.approve += 1;
+      else if (guide.targetStatus === 'rejected') acc.reject += 1;
+      else acc.review += 1;
+      return acc;
+    }, { visible: 0, approve: 0, reject: 0, review: 0 });
+
+    const renderReviewSummary = () => {
+      const summary = reviewRecommendationStats();
+      el.reviewVisibleCount.textContent = fmtNum(summary.visible);
+      el.reviewApproveCount.textContent = fmtNum(summary.approve);
+      el.reviewRejectCount.textContent = fmtNum(summary.reject);
+      el.reviewReviewCount.textContent = fmtNum(summary.review);
+    };
+
     const defaultProposalFile = (proposal) => {
       const payload = safeProposalPayload(proposal);
       return String(payload.suggested_file || proposal?.applied_file || '').trim();
@@ -3116,6 +3297,7 @@
         el.proposalDetailEmpty.classList.remove('hidden');
         el.proposalDetailPanel.classList.add('hidden');
         state.reviewPreview = null;
+        el.proposalRecommendationMeta.textContent = 'The review assistant will explain whether this looks durable, noisy, or ambiguous.';
         el.proposalPreviewExisting.textContent = 'Preview the target file to inspect the current tail before applying.';
         el.proposalPreviewAppend.textContent = 'The generated AIKB block will appear here after preview.';
         return;
@@ -3124,6 +3306,7 @@
       const payload = safeProposalPayload(proposal);
       const suggestedFile = defaultProposalFile(proposal);
       const evidence = proposal.evidence && typeof proposal.evidence === 'object' ? proposal.evidence : {};
+      const guide = proposalGuidance(proposal);
       const evidenceBits = [
         evidence.source ? `source: ${evidence.source}` : '',
         evidence.event_type ? `event: ${evidence.event_type}` : '',
@@ -3138,6 +3321,12 @@
       el.proposalConfidenceMeta.textContent = Number(proposal.confidence || 0).toFixed(2);
       el.proposalDestinationMeta.textContent = suggestedFile || '(no suggested file)';
       el.proposalEvidenceMeta.textContent = evidenceBits.join('\n') || 'No structured evidence metadata.';
+      el.proposalRecommendationMeta.innerHTML = `
+        <div class="recommendation-row">
+          <span class="recommend-chip ${guide.tone}">${escapeHtml(guide.label)}</span>
+        </div>
+        <div>${escapeHtml(guide.reasons.join(' '))}</div>
+      `;
       el.proposalSummaryInput.value = proposal.summary || '';
       el.proposalPayloadInput.value = JSON.stringify(payload, null, 2);
       el.proposalFileInput.value = suggestedFile;
@@ -3271,20 +3460,58 @@
       logTrace('proposal apply', `${proposal.summary || proposal.proposal_id} -> ${out.file || next.file || 'AIKB'}`);
     };
 
+    const applyReviewRecommendations = async () => {
+      const actions = state.proposals
+        .map((proposal) => {
+          const guide = proposalGuidance(proposal);
+          if (!guide.targetStatus || guide.targetStatus === proposal.status) return null;
+          return {
+            proposal_id: proposal.proposal_id,
+            status: guide.targetStatus,
+            review_notes: `Auto-reviewed in AI Hub: ${guide.reasons[0] || guide.label}`,
+          };
+        })
+        .filter(Boolean);
+
+      if (!actions.length) {
+        setReviewStatus('No visible proposals matched the current auto-review rules.', { tone: 'neutral' });
+        return;
+      }
+
+      const out = await fetchJson('/memory/proposals/bulk-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actions }),
+      });
+      await refreshStats();
+      await refreshReview();
+      const updated = Number(out.updated || 0);
+      const failed = Number(out.failed || 0);
+      setReviewStatus(`Applied recommendations to ${updated} proposal${updated === 1 ? '' : 's'}${failed ? ` with ${failed} failures to inspect.` : '.'}`, { tone: failed ? 'neutral' : 'good' });
+      logTrace('proposal auto-review', `${updated} updated${failed ? `, ${failed} failed` : ''}`);
+    };
+
     const renderProposals = () => {
       el.proposalList.innerHTML = state.proposals.map((proposal, index) => {
         const id = `proposal-${index}`;
+        const guide = proposalGuidance(proposal);
         return `
           <div class="proposal-item tone-proposal ${state.selectedProposalId === proposal.proposal_id ? 'active' : ''}" data-node-id="${escapeHtml(id)}" data-proposal-id="${escapeHtml(proposal.proposal_id)}">
+            <div class="proposal-topline">
+              <span class="recommend-chip ${guide.tone}">${escapeHtml(guide.label)}</span>
+              <span class="chip">${escapeHtml(proposal.kind || 'proposal')}</span>
+              <span class="chip">${escapeHtml(proposal.status || 'unknown')}</span>
+            </div>
             <div class="proposal-title">${escapeHtml(proposal.summary || 'Untitled proposal')}</div>
-            <div class="meta">${escapeHtml(proposal.kind || 'proposal')} · ${escapeHtml(proposal.status || 'unknown')} · ${escapeHtml(String(Number(proposal.confidence || 0).toFixed(2)))}</div>
-            <div class="proposal-copy">${escapeHtml(JSON.stringify(proposal.payload || {}))}</div>
+            <div class="meta">${escapeHtml(String(Number(proposal.confidence || 0).toFixed(2)))} · ${escapeHtml(guide.reasons[0] || 'No guidance yet.')}</div>
+            <div class="proposal-copy">${escapeHtml(proposalPreviewText(proposal))}</div>
           </div>
         `;
       }).join('') || '<div class="info-card"><div class="value">No proposals in the selected queue.</div></div>';
       el.proposalList.querySelectorAll('[data-proposal-id]').forEach((node) => {
         node.addEventListener('click', () => selectProposal(node.dataset.proposalId));
       });
+      renderReviewSummary();
     };
 
     const filteredModels = () => {
@@ -3491,7 +3718,7 @@
       el.queryInput.value = query;
       el.hudQuery.textContent = `query: ${query}`;
       const search = await fetchJson(`/memory/search?q=${encodeURIComponent(query)}&limit=40`);
-      const proposals = await fetchJson(`/memory/proposals?status=${encodeURIComponent(el.proposalFilter.value)}&limit=40`);
+      const proposals = await fetchJson(`/memory/proposals?status=${encodeURIComponent(el.proposalFilter.value)}&limit=200`);
       state.search = search;
       state.proposals = proposals.proposals || [];
       state.graph = buildGraph(query, search, state.proposals);
@@ -3522,7 +3749,7 @@
     };
 
     const refreshReview = async () => {
-      const proposals = await fetchJson(`/memory/proposals?status=${encodeURIComponent(el.proposalFilter.value)}&limit=40`);
+      const proposals = await fetchJson(`/memory/proposals?status=${encodeURIComponent(el.proposalFilter.value)}&limit=200`);
       state.proposals = proposals.proposals || [];
       if (!proposalById(state.selectedProposalId)) {
         state.selectedProposalId = state.proposals[0]?.proposal_id || null;
@@ -3617,6 +3844,12 @@
     });
     el.harvestBtn.addEventListener('click', () => harvest().catch((err) => logTrace('harvest error', err.message)));
     el.reviewRefreshBtn.addEventListener('click', () => refreshReview().catch((err) => logTrace('review refresh error', err.message)));
+    el.reviewAutoBtn.addEventListener('click', () => {
+      applyReviewRecommendations().catch((err) => {
+        setReviewStatus(err.message, { tone: 'error' });
+        logTrace('proposal auto-review error', err.message);
+      });
+    });
     el.proposalFilter.addEventListener('change', () => refreshReview().catch((err) => logTrace('proposal filter error', err.message)));
     el.modelsRefreshBtn.addEventListener('click', () => refreshModels().catch((err) => logTrace('models refresh error', err.message)));
     el.modelPullBtn.addEventListener('click', () => pullModel().catch((err) => logTrace('model pull error', err.message)));
