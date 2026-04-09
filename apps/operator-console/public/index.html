@@ -3184,6 +3184,33 @@
 
     const safeProposalPayload = (proposal) => proposal?.payload && typeof proposal.payload === 'object' ? proposal.payload : {};
 
+    const normalizeProposalSummary = (summary) => String(summary || '')
+      .replace(/^(fact candidate:|runbook update candidate:|task candidate:)\s*/i, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+    const genericMemoryCoreDestination = (filePath) => filePath === 'home-lab/services/aikb-memory-core.md';
+
+    const proposalCompanionFamily = (proposal) => {
+      const normalized = normalizeProposalSummary(proposal?.summary || '');
+      if (!normalized) return { normalized, matches: [], counts: {}, hasFact: false, hasRunbook: false, duplicateCount: 0 };
+      const matches = state.proposals.filter((item) => normalizeProposalSummary(item.summary || '') === normalized);
+      const counts = matches.reduce((acc, item) => {
+        const key = String(item.kind || 'proposal');
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
+      return {
+        normalized,
+        matches,
+        counts,
+        hasFact: Boolean(counts.fact),
+        hasRunbook: Boolean(counts.runbook_update),
+        duplicateCount: matches.length,
+      };
+    };
+
     const proposalPreviewText = (proposal) => {
       const payload = safeProposalPayload(proposal);
       const raw = String(payload.raw_text || payload.evidence_snippet || '').replace(/\s+/g, ' ').trim();
@@ -3197,10 +3224,14 @@
       const payload = safeProposalPayload(proposal);
       const raw = String(payload.raw_text || payload.evidence_snippet || '').toLowerCase();
       const summary = String(proposal?.summary || '').toLowerCase();
+      const summaryClean = normalizeProposalSummary(proposal?.summary || '');
       const evidence = proposal?.evidence && typeof proposal.evidence === 'object' ? proposal.evidence : {};
+      const family = proposalCompanionFamily(proposal);
       const eventType = String(evidence.event_type || '').toLowerCase();
       const confidence = Number(proposal?.confidence || 0);
-      const hasSuggestedFile = Boolean(String(payload.suggested_file || '').trim());
+      const suggestedFile = String(payload.suggested_file || '').trim();
+      const hasSuggestedFile = Boolean(suggestedFile);
+      const genericDestination = genericMemoryCoreDestination(suggestedFile);
       const looksEnvelope = summary.includes('{"session_id"')
         || summary.includes('{"timestamp"')
         || raw.includes('<local-command-caveat>')
@@ -3212,9 +3243,11 @@
         || /\b(deployed|redeployed|deployment|shipped|rolled out|rollout|live now|now running|installed|updated|refined|fixed)\b/.test(raw);
       const assistantAdvice = /\bpro tip\b/.test(raw) || /\bwould you like\b/.test(raw);
       const oneOffTask = /(lets|let's|go ahead|what'?s next|continue work|for now|next step)/.test(raw || summary);
+      const vagueSummary = /^(understood|everything is correctly configured|hrm\.?|not quite right|lets try running the script now|i just rebooted again)$/i.test(summaryClean);
       const isSessionTask = proposal?.kind === 'task' && eventType === 'session_log_line';
       const looksDurableFact = hasSuggestedFile && confidence >= 0.82 && !firstPerson && !deployish;
-      const looksDurableRunbook = proposal?.kind === 'runbook_update' && hasSuggestedFile && confidence >= 0.78 && !firstPerson;
+      const pairedRunbookFamily = family.hasFact && family.hasRunbook;
+      const looksDurableRunbook = proposal?.kind === 'runbook_update' && hasSuggestedFile && confidence >= 0.78 && (!firstPerson || pairedRunbookFamily);
 
       let label = 'Needs review';
       let tone = 'review';
@@ -3226,21 +3259,36 @@
         tone = 'reject';
         targetStatus = 'rejected';
         reasons.push('This looks like envelope or tooling payload rather than durable memory.');
+      } else if (vagueSummary) {
+        label = 'Reject vague';
+        tone = 'reject';
+        targetStatus = 'rejected';
+        reasons.push('This summary is too vague to be a durable memory without additional concrete detail.');
       } else if (assistantAdvice) {
         label = 'Reject chatter';
         tone = 'reject';
         targetStatus = 'rejected';
         reasons.push('This includes assistant coaching or conversational advice, not a durable fact.');
+      } else if (proposal?.kind === 'fact' && pairedRunbookFamily) {
+        label = 'Reject duplicate fact';
+        tone = 'reject';
+        targetStatus = 'rejected';
+        reasons.push('A companion runbook update captures the same change more durably, so this fact copy is queue duplication.');
       } else if (isSessionTask && oneOffTask) {
         label = 'Reject one-off';
         tone = 'reject';
         targetStatus = 'rejected';
         reasons.push('This reads like a one-session instruction instead of reusable knowledge.');
-      } else if (firstPerson && deployish && confidence <= 0.8) {
+      } else if (firstPerson && deployish && confidence <= 0.8 && (genericDestination || proposal?.kind !== 'runbook_update')) {
         label = 'Reject progress';
         tone = 'reject';
         targetStatus = 'rejected';
         reasons.push('This looks like first-person progress chatter from a session rollout, which usually creates queue noise.');
+      } else if (proposal?.kind === 'runbook_update' && pairedRunbookFamily && hasSuggestedFile) {
+        label = 'Approve preferred runbook';
+        tone = 'approve';
+        targetStatus = 'approved';
+        reasons.push('This runbook update is the better durable representative of a duplicated fact/runbook pair.');
       } else if (looksDurableRunbook) {
         label = 'Approve keeper';
         tone = 'approve';
@@ -3255,8 +3303,9 @@
         reasons.push('This item is ambiguous enough that a human pass is still helpful before changing its status.');
       }
 
-      if (hasSuggestedFile) reasons.push(`Suggested destination: ${payload.suggested_file}`);
-      return { label, tone, targetStatus, reasons };
+      if (hasSuggestedFile) reasons.push(`Suggested destination: ${suggestedFile}`);
+      if (family.duplicateCount > 1) reasons.push(`Duplicate family size: ${family.duplicateCount}`);
+      return { label, tone, targetStatus, reasons, family };
     };
 
     const reviewRecommendationStats = () => state.proposals.reduce((acc, proposal) => {
