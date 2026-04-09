@@ -11,8 +11,8 @@
 
 AI Hub now spans three related surfaces inside one repo:
 
-- `apps/chat-wrapper`: Legacy stable chat-centric surface currently serving the original AI Hub app on Turing.
-- `apps/operator-console`: Memory-first operator workspace for review, search, provenance, terminal access, and code adjacency. This is the next-gen track.
+- `apps/operator-console`: Memory-first operator workspace for review, search, provenance, terminal access, code adjacency, and Hopper model stewardship. This is the primary AI Hub surface on Turing.
+- `apps/chat-wrapper`: Legacy chat-centric surface retained only as a fallback code path. It is no longer the public AI Hub landing page.
 - `apps/sessions`: Session lifecycle API and UI for persistent, resumable AI workflows.
 
 This repository is now the source of truth for application code. AIKB remains the source of truth for operational documentation and runbooks.
@@ -55,17 +55,18 @@ ai-hub/
 
 ```text
 Browser
-  -> AI Hub Chat Wrapper (:3000)
-    -> Claude / Gemini / Codex CLIs
-    -> Local STT proxy (:8008)
-    -> AIKB context lookup (optional)
-
-Browser
   -> AI Hub Operator Console (:3001)
     -> Memory Core search + proposal APIs
     -> ttyd terminal proxy
     -> code-server adjacency
     -> AIKB apply-preview/apply flows
+    -> Hopper model inventory / cleanup / pull workflows
+
+Browser
+  -> Legacy Chat Wrapper (:3000, retired from public entry)
+    -> Claude / Gemini / Codex CLIs
+    -> Local STT proxy (:8008)
+    -> AIKB context lookup (optional)
 
 Browser
   -> AI Hub Sessions (:8090)
@@ -75,8 +76,8 @@ Browser
 ## Deployment Status
 
 - `ai-hub-sessions` is currently running on `turing` from this repository path.
-- `chat-wrapper` remains the legacy stable app on `:3000`.
-- `operator-console` is the active next-gen UI track on `:3001`.
+- `operator-console` is the active and public AI Hub surface on `:3001`, with `ai.home.timmcg.net` and `chat.home.timmcg.net` now routed to it.
+- `chat-wrapper` is retired from the public path and should stay disabled unless a specific rollback is needed.
 - Historical sessions snapshots were captured on both `turing` and `feynman` before migration.
 
 ## Development Workflow
@@ -90,8 +91,8 @@ Browser
 
 ## Repo Model
 
-- `apps/chat-wrapper` is legacy/stable until explicitly retired.
-- `apps/operator-console` is the canonical next-gen workspace and should receive new operator-surface features.
+- `apps/operator-console` is the canonical AI Hub workspace and should receive new operator-surface features first.
+- `apps/chat-wrapper` is a legacy fallback only. Do not add new product-facing features there unless the work is specifically rollback-related.
 - `ansible` should deploy code from the canonical app name and avoid scratch duplicates.
 - Scratch variants like `.new`, `.v2`, `.v3`, and ad hoc verification files should be replaced by branches, not accumulated in tracked paths.
 
