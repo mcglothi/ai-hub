@@ -301,6 +301,10 @@
       flex-wrap: wrap;
     }
 
+    .toolbar.hidden {
+      display: none;
+    }
+
     .search-wrap {
       display: flex;
       align-items: center;
@@ -779,7 +783,8 @@
     }
 
     .terminal-wrap,
-    .code-wrap {
+    .code-wrap,
+    .models-wrap {
       display: grid;
       grid-template-rows: auto 1fr;
       gap: 14px;
@@ -835,6 +840,122 @@
       display: none !important;
     }
 
+    .models-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
+      gap: 14px;
+      min-height: 0;
+      align-items: start;
+    }
+
+    .models-pane {
+      display: grid;
+      gap: 14px;
+      min-height: 0;
+      align-content: start;
+    }
+
+    .model-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .model-item {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .model-item.is-loaded {
+      border-color: rgba(138, 230, 194, 0.34);
+      background: linear-gradient(135deg, rgba(138, 230, 194, 0.08), rgba(255,255,255,0.03));
+    }
+
+    .model-item.is-protected {
+      border-color: rgba(110, 199, 255, 0.32);
+    }
+
+    .model-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .model-name {
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .model-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .model-note {
+      color: #dceaf8;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .model-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .model-stat {
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(7, 12, 20, 0.54);
+      padding: 10px 11px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .model-stat .label {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .model-stat .value {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .model-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .model-actions .select-input {
+      min-width: 132px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+
+    .model-actions .text-input {
+      min-width: 220px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+
     @media (max-width: 1220px) {
       #app {
         grid-template-columns: 1fr;
@@ -850,6 +971,10 @@
 
       .side-stack {
         grid-template-rows: repeat(4, auto);
+      }
+
+      .models-layout {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -875,7 +1000,8 @@
 
       .review-layout,
       .detail-meta-grid,
-      .preview-grid {
+      .preview-grid,
+      .model-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -905,6 +1031,10 @@
           <button class="nav-btn" data-view="review">
             <span class="nav-title">Review</span>
             <span class="nav-copy">Harvest, queue review, and durable memory shaping.</span>
+          </button>
+          <button class="nav-btn" data-view="models">
+            <span class="nav-title">Models</span>
+            <span class="nav-copy">Hopper inventory, safe cleanup, pull, and experiment tagging.</span>
           </button>
           <button class="nav-btn" data-view="terminal">
             <span class="nav-title">Terminal</span>
@@ -957,6 +1087,27 @@
           <option value="12" selected>12 events</option>
           <option value="16">16 events</option>
         </select>
+      </div>
+
+      <div class="toolbar hidden" id="models-toolbar">
+        <div class="search-wrap">
+          <input id="model-pull-input" class="text-input mono" type="text" placeholder="Pull a model, for example gemma4:31b or hf.co/owner/model:tag">
+          <button id="model-pull-btn" class="action-btn primary" type="button">Pull Model</button>
+          <button id="models-refresh-btn" class="action-btn secondary" type="button">Refresh</button>
+        </div>
+        <select id="model-stage-filter" class="select-input">
+          <option value="">All stages</option>
+          <option value="testing">Testing</option>
+          <option value="candidate">Candidate</option>
+          <option value="keeper">Keeper</option>
+          <option value="archive">Archive</option>
+        </select>
+        <select id="model-sort-filter" class="select-input">
+          <option value="size" selected>Sort by size</option>
+          <option value="modified">Sort by age</option>
+          <option value="name">Sort by name</option>
+        </select>
+        <label class="chip"><input id="model-show-protected" type="checkbox" checked> show protected</label>
       </div>
 
       <section id="memory-view" class="view active">
@@ -1269,6 +1420,80 @@
         </div>
       </section>
 
+      <section id="models-view" class="view models-wrap">
+        <div class="models-layout">
+          <div class="models-pane">
+            <div class="card">
+              <div class="card-head">
+                <div class="card-title">
+                  <h2>Hopper Fleet Inventory</h2>
+                  <p>Use Ollama as the source of truth, keep experiment notes alongside each model, and make cleanup an intentional operation instead of filesystem archaeology.</p>
+                </div>
+                <div class="chip-row">
+                  <span id="models-host-chip" class="chip mono">hopper pending</span>
+                  <span id="models-disk-chip" class="chip mono">disk pending</span>
+                  <span id="models-summary-chip" class="chip mono">models pending</span>
+                </div>
+              </div>
+              <div class="metric-grid">
+                <div class="metric">
+                  <div class="label">Installed</div>
+                  <div id="models-installed-metric" class="value">-</div>
+                  <div class="note">Ollama models on Hopper</div>
+                </div>
+                <div class="metric">
+                  <div class="label">Loaded</div>
+                  <div id="models-loaded-metric" class="value">-</div>
+                  <div class="note">Currently resident lanes</div>
+                </div>
+                <div class="metric">
+                  <div class="label">Pinned</div>
+                  <div id="models-pinned-metric" class="value">-</div>
+                  <div class="note">Protected from casual cleanup</div>
+                </div>
+                <div class="metric">
+                  <div class="label">Cleanup Pool</div>
+                  <div id="models-cleanup-metric" class="value">-</div>
+                  <div class="note">Reclaimable candidate bytes</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div class="card-title">
+                  <h2>Installed Models</h2>
+                  <p>Pin keepers, tag experiments, leave notes about why a model exists, and remove stale lanes only after the UI confirms they are not currently loaded.</p>
+                </div>
+              </div>
+              <div id="model-list" class="model-list"></div>
+            </div>
+          </div>
+
+          <div class="models-pane">
+            <div class="card">
+              <div class="card-head">
+                <div class="card-title">
+                  <h2>Cleanup Radar</h2>
+                  <p>Large unpinned test lanes float to the top so new experiments stop turning into a storage scavenger hunt.</p>
+                </div>
+              </div>
+              <div id="cleanup-candidates" class="trace-list"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div class="card-title">
+                  <h2>Live Context</h2>
+                  <p>Keep the active container and disk posture visible so a delete or pull feels grounded in the box’s real state.</p>
+                </div>
+              </div>
+              <div id="models-live-context" class="side-grid"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="terminal-view" class="view terminal-wrap">
         <div class="card toolbar-block">
           <div class="card-head">
@@ -1353,6 +1578,7 @@
       build: null,
       health: null,
       stats: null,
+      models: null,
       search: null,
       proposals: [],
       fileFilter: '',
@@ -1388,6 +1614,11 @@
       },
       ops: [],
       trace: [],
+      modelControls: {
+        stage: '',
+        sort: 'size',
+        showProtected: true,
+      },
     };
 
     const THEME_MAP = {
@@ -1407,6 +1638,10 @@
         title: 'Review Proposals',
         copy: 'Harvest and proposal review are separated from search so durable memory decisions feel deliberate instead of mixed into exploration.',
       },
+      models: {
+        title: 'Hopper Model Stewardship',
+        copy: 'Treat model inventory like a living fleet: keep notes, protect the keepers, and retire old experiment lanes before disk pressure starts deciding for you.',
+      },
       terminal: {
         title: 'Remote Shell',
         copy: 'The shell remains intentionally simple: fast access, richer visual tuning, and zero confusion about where commands are actually running.',
@@ -1422,11 +1657,14 @@
       views: {
         memory: document.getElementById('memory-view'),
         review: document.getElementById('review-view'),
+        models: document.getElementById('models-view'),
         terminal: document.getElementById('terminal-view'),
         code: document.getElementById('code-view'),
       },
       viewTitle: document.getElementById('view-title'),
       viewCopy: document.getElementById('view-copy'),
+      memoryToolbar: document.getElementById('memory-toolbar'),
+      modelsToolbar: document.getElementById('models-toolbar'),
       buildPill: document.getElementById('build-pill'),
       memoryHealthPill: document.getElementById('memory-health-pill'),
       searchSummary: document.getElementById('search-summary'),
@@ -1484,6 +1722,22 @@
       proposalDetailStatus: document.getElementById('proposal-detail-status'),
       proposalPreviewExisting: document.getElementById('proposal-preview-existing'),
       proposalPreviewAppend: document.getElementById('proposal-preview-append'),
+      modelPullInput: document.getElementById('model-pull-input'),
+      modelPullBtn: document.getElementById('model-pull-btn'),
+      modelsRefreshBtn: document.getElementById('models-refresh-btn'),
+      modelStageFilter: document.getElementById('model-stage-filter'),
+      modelSortFilter: document.getElementById('model-sort-filter'),
+      modelShowProtected: document.getElementById('model-show-protected'),
+      modelsHostChip: document.getElementById('models-host-chip'),
+      modelsDiskChip: document.getElementById('models-disk-chip'),
+      modelsSummaryChip: document.getElementById('models-summary-chip'),
+      modelsInstalledMetric: document.getElementById('models-installed-metric'),
+      modelsLoadedMetric: document.getElementById('models-loaded-metric'),
+      modelsPinnedMetric: document.getElementById('models-pinned-metric'),
+      modelsCleanupMetric: document.getElementById('models-cleanup-metric'),
+      modelList: document.getElementById('model-list'),
+      cleanupCandidates: document.getElementById('cleanup-candidates'),
+      modelsLiveContext: document.getElementById('models-live-context'),
       nodeDetail: document.getElementById('node-detail'),
       nodeProvenance: document.getElementById('node-provenance'),
       nodePath: document.getElementById('node-path'),
@@ -1530,6 +1784,32 @@
       const n = Number(value || 0);
       if (!Number.isFinite(n) || !n) return 'unknown';
       return new Date(n * 1000).toLocaleString();
+    };
+
+    const fmtBytes = (value) => {
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 0) return 'unknown';
+      if (n < 1024) return `${n} B`;
+      const units = ['KB', 'MB', 'GB', 'TB'];
+      let scaled = n;
+      let unit = 'B';
+      for (const next of units) {
+        scaled /= 1024;
+        unit = next;
+        if (scaled < 1024) break;
+      }
+      const digits = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+      return `${scaled.toFixed(digits)} ${unit}`;
+    };
+
+    const fmtRelativeAge = (seconds) => {
+      const n = Number(seconds);
+      if (!Number.isFinite(n) || n < 0) return 'unknown';
+      if (n < 60) return 'now';
+      if (n < 3600) return `${Math.round(n / 60)}m ago`;
+      if (n < 86400) return `${Math.round(n / 3600)}h ago`;
+      if (n < 604800) return `${Math.round(n / 86400)}d ago`;
+      return `${Math.round(n / 604800)}w ago`;
     };
 
     const parseEventSnippet = (event) => {
@@ -1728,6 +2008,9 @@
       el.layoutFilter.value = state.graphControls.layout;
       el.motionFilter.value = state.graphControls.motion;
       el.glowFilter.value = String(state.graphControls.glow);
+      el.modelStageFilter.value = state.modelControls.stage;
+      el.modelSortFilter.value = state.modelControls.sort;
+      el.modelShowProtected.checked = state.modelControls.showProtected;
       el.themeBtns.forEach((btn) => btn.classList.toggle('active', btn.dataset.theme === state.terminalTheme));
       el.fontSelect.value = state.terminalSettings.font;
       el.scaleInput.value = String(state.terminalSettings.scale);
@@ -1786,6 +2069,8 @@
       Object.entries(el.views).forEach(([name, node]) => node.classList.toggle('active', name === view));
       el.viewTitle.textContent = viewMeta[view].title;
       el.viewCopy.textContent = viewMeta[view].copy;
+      el.memoryToolbar.classList.toggle('hidden', view !== 'memory');
+      el.modelsToolbar.classList.toggle('hidden', view !== 'models');
       logOp('view', viewMeta[view].title);
     };
 
@@ -2796,6 +3081,176 @@
       });
     };
 
+    const filteredModels = () => {
+      const models = state.models?.models || [];
+      return models
+        .filter((model) => !state.modelControls.stage || model?.metadata?.stage === state.modelControls.stage)
+        .filter((model) => state.modelControls.showProtected || (!model?.metadata?.pinned && model?.metadata?.stage !== 'keeper'))
+        .sort((a, b) => {
+          if (state.modelControls.sort === 'name') return String(a.name || '').localeCompare(String(b.name || ''));
+          if (state.modelControls.sort === 'modified') return (b.age_seconds || 0) - (a.age_seconds || 0);
+          return (b.size_bytes || 0) - (a.size_bytes || 0);
+        });
+    };
+
+    const refreshModelsSummary = () => {
+      const summary = state.models?.summary || {};
+      const disk = state.models?.disk || null;
+      el.modelsInstalledMetric.textContent = fmtNum(summary.model_count);
+      el.modelsLoadedMetric.textContent = fmtNum(summary.loaded_count);
+      el.modelsPinnedMetric.textContent = fmtNum(summary.pinned_count);
+      el.modelsCleanupMetric.textContent = fmtBytes(summary.cleanup_candidate_bytes);
+      el.modelsHostChip.textContent = `host ${(state.models?.host || 'hopper')}`;
+      el.modelsDiskChip.textContent = disk ? `disk ${disk.available || 'unknown'} free` : 'disk unknown';
+      el.modelsSummaryChip.textContent = `models ${fmtNum(summary.model_count)} · loaded ${fmtNum(summary.loaded_count)}`;
+
+      const containers = state.models?.containers || [];
+      el.modelsLiveContext.innerHTML = [
+        `<div class="info-card"><div class="label">Target</div><div class="value">${escapeHtml(state.models?.target || 'hopper')}</div></div>`,
+        `<div class="info-card"><div class="label">Ollama Container</div><div class="value">${escapeHtml(state.models?.ollama_container || 'ollama')}</div></div>`,
+        `<div class="info-card"><div class="label">Model Store</div><div class="value">${escapeHtml(state.models?.model_data_path || '/opt/containers/ollama/data')}</div></div>`,
+        `<div class="info-card"><div class="label">Docker Workloads</div><div class="value">${escapeHtml(containers.map((item) => item.name || item.image).join('\n') || 'none detected')}</div></div>`,
+      ].join('');
+    };
+
+    const renderCleanupCandidates = () => {
+      const candidates = state.models?.cleanup_candidates || [];
+      el.cleanupCandidates.innerHTML = candidates.map((model) => `
+        <div class="trace-item">
+          <div class="meta">${escapeHtml(model.reason || 'cleanup candidate')}</div>
+          <div class="value">${escapeHtml(model.name)} · ${escapeHtml(model.size || fmtBytes(model.size_bytes))} · ${escapeHtml(model.modified || 'unknown age')}</div>
+        </div>
+      `).join('') || '<div class="info-card"><div class="value">No obvious cleanup targets right now. That usually means the remaining set is pinned, loaded, or intentionally kept.</div></div>';
+    };
+
+    const renderModels = () => {
+      const models = filteredModels();
+      el.modelList.innerHTML = models.map((model) => {
+        const note = model?.metadata?.note || '';
+        const stage = model?.metadata?.stage || 'testing';
+        const pinned = model?.metadata?.pinned === true;
+        return `
+          <div class="model-item ${model.loaded ? 'is-loaded' : ''} ${pinned || stage === 'keeper' ? 'is-protected' : ''}" data-model-name="${escapeHtml(model.name)}">
+            <div class="model-head">
+              <div>
+                <div class="model-name">${escapeHtml(model.name)}</div>
+                <div class="model-meta">
+                  <span>${escapeHtml(model.id || 'no id')}</span>
+                  <span>${escapeHtml(model.size || fmtBytes(model.size_bytes))}</span>
+                  <span>${escapeHtml(model.modified || fmtRelativeAge(model.age_seconds))}</span>
+                  <span>${model.loaded ? 'loaded now' : 'not loaded'}</span>
+                </div>
+              </div>
+              <div class="chip-row">
+                ${pinned ? '<span class="chip">pinned</span>' : ''}
+                <span class="chip">${escapeHtml(stage)}</span>
+                ${model.cleanup_candidate ? '<span class="chip">cleanup</span>' : ''}
+              </div>
+            </div>
+
+            <div class="model-grid">
+              <div class="model-stat">
+                <div class="label">Size</div>
+                <div class="value">${escapeHtml(model.size || fmtBytes(model.size_bytes))}</div>
+              </div>
+              <div class="model-stat">
+                <div class="label">Modified</div>
+                <div class="value">${escapeHtml(model.modified || fmtRelativeAge(model.age_seconds))}</div>
+              </div>
+              <div class="model-stat">
+                <div class="label">Stage</div>
+                <div class="value">${escapeHtml(stage)}</div>
+              </div>
+              <div class="model-stat">
+                <div class="label">Protection</div>
+                <div class="value">${pinned || stage === 'keeper' ? 'protected' : 'removable'}</div>
+              </div>
+            </div>
+
+            <div class="model-note">${escapeHtml(note || 'No note yet. Use notes to capture why a model exists, what it was good at, or why it can safely go.')}</div>
+
+            <div class="model-actions">
+              <select class="select-input model-stage-input" data-model-name="${escapeHtml(model.name)}">
+                <option value="testing" ${stage === 'testing' ? 'selected' : ''}>testing</option>
+                <option value="candidate" ${stage === 'candidate' ? 'selected' : ''}>candidate</option>
+                <option value="keeper" ${stage === 'keeper' ? 'selected' : ''}>keeper</option>
+                <option value="archive" ${stage === 'archive' ? 'selected' : ''}>archive</option>
+              </select>
+              <label class="chip"><input type="checkbox" class="model-pin-input" data-model-name="${escapeHtml(model.name)}" ${pinned ? 'checked' : ''}> pinned</label>
+              <input class="text-input model-note-input" data-model-name="${escapeHtml(model.name)}" type="text" value="${escapeHtml(note)}" placeholder="note why this lane exists or what to remember">
+              <button class="action-btn secondary model-save-btn" data-model-name="${escapeHtml(model.name)}" type="button">Save Meta</button>
+              <button class="action-btn secondary model-remove-btn" data-model-name="${escapeHtml(model.name)}" type="button" ${model.loaded ? 'disabled' : ''}>Delete</button>
+            </div>
+          </div>
+        `;
+      }).join('') || '<div class="info-card"><div class="value">No models match the current filter.</div></div>';
+
+      el.modelList.querySelectorAll('.model-save-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const name = btn.dataset.modelName;
+          const root = btn.closest('[data-model-name]');
+          const stage = root?.querySelector('.model-stage-input')?.value || 'testing';
+          const pinned = root?.querySelector('.model-pin-input')?.checked === true;
+          const note = root?.querySelector('.model-note-input')?.value || '';
+          fetchJson('/models/hopper/metadata', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: name, stage, pinned, note }),
+          })
+            .then(() => refreshModels())
+            .then(() => logTrace('model meta', `${name} saved as ${stage}${pinned ? ' pinned' : ''}`))
+            .catch((err) => logTrace('model meta error', err.message));
+        });
+      });
+
+      el.modelList.querySelectorAll('.model-remove-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const name = btn.dataset.modelName;
+          const ok = window.confirm(`Delete ${name} from Hopper? This removes the Ollama model, not just the UI tag.`);
+          if (!ok) return;
+          fetchJson('/models/hopper/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: name }),
+          })
+            .then(() => refreshModels())
+            .then(() => logTrace('model delete', `${name} removed from Hopper`))
+            .catch((err) => logTrace('model delete error', err.message));
+        });
+      });
+    };
+
+    const refreshModels = async () => {
+      const out = await fetchJson('/models/hopper');
+      state.models = out;
+      refreshModelsSummary();
+      renderCleanupCandidates();
+      renderModels();
+      logOp('models', `${fmtNum(out.summary?.model_count)} models on Hopper · ${out.disk?.available || 'unknown'} free`);
+    };
+
+    const pullModel = async () => {
+      const model = el.modelPullInput.value.trim();
+      if (!model) {
+        logTrace('model pull', 'Enter a model name first.');
+        return;
+      }
+      el.modelPullBtn.disabled = true;
+      logTrace('model pull', `Pulling ${model} on Hopper`);
+      try {
+        await fetchJson('/models/hopper/pull', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model }),
+        });
+        await refreshModels();
+        el.modelPullInput.value = '';
+        logTrace('model pull', `${model} pulled successfully`);
+      } finally {
+        el.modelPullBtn.disabled = false;
+      }
+    };
+
     const refreshBuild = async () => {
       try {
         const out = await fetchJson('/build-info');
@@ -2948,6 +3403,26 @@
     el.harvestBtn.addEventListener('click', () => harvest().catch((err) => logTrace('harvest error', err.message)));
     el.reviewRefreshBtn.addEventListener('click', () => refreshReview().catch((err) => logTrace('review refresh error', err.message)));
     el.proposalFilter.addEventListener('change', () => refreshReview().catch((err) => logTrace('proposal filter error', err.message)));
+    el.modelsRefreshBtn.addEventListener('click', () => refreshModels().catch((err) => logTrace('models refresh error', err.message)));
+    el.modelPullBtn.addEventListener('click', () => pullModel().catch((err) => logTrace('model pull error', err.message)));
+    el.modelPullInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        pullModel().catch((err) => logTrace('model pull error', err.message));
+      }
+    });
+    el.modelStageFilter.addEventListener('change', () => {
+      state.modelControls.stage = el.modelStageFilter.value;
+      renderModels();
+    });
+    el.modelSortFilter.addEventListener('change', () => {
+      state.modelControls.sort = el.modelSortFilter.value;
+      renderModels();
+    });
+    el.modelShowProtected.addEventListener('change', () => {
+      state.modelControls.showProtected = el.modelShowProtected.checked;
+      renderModels();
+    });
     el.proposalSaveBtn.addEventListener('click', () => {
       updateSelectedProposalContent().catch((err) => {
         setReviewStatus(err.message, { tone: 'error' });
@@ -3254,6 +3729,7 @@
       await refreshStats();
       await refreshSearch();
       await refreshReview();
+      await refreshModels();
       setView('memory');
     };
 

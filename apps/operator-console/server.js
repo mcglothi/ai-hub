@@ -58,6 +58,12 @@ const AIKB_MAX_SNIPPETS = Math.max(1, Math.min(6, parseInt(process.env.AIKB_MAX_
 const MEMORY_CORE_URL = (process.env.MEMORY_CORE_URL || 'https://memory.home.timmcg.net').replace(/\/+$/, '');
 const MEMORY_CORE_API_KEY = process.env.MEMORY_CORE_API_KEY || '';
 const MEMORY_CORE_TIMEOUT_MS = Math.max(1000, parseInt(process.env.MEMORY_CORE_TIMEOUT_MS || '20000', 10));
+const SSH_BIN = process.env.SSH_BIN || '/usr/bin/ssh';
+const HOPPER_HOST = process.env.HOPPER_HOST || 'mcglothi@hopper.home.timmcg.net';
+const HOPPER_DOCKER_BIN = process.env.HOPPER_DOCKER_BIN || 'docker';
+const HOPPER_OLLAMA_CONTAINER = process.env.HOPPER_OLLAMA_CONTAINER || 'ollama';
+const HOPPER_MODEL_DATA_PATH = process.env.HOPPER_MODEL_DATA_PATH || '/opt/containers/ollama/data';
+const HOPPER_MODEL_METADATA_PATH = process.env.HOPPER_MODEL_METADATA_PATH || path.join(__dirname, 'data', 'hopper-model-metadata.json');
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 },
@@ -583,6 +589,270 @@ function handleCodexStream(proc, send, onThreadStarted) {
 
 }
 
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
+}
+
+function parseTable(text) {
+  const lines = String(text || '')
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter(Boolean);
+  if (lines.length <= 1) return [];
+  const headers = lines[0].trim().split(/\s{2,}/).map((item) => item.trim().toLowerCase());
+  return lines.slice(1).map((line) => {
+    const values = line.trim().split(/\s{2,}/);
+    const row = {};
+    headers.forEach((header, index) => {
+      row[header] = values[index] || '';
+    });
+    return row;
+  });
+}
+
+function parseHumanSizeToBytes(raw) {
+  const text = String(raw || '').trim();
+  const match = text.match(/^([\d.]+)\s*([KMGT]?B)?$/i);
+  if (!match) return null;
+  const value = Number(match[1]);
+  if (!Number.isFinite(value)) return null;
+  const unit = (match[2] || 'B').toUpperCase();
+  const scale = {
+    B: 1,
+    KB: 1024,
+    MB: 1024 ** 2,
+    GB: 1024 ** 3,
+    TB: 1024 ** 4,
+  }[unit];
+  return scale ? Math.round(value * scale) : null;
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value < 0) return 'unknown';
+  if (value < 1024) return `${value} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let scaled = value;
+  let unit = 'B';
+  for (const next of units) {
+    scaled /= 1024;
+    unit = next;
+    if (scaled < 1024) break;
+  }
+  const digits = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+  return `${scaled.toFixed(digits)} ${unit}`;
+}
+
+function relativeTimeFromText(raw) {
+  const text = String(raw || '').trim().toLowerCase();
+  if (!text) return null;
+  if (text === 'now' || text === 'just now') return 0;
+  const match = text.match(/^(\d+)\s+(minute|minutes|hour|hours|day|days|week|weeks|month|months)\s+ago$/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  const unit = match[2];
+  const multiplier = unit.startsWith('minute')
+    ? 60
+    : unit.startsWith('hour')
+      ? 3600
+      : unit.startsWith('day')
+        ? 86400
+        : unit.startsWith('week')
+          ? 604800
+          : 2629800;
+  return value * multiplier;
+}
+
+function normalizeModelMetadataRecord(record = {}) {
+  return {
+    pinned: record.pinned === true,
+    stage: typeof record.stage === 'string' && record.stage.trim() ? record.stage.trim() : 'testing',
+    note: typeof record.note === 'string' ? record.note.trim() : '',
+    hidden: record.hidden === true,
+    updated_at: typeof record.updated_at === 'string' && record.updated_at.trim() ? record.updated_at : new Date().toISOString(),
+  };
+}
+
+async function readHopperModelMetadata() {
+  try {
+    const raw = await fs.readFile(HOPPER_MODEL_METADATA_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    const models = parsed && typeof parsed.models === 'object' && parsed.models ? parsed.models : {};
+    const normalized = {};
+    for (const [name, record] of Object.entries(models)) {
+      normalized[name] = normalizeModelMetadataRecord(record);
+    }
+    return { models: normalized };
+  } catch {
+    return { models: {} };
+  }
+}
+
+async function writeHopperModelMetadata(payload) {
+  const safePayload = payload && typeof payload === 'object' ? payload : { models: {} };
+  await fs.mkdir(path.dirname(HOPPER_MODEL_METADATA_PATH), { recursive: true });
+  await fs.writeFile(HOPPER_MODEL_METADATA_PATH, JSON.stringify(safePayload, null, 2), 'utf8');
+}
+
+function ensureSafeModelName(name) {
+  const model = String(name || '').trim();
+  if (!model) throw new Error('model name required');
+  if (!/^[a-zA-Z0-9._:/+-]+$/.test(model)) {
+    throw new Error('model name contains unsupported characters');
+  }
+  return model;
+}
+
+function spawnAndCollect(bin, args, { timeoutMs = 20000, cwd = undefined, env = undefined } = {}) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(bin, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let finished = false;
+    const timer = setTimeout(() => {
+      if (finished) return;
+      finished = true;
+      proc.kill('SIGKILL');
+      reject(new Error(`command timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    proc.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    proc.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    proc.on('error', (err) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      reject(err);
+    });
+    proc.on('close', (code) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve({ stdout, stderr, code });
+      } else {
+        reject(new Error((stderr || stdout || `command exited ${code}`).trim()));
+      }
+    });
+  });
+}
+
+async function runHopperCommand(command, { timeoutMs = 20000 } = {}) {
+  return spawnAndCollect(
+    SSH_BIN,
+    ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', HOPPER_HOST, command],
+    { timeoutMs }
+  );
+}
+
+async function runHopperDocker(args, { timeoutMs = 20000 } = {}) {
+  const command = [HOPPER_DOCKER_BIN, ...args].map(shellQuote).join(' ');
+  return runHopperCommand(command, { timeoutMs });
+}
+
+async function getHopperModelInventory() {
+  const metadata = await readHopperModelMetadata();
+  const [hostnameOut, dockerPsOut, listOut, psOut, diskOut] = await Promise.all([
+    runHopperCommand('hostname', { timeoutMs: 8000 }),
+    runHopperDocker(['ps', '--format', 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}']),
+    runHopperDocker(['exec', HOPPER_OLLAMA_CONTAINER, 'ollama', 'list'], { timeoutMs: 25000 }),
+    runHopperDocker(['exec', HOPPER_OLLAMA_CONTAINER, 'ollama', 'ps'], { timeoutMs: 15000 }),
+    runHopperCommand(`df -B1 ${shellQuote(HOPPER_MODEL_DATA_PATH)}`, { timeoutMs: 8000 }),
+  ]);
+
+  const loadedNames = new Set(
+    parseTable(psOut.stdout)
+      .map((row) => row.name)
+      .filter(Boolean)
+  );
+
+  const models = parseTable(listOut.stdout).map((row) => {
+    const name = row.name || '';
+    const metadataRecord = metadata.models[name] || normalizeModelMetadataRecord({});
+    const modifiedText = row.modified || '';
+    const ageSeconds = relativeTimeFromText(modifiedText);
+    const sizeBytes = parseHumanSizeToBytes(row.size || '');
+    const loaded = loadedNames.has(name);
+    const cleanupCandidate = !loaded && !metadataRecord.pinned && metadataRecord.stage !== 'keeper';
+    return {
+      name,
+      id: row.id || '',
+      size: row.size || '',
+      size_bytes: sizeBytes,
+      modified: modifiedText,
+      age_seconds: ageSeconds,
+      loaded,
+      metadata: metadataRecord,
+      cleanup_candidate: cleanupCandidate,
+      weight: (cleanupCandidate ? 1 : 0) * (sizeBytes || 0) + (ageSeconds || 0),
+    };
+  }).sort((a, b) => (b.size_bytes || 0) - (a.size_bytes || 0));
+
+  const diskLines = String(diskOut.stdout || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const diskParts = (diskLines[1] || '').split(/\s+/);
+  const disk = diskParts.length >= 6 ? {
+    filesystem: diskParts[0],
+    total_bytes: Number(diskParts[1]) || null,
+    used_bytes: Number(diskParts[2]) || null,
+    available_bytes: Number(diskParts[3]) || null,
+    used_percent: diskParts[4] || '',
+    mountpoint: diskParts[5] || '',
+  } : null;
+
+  const containers = parseTable(dockerPsOut.stdout).map((row) => ({
+    name: row.names || '',
+    image: row.image || '',
+    status: row.status || '',
+    ports: row.ports || '',
+  }));
+
+  const cleanupCandidates = [...models]
+    .filter((model) => model.cleanup_candidate)
+    .sort((a, b) => (b.weight || 0) - (a.weight || 0))
+    .slice(0, 6)
+    .map((model) => ({
+      name: model.name,
+      size: model.size,
+      size_bytes: model.size_bytes,
+      modified: model.modified,
+      reason: model.metadata.stage === 'testing'
+        ? 'testing lane, not pinned, not loaded'
+        : 'not pinned and not loaded',
+    }));
+
+  return {
+    host: hostnameOut.stdout.trim() || HOPPER_HOST,
+    target: HOPPER_HOST,
+    ollama_container: HOPPER_OLLAMA_CONTAINER,
+    model_data_path: HOPPER_MODEL_DATA_PATH,
+    disk: disk ? {
+      ...disk,
+      total: formatBytes(disk.total_bytes),
+      used: formatBytes(disk.used_bytes),
+      available: formatBytes(disk.available_bytes),
+    } : null,
+    containers,
+    loaded_models: [...loadedNames],
+    models,
+    cleanup_candidates: cleanupCandidates,
+    summary: {
+      model_count: models.length,
+      loaded_count: loadedNames.size,
+      pinned_count: models.filter((model) => model.metadata.pinned).length,
+      keeper_count: models.filter((model) => model.metadata.stage === 'keeper').length,
+      testing_count: models.filter((model) => model.metadata.stage === 'testing').length,
+      cleanup_candidate_bytes: cleanupCandidates.reduce((sum, model) => sum + (model.size_bytes || 0), 0),
+    },
+  };
+}
+
 app.get('/healthz', (_req, res) => {
   res.json({ ok: true, service: 'ai-hub' });
 });
@@ -937,6 +1207,82 @@ app.post('/memory/proposals/:proposalId/apply', async (req, res) => {
       status: 'ok',
       file: relPath,
       proposal: patchOut.proposal || null,
+    });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.get('/models/hopper', async (_req, res) => {
+  try {
+    const out = await getHopperModelInventory();
+    res.json(out);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.patch('/models/hopper/metadata', async (req, res) => {
+  try {
+    const model = ensureSafeModelName(req.body?.model);
+    const next = normalizeModelMetadataRecord({
+      pinned: req.body?.pinned,
+      stage: req.body?.stage,
+      note: req.body?.note,
+      hidden: req.body?.hidden,
+      updated_at: new Date().toISOString(),
+    });
+    const metadata = await readHopperModelMetadata();
+    metadata.models[model] = next;
+    await writeHopperModelMetadata(metadata);
+    res.json({ ok: true, model, metadata: next });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/models/hopper/remove', async (req, res) => {
+  try {
+    const model = ensureSafeModelName(req.body?.model);
+    const force = req.body?.force === true;
+    const inventory = await getHopperModelInventory();
+    const record = inventory.models.find((item) => item.name === model);
+    if (!record) {
+      return res.status(404).json({ error: 'model not found on hopper' });
+    }
+    if (record.loaded) {
+      return res.status(409).json({ error: 'cannot remove a model that is currently loaded' });
+    }
+    if ((record.metadata.pinned || record.metadata.stage === 'keeper') && !force) {
+      return res.status(409).json({ error: 'model is protected; unpin it or move it out of keeper stage first' });
+    }
+
+    await runHopperDocker(['exec', HOPPER_OLLAMA_CONTAINER, 'ollama', 'rm', model], { timeoutMs: 45000 });
+    const metadata = await readHopperModelMetadata();
+    delete metadata.models[model];
+    await writeHopperModelMetadata(metadata);
+    const refreshed = await getHopperModelInventory();
+    res.json({
+      ok: true,
+      removed: model,
+      summary: refreshed.summary,
+      disk: refreshed.disk,
+    });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.post('/models/hopper/pull', async (req, res) => {
+  try {
+    const model = ensureSafeModelName(req.body?.model);
+    await runHopperDocker(['exec', HOPPER_OLLAMA_CONTAINER, 'ollama', 'pull', model], { timeoutMs: 30 * 60 * 1000 });
+    const refreshed = await getHopperModelInventory();
+    res.json({
+      ok: true,
+      pulled: model,
+      summary: refreshed.summary,
+      disk: refreshed.disk,
     });
   } catch (err) {
     res.status(502).json({ error: err.message });
