@@ -3192,6 +3192,33 @@
 
     const genericMemoryCoreDestination = (filePath) => filePath === 'home-lab/services/aikb-memory-core.md';
 
+    const INTENT_PATTERNS = [
+      { name: 'bug_report', label: 'bug report', rx: /\b(broken|not working|doesn't|isn't|failed|failure|error|issue|problem|crash|crashed|wrong|stale|fix that|not quite right)\b/i },
+      { name: 'operator_request', label: 'operator request', rx: /\b(lets|let's|please|can we|i want to|we need to|look at|take a look|lets make|lets deploy|try running|refresh the|show the|add |change the|break out)\b/i },
+      { name: 'deployment_confirmation', label: 'deploy confirm', rx: /\b(deployed|redeployed|rolled back|rolled out|is now live|updated to|installed|configured|completed|successfully|restored|enabled)\b/i },
+      { name: 'durable_runbook_change', label: 'runbook change', rx: /\b(runbook|script|service|systemd|config|configuration|updated .*script|migrated|switched|restored|enabled|disabled)\b/i },
+      { name: 'advice', label: 'advice', rx: /\b(you can now|would you like|please try|follow these steps|run this command|pro tip|instead of relying on)\b/i },
+    ];
+
+    const classifyProposalIntent = (proposal) => {
+      const payload = safeProposalPayload(proposal);
+      const summary = String(proposal?.summary || '');
+      const rawText = String(payload.raw_text || payload.evidence_snippet || '');
+      const text = `${summary}\n${rawText}`;
+      const matches = INTENT_PATTERNS.filter((pattern) => pattern.rx.test(text));
+      const names = matches.map((pattern) => pattern.name);
+      const primary = ['bug_report', 'operator_request', 'durable_runbook_change', 'deployment_confirmation', 'advice']
+        .find((name) => names.includes(name)) || 'unclear';
+      const labels = matches.map((pattern) => pattern.label);
+      return {
+        primary,
+        label: primary === 'unclear'
+          ? 'unclear'
+          : (INTENT_PATTERNS.find((pattern) => pattern.name === primary)?.label || primary),
+        labels,
+      };
+    };
+
     const proposalCompanionFamily = (proposal) => {
       const normalized = normalizeProposalSummary(proposal?.summary || '');
       if (!normalized) return { normalized, matches: [], counts: {}, hasFact: false, hasRunbook: false, duplicateCount: 0 };
@@ -3227,6 +3254,7 @@
       const summaryClean = normalizeProposalSummary(proposal?.summary || '');
       const evidence = proposal?.evidence && typeof proposal.evidence === 'object' ? proposal.evidence : {};
       const family = proposalCompanionFamily(proposal);
+      const intent = classifyProposalIntent(proposal);
       const eventType = String(evidence.event_type || '').toLowerCase();
       const confidence = Number(proposal?.confidence || 0);
       const suggestedFile = String(payload.suggested_file || '').trim();
@@ -3269,11 +3297,26 @@
         tone = 'reject';
         targetStatus = 'rejected';
         reasons.push('This includes assistant coaching or conversational advice, not a durable fact.');
+      } else if (intent.primary === 'advice') {
+        label = 'Reject advice';
+        tone = 'reject';
+        targetStatus = 'rejected';
+        reasons.push('This reads like step-by-step assistance or operator coaching, not durable memory.');
       } else if (proposal?.kind === 'fact' && pairedRunbookFamily) {
         label = 'Reject duplicate fact';
         tone = 'reject';
         targetStatus = 'rejected';
         reasons.push('A companion runbook update captures the same change more durably, so this fact copy is queue duplication.');
+      } else if (intent.primary === 'operator_request' && genericDestination) {
+        label = 'Reject request';
+        tone = 'reject';
+        targetStatus = 'rejected';
+        reasons.push('This is an operator ask or change request, which belongs in task/backlog tracking rather than durable memory-core facts.');
+      } else if (intent.primary === 'bug_report' && genericDestination && proposal?.kind !== 'task') {
+        label = 'Needs follow-up';
+        tone = 'review';
+        targetStatus = null;
+        reasons.push('This looks like a bug report or problem statement. It may be useful, but it should be reviewed as follow-up work rather than auto-saved as memory.');
       } else if (isSessionTask && oneOffTask) {
         label = 'Reject one-off';
         tone = 'reject';
@@ -3289,6 +3332,11 @@
         tone = 'approve';
         targetStatus = 'approved';
         reasons.push('This runbook update is the better durable representative of a duplicated fact/runbook pair.');
+      } else if (intent.primary === 'durable_runbook_change' && proposal?.kind === 'runbook_update' && hasSuggestedFile) {
+        label = 'Approve runbook';
+        tone = 'approve';
+        targetStatus = 'approved';
+        reasons.push('This is a concrete runbook-style change with an operational landing place.');
       } else if (looksDurableRunbook) {
         label = 'Approve keeper';
         tone = 'approve';
@@ -3303,9 +3351,10 @@
         reasons.push('This item is ambiguous enough that a human pass is still helpful before changing its status.');
       }
 
+      reasons.unshift(`Intent: ${intent.label}`);
       if (hasSuggestedFile) reasons.push(`Suggested destination: ${suggestedFile}`);
       if (family.duplicateCount > 1) reasons.push(`Duplicate family size: ${family.duplicateCount}`);
-      return { label, tone, targetStatus, reasons, family };
+      return { label, tone, targetStatus, reasons, family, intent };
     };
 
     const reviewRecommendationStats = () => state.proposals.reduce((acc, proposal) => {
@@ -3373,6 +3422,7 @@
       el.proposalRecommendationMeta.innerHTML = `
         <div class="recommendation-row">
           <span class="recommend-chip ${guide.tone}">${escapeHtml(guide.label)}</span>
+          <span class="chip">${escapeHtml(guide.intent.label)}</span>
         </div>
         <div>${escapeHtml(guide.reasons.join(' '))}</div>
       `;
@@ -3548,6 +3598,7 @@
           <div class="proposal-item tone-proposal ${state.selectedProposalId === proposal.proposal_id ? 'active' : ''}" data-node-id="${escapeHtml(id)}" data-proposal-id="${escapeHtml(proposal.proposal_id)}">
             <div class="proposal-topline">
               <span class="recommend-chip ${guide.tone}">${escapeHtml(guide.label)}</span>
+              <span class="chip">${escapeHtml(guide.intent.label)}</span>
               <span class="chip">${escapeHtml(proposal.kind || 'proposal')}</span>
               <span class="chip">${escapeHtml(proposal.status || 'unknown')}</span>
             </div>
