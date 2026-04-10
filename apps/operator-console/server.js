@@ -895,7 +895,7 @@ function normalizeHuggingFaceRepo(value) {
     return null;
   } catch {
     const match = normalized.match(/^([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)$/);
-    return match ? match[1] : null;
+    return match ? `${match[1]}/${match[2]}` : null;
   }
 }
 

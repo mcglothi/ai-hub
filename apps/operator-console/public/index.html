@@ -1847,6 +1847,7 @@
         detail: null,
         selectedQuant: '',
         fit: null,
+        hfSearchTimeout: null,
       },
     };
 
@@ -4574,11 +4575,26 @@
     el.hfSearchInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
+        if (state.huggingFace.hfSearchTimeout) clearTimeout(state.huggingFace.hfSearchTimeout);
         searchHuggingFace().catch((err) => {
           setHuggingFaceStatus(err.message);
           logTrace('hf search error', err.message);
         });
       }
+    });
+    el.hfSearchInput.addEventListener('input', () => {
+      if (state.huggingFace.hfSearchTimeout) clearTimeout(state.huggingFace.hfSearchTimeout);
+      const query = el.hfSearchInput.value.trim();
+      if (!query || query.length < 2) {
+        setHuggingFaceStatus('Type at least 2 characters to search...');
+        return;
+      }
+      state.huggingFace.hfSearchTimeout = setTimeout(() => {
+        searchHuggingFace().catch((err) => {
+          setHuggingFaceStatus(err.message);
+          logTrace('hf search error', err.message);
+        });
+      }, 350);
     });
     el.modelPullInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
