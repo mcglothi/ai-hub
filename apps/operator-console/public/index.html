@@ -489,7 +489,8 @@
       border-radius: 999px;
       padding: 4px 8px;
       border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.03);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(100, 151, 214, 0.07));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02), 0 10px 24px rgba(0, 0, 0, 0.16);
       font-size: 11px;
       color: #d8e8f7;
       font-family: 'IBM Plex Mono', monospace;
@@ -500,6 +501,7 @@
       height: 10px;
       border-radius: 999px;
       display: inline-block;
+      box-shadow: 0 0 14px currentColor;
     }
 
     .graph-stage {
@@ -507,11 +509,34 @@
       min-height: 760px;
       border-radius: 20px;
       overflow: hidden;
-      border: 1px solid var(--line);
+      border: 1px solid rgba(140, 196, 245, 0.18);
       background:
-        radial-gradient(1200px 600px at 50% -10%, rgba(110, 199, 255, 0.14), transparent 48%),
-        radial-gradient(900px 520px at 50% 115%, rgba(138, 230, 194, 0.08), transparent 55%),
-        linear-gradient(180deg, #08111b, #0a141e 55%, #071019);
+        radial-gradient(1200px 700px at 50% -12%, rgba(110, 199, 255, 0.18), transparent 46%),
+        radial-gradient(760px 520px at 18% 16%, rgba(84, 144, 255, 0.12), transparent 58%),
+        radial-gradient(860px 580px at 82% 22%, rgba(212, 113, 255, 0.11), transparent 60%),
+        radial-gradient(900px 540px at 50% 115%, rgba(138, 230, 194, 0.09), transparent 55%),
+        linear-gradient(180deg, #050a12, #08121d 42%, #050b14 100%);
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.02),
+        inset 0 28px 120px rgba(109, 162, 255, 0.05),
+        0 30px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .graph-stage::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 12% 16%, rgba(255,255,255,0.95) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 24% 72%, rgba(160,220,255,0.7) 0 1px, transparent 2px),
+        radial-gradient(circle at 41% 28%, rgba(255,255,255,0.82) 0 1.1px, transparent 2px),
+        radial-gradient(circle at 58% 14%, rgba(255,210,255,0.78) 0 1px, transparent 2px),
+        radial-gradient(circle at 72% 62%, rgba(140,239,208,0.72) 0 1.1px, transparent 2px),
+        radial-gradient(circle at 84% 22%, rgba(255,255,255,0.82) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 91% 79%, rgba(139,197,255,0.68) 0 1.1px, transparent 2px);
+      opacity: 0.75;
+      animation: twinkle 18s ease-in-out infinite alternate;
     }
 
     .graph-stage::after {
@@ -520,11 +545,17 @@
       inset: 0;
       pointer-events: none;
       background:
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(180deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+        linear-gradient(90deg, rgba(170, 214, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(170, 214, 255, 0.03) 1px, transparent 1px);
       background-size: 48px 48px;
-      opacity: 0.3;
+      opacity: 0.18;
       mix-blend-mode: screen;
+      mask-image: radial-gradient(circle at 50% 45%, black 36%, transparent 100%);
+    }
+
+    @keyframes twinkle {
+      from { opacity: 0.45; transform: translateY(-2px) scale(1); }
+      to { opacity: 0.82; transform: translateY(2px) scale(1.01); }
     }
 
     #graph-svg {
@@ -548,10 +579,11 @@
       border-radius: 999px;
       padding: 7px 10px;
       border: 1px solid var(--line);
-      background: rgba(8, 14, 22, 0.78);
+      background: linear-gradient(135deg, rgba(8, 14, 22, 0.86), rgba(18, 29, 45, 0.74));
       color: #dae9f8;
       font-size: 11px;
       font-family: 'IBM Plex Mono', monospace;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
     }
 
     .graph-toolbar {
@@ -2250,6 +2282,51 @@
       'sounds like', 'this way', 'quick assesment', 'idea about',
     ]);
 
+    const GRAPH_CLUSTER_PALETTE = [
+      { base: '#7fe7d8', glow: '#b8fff4' },
+      { base: '#78b8ff', glow: '#b8ddff' },
+      { base: '#ff9bd2', glow: '#ffd0ec' },
+      { base: '#ffd36e', glow: '#ffecae' },
+      { base: '#c288ff', glow: '#e0c0ff' },
+      { base: '#78f0a3', glow: '#bfffd2' },
+    ];
+
+    const hashString = (value) => {
+      let hash = 0;
+      const text = String(value || '');
+      for (let index = 0; index < text.length; index += 1) {
+        hash = ((hash << 5) - hash) + text.charCodeAt(index);
+        hash |= 0;
+      }
+      return Math.abs(hash);
+    };
+
+    const hexToRgb = (hex) => {
+      const normalized = String(hex || '').trim();
+      const match = normalized.match(/^#([0-9a-f]{6})$/i);
+      if (!match) return { r: 138, g: 230, b: 194 };
+      const value = match[1];
+      return {
+        r: parseInt(value.slice(0, 2), 16),
+        g: parseInt(value.slice(2, 4), 16),
+        b: parseInt(value.slice(4, 6), 16),
+      };
+    };
+
+    const colorAlpha = (hex, alpha) => {
+      const { r, g, b } = hexToRgb(hex);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
+
+    const blendHex = (first, second, ratio = 0.5) => {
+      const a = hexToRgb(first);
+      const b = hexToRgb(second);
+      const mix = (one, two) => Math.round(one + (two - one) * ratio);
+      return `#${[mix(a.r, b.r), mix(a.g, b.g), mix(a.b, b.b)].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+    };
+
+    const clusterPaletteFor = (index) => GRAPH_CLUSTER_PALETTE[index % GRAPH_CLUSTER_PALETTE.length];
+
     const normalizeTopicToken = (token) => String(token || '')
       .toLowerCase()
       .replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
@@ -2385,6 +2462,8 @@
         y: height * 0.48,
         r: 24,
         fill: '#8ae6c2',
+        glow: '#d9fff2',
+        heat: 1,
         detail: `Search query "${query}" anchors this graph.`,
         reason: `You searched for "${query}". The graph now highlights adjacent topics first, then the evidence supporting those topics.`,
       });
@@ -2414,6 +2493,7 @@
           id: `topic:${term}`,
           term,
           label: topicLabel(term),
+          palette: null,
           count: 0,
           eventCount: 0,
           aikbCount: 0,
@@ -2509,6 +2589,7 @@
         .slice(0, depth === 1 ? 12 : depth === 2 ? 18 : 22);
 
       topTopics.forEach((entry, index) => {
+        entry.palette = clusterPaletteFor(index);
         visibleTopicIds.add(entry.id);
         const angle = (Math.PI * 2 * index) / Math.max(topTopics.length, 1);
         const orbit = layout === 'radial' ? 205 : layout === 'constellation' ? 225 : 215;
@@ -2520,7 +2601,9 @@
           x: width * 0.5 + Math.cos(angle) * orbit,
           y: height * 0.48 + Math.sin(angle) * (orbit * 0.72),
           r: 15 + Math.min(entry.count, 4),
-          fill: '#ffd36e',
+          fill: entry.palette.base,
+          glow: entry.palette.glow,
+          heat: 0.78 + Math.min(entry.count, 4) * 0.12,
           detail: `${entry.label} appears across ${entry.evidenceIds.size} matching memories.`,
           meta: `${entry.eventCount} events · ${entry.aikbCount} AIKB${entry.proposalCount ? ` · ${entry.proposalCount} proposals` : ''} · score ${scoreTopic(entry).toFixed(1)}`,
           reason: `${entry.label} is shown because it repeatedly appears beside "${query}" in the visible result set.`,
@@ -2542,6 +2625,7 @@
         : [];
 
       neighboringTopics.forEach((entry, index) => {
+        entry.palette = entry.palette || clusterPaletteFor(topTopics.length + index);
         neighborTopicIds.add(entry.id);
         const angle = (Math.PI * 2 * index) / Math.max(neighboringTopics.length, 1);
         const orbit = layout === 'radial' ? 320 : layout === 'constellation' ? 340 : 330;
@@ -2553,7 +2637,9 @@
           x: width * 0.5 + Math.cos(angle + 0.22) * orbit,
           y: height * 0.48 + Math.sin(angle + 0.22) * (orbit * 0.7),
           r: 11 + Math.min(entry.count, 3),
-          fill: '#ffdf94',
+          fill: blendHex(entry.palette.base, '#ffffff', 0.12),
+          glow: entry.palette.glow,
+          heat: 0.54 + Math.min(entry.count, 3) * 0.08,
           detail: `${entry.label} is a second-ring concept connected through the current topic neighborhood.`,
           meta: `${entry.eventCount} events · ${entry.aikbCount} AIKB${entry.proposalCount ? ` · ${entry.proposalCount} proposals` : ''} · score ${scoreTopic(entry).toFixed(1)}`,
           reason: `${entry.label} extends the map beyond the first ring so you can explore links-to-links instead of only the closest matches.`,
@@ -2601,6 +2687,19 @@
         });
 
       const addEvidenceNode = (row, index, total, ringRadius = 340) => {
+        const linkedTopics = row.topics
+          .map((term) => topicEntries.get(term))
+          .filter((entry) => entry && connectedTopicIds.has(entry.id))
+          .sort((a, b) => scoreTopic(b) - scoreTopic(a))
+          .slice(0, 3);
+        const leadPalette = linkedTopics[0]?.palette || null;
+        const nodeFill = leadPalette
+          ? row.kind === 'aikb'
+            ? blendHex(leadPalette.base, '#6ec7ff', 0.45)
+            : row.kind === 'proposal'
+              ? blendHex(leadPalette.base, '#d7a1ff', 0.35)
+              : blendHex(leadPalette.base, '#ffbc7b', 0.34)
+          : row.fill;
         const angle = (Math.PI * 2 * index) / Math.max(total, 1);
         const layoutX = layout === 'radial'
           ? width * 0.5 + Math.cos(angle) * ringRadius
@@ -2619,7 +2718,9 @@
           x: layoutX,
           y: layoutY,
           r: row.kind === 'aikb' ? 14 : 12,
-          fill: row.fill,
+          fill: nodeFill,
+          glow: leadPalette?.glow || blendHex(nodeFill, '#ffffff', 0.35),
+          heat: row.kind === 'aikb' ? 0.56 : 0.46,
           detail: row.detail,
           meta: row.meta,
           reason: row.reason,
@@ -2629,12 +2730,6 @@
           record: row.record,
           raw: row.raw,
         });
-
-        const linkedTopics = row.topics
-          .map((term) => topicEntries.get(term))
-          .filter((entry) => entry && connectedTopicIds.has(entry.id))
-          .sort((a, b) => scoreTopic(b) - scoreTopic(a))
-          .slice(0, 3);
 
         if (!linkedTopics.length) {
           addEdge('query', row.id, 0.92, `This ${row.kind === 'aikb' ? 'AIKB note' : 'event'} matched the query directly even though it did not yield one of the strongest visible adjacent topics.`);
@@ -2952,7 +3047,22 @@
       const defs = document.createElementNS(ns, 'defs');
       defs.innerHTML = `
         <filter id="glow">
-          <feGaussianBlur stdDeviation="6" result="blur"></feGaussianBlur>
+          <feGaussianBlur stdDeviation="8" result="blur"></feGaussianBlur>
+          <feColorMatrix type="matrix" values="
+            1 0 0 0 0
+            0 1 0 0 0
+            0 0 1 0 0
+            0 0 0 18 -7" result="glowAlpha"></feColorMatrix>
+          <feMerge>
+            <feMergeNode in="glowAlpha"></feMergeNode>
+            <feMergeNode in="SourceGraphic"></feMergeNode>
+          </feMerge>
+        </filter>
+        <filter id="nebula-blur">
+          <feGaussianBlur stdDeviation="34"></feGaussianBlur>
+        </filter>
+        <filter id="text-glow">
+          <feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur>
           <feMerge>
             <feMergeNode in="blur"></feMergeNode>
             <feMergeNode in="SourceGraphic"></feMergeNode>
@@ -2960,6 +3070,39 @@
         </filter>
       `;
       svg.appendChild(defs);
+
+      const backdropGroup = document.createElementNS(ns, 'g');
+      backdropGroup.setAttribute('opacity', '0.95');
+      svg.appendChild(backdropGroup);
+
+      const graphWidth = state.graph.width || 1200;
+      const graphHeight = state.graph.height || 760;
+      const stars = 90 + Math.min(70, state.graph.nodes.length * 2);
+      for (let index = 0; index < stars; index += 1) {
+        const seed = hashString(`star-${state.search?.query || 'memory'}-${index}`);
+        const star = document.createElementNS(ns, 'circle');
+        star.setAttribute('cx', String((seed % 997) / 997 * graphWidth));
+        star.setAttribute('cy', String(((seed >> 3) % 991) / 991 * graphHeight));
+        star.setAttribute('r', String(0.6 + ((seed % 13) / 13) * 1.7));
+        star.setAttribute('fill', seed % 5 === 0 ? 'rgba(201, 233, 255, 0.95)' : seed % 7 === 0 ? 'rgba(255, 212, 247, 0.72)' : 'rgba(171, 226, 255, 0.7)');
+        star.setAttribute('opacity', String(0.2 + ((seed >> 5) % 100) / 180));
+        backdropGroup.appendChild(star);
+      }
+
+      state.graph.nodes
+        .filter((node) => node.kind === 'topic')
+        .forEach((node, index) => {
+          const nebula = document.createElementNS(ns, 'ellipse');
+          const stretch = 1 + (index % 3) * 0.22;
+          nebula.setAttribute('cx', String(node.x));
+          nebula.setAttribute('cy', String(node.y));
+          nebula.setAttribute('rx', String((node.r + 54) * stretch));
+          nebula.setAttribute('ry', String((node.r + 32) * (1.08 + (index % 2) * 0.18)));
+          nebula.setAttribute('fill', colorAlpha(node.fill, 0.15 + (node.heat || 0.4) * 0.08));
+          nebula.setAttribute('filter', 'url(#nebula-blur)');
+          nebula.setAttribute('opacity', String(0.42 + Math.min(0.24, (node.heat || 0.4) * 0.16)));
+          backdropGroup.appendChild(nebula);
+        });
 
       const viewportGroup = document.createElementNS(ns, 'g');
       viewportGroup.setAttribute('transform', `translate(${state.graphViewport.panX} ${state.graphViewport.panY}) scale(${state.graphViewport.scale})`);
@@ -2975,14 +3118,31 @@
         const from = nodeById(edge.from);
         const to = nodeById(edge.to);
         if (!from || !to) return;
+        const gradient = document.createElementNS(ns, 'linearGradient');
+        const gradientId = `edge-grad-${hashString(edge.id)}`;
+        gradient.setAttribute('id', gradientId);
+        gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
+        gradient.setAttribute('x1', String(from.x));
+        gradient.setAttribute('y1', String(from.y));
+        gradient.setAttribute('x2', String(to.x));
+        gradient.setAttribute('y2', String(to.y));
+        gradient.innerHTML = `
+          <stop offset="0%" stop-color="${from.fill}" stop-opacity="0.18"></stop>
+          <stop offset="50%" stop-color="${blendHex(from.fill, to.fill, 0.5)}" stop-opacity="0.4"></stop>
+          <stop offset="100%" stop-color="${to.fill}" stop-opacity="0.2"></stop>
+        `;
+        defs.appendChild(gradient);
         const path = document.createElementNS(ns, 'path');
         const curve = `M ${from.x} ${from.y} Q ${(from.x + to.x) / 2} ${((from.y + to.y) / 2) - 28} ${to.x} ${to.y}`;
         const pathActive = activeEdgeIds.has(`${edge.from}::${edge.to}`);
         const edgeSelected = state.selectedEdgeId === edge.id;
         path.setAttribute('d', curve);
         path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', edgeSelected ? 'rgba(110, 199, 255, 0.95)' : pathActive ? 'rgba(255, 188, 123, 0.88)' : state.selectedNodeId && (edge.from === state.selectedNodeId || edge.to === state.selectedNodeId) ? 'rgba(138, 230, 194, 0.55)' : 'rgba(147, 185, 220, 0.14)');
-        path.setAttribute('stroke-width', String(edgeSelected ? edge.weight * 2.2 : pathActive ? edge.weight * 1.8 : edge.weight * 1.1));
+        path.setAttribute('stroke', edgeSelected ? 'rgba(198, 232, 255, 0.96)' : pathActive ? colorAlpha('#ffbc7b', 0.92) : state.selectedNodeId && (edge.from === state.selectedNodeId || edge.to === state.selectedNodeId) ? colorAlpha(from.fill, 0.62) : `url(#${gradientId})`);
+        path.setAttribute('stroke-width', String(edgeSelected ? edge.weight * 2.4 : pathActive ? edge.weight * 1.95 : edge.weight * 1.2));
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('opacity', edgeSelected ? '1' : pathActive ? '0.98' : '0.88');
+        if (!edgeSelected && !pathActive) path.setAttribute('filter', 'url(#glow)');
         path.style.cursor = 'pointer';
         path.addEventListener('click', (event) => {
           event.stopPropagation();
@@ -2999,20 +3159,49 @@
         const halo = document.createElementNS(ns, 'circle');
         halo.setAttribute('cx', String(node.x));
         halo.setAttribute('cy', String(node.y));
-        halo.setAttribute('r', String(node.r + 10));
-        halo.setAttribute('fill', node.fill);
-        halo.setAttribute('opacity', pathActive ? String(0.12 + state.graphControls.glow * 0.18) : state.selectedNodeId === node.id ? String(0.1 + state.graphControls.glow * 0.14) : String(0.03 + state.graphControls.glow * 0.07));
+        halo.setAttribute('r', String(node.r + 10 + (node.heat || 0.35) * 8));
+        halo.setAttribute('fill', node.glow || blendHex(node.fill, '#ffffff', 0.3));
+        halo.setAttribute('opacity', pathActive ? String(0.18 + state.graphControls.glow * 0.2) : state.selectedNodeId === node.id ? String(0.16 + state.graphControls.glow * 0.16) : String(0.06 + state.graphControls.glow * 0.1 + (node.heat || 0.35) * 0.03));
         halo.setAttribute('filter', 'url(#glow)');
         group.appendChild(halo);
+
+        const aura = document.createElementNS(ns, 'circle');
+        aura.setAttribute('cx', String(node.x));
+        aura.setAttribute('cy', String(node.y));
+        aura.setAttribute('r', String(node.r + 4));
+        aura.setAttribute('fill', colorAlpha(node.fill, 0.16));
+        aura.setAttribute('stroke', colorAlpha(node.glow || node.fill, 0.24));
+        aura.setAttribute('stroke-width', '1');
+        group.appendChild(aura);
 
         const circle = document.createElementNS(ns, 'circle');
         circle.setAttribute('cx', String(node.x));
         circle.setAttribute('cy', String(node.y));
         circle.setAttribute('r', String(node.r));
         circle.setAttribute('fill', node.fill);
-        circle.setAttribute('stroke', state.selectedNodeId === node.id ? '#ffffff' : pathActive ? '#ffbc7b' : 'rgba(255,255,255,0.18)');
-        circle.setAttribute('stroke-width', state.selectedNodeId === node.id ? '2.4' : pathActive ? '1.8' : '1');
+        circle.setAttribute('stroke', state.selectedNodeId === node.id ? '#f7fcff' : pathActive ? '#ffd7a4' : colorAlpha(node.glow || '#ffffff', 0.44));
+        circle.setAttribute('stroke-width', state.selectedNodeId === node.id ? '2.8' : pathActive ? '2' : '1.2');
         group.appendChild(circle);
+
+        const core = document.createElementNS(ns, 'circle');
+        core.setAttribute('cx', String(node.x));
+        core.setAttribute('cy', String(node.y));
+        core.setAttribute('r', String(Math.max(2.6, node.r * 0.3)));
+        core.setAttribute('fill', blendHex(node.fill, '#ffffff', 0.48));
+        core.setAttribute('opacity', node.kind === 'query' ? '0.95' : '0.82');
+        group.appendChild(core);
+
+        const labelWidth = Math.min(224, Math.max(86, node.label.length * 7.2 + 20));
+        const labelBg = document.createElementNS(ns, 'rect');
+        labelBg.setAttribute('x', String(node.x + node.r + 4));
+        labelBg.setAttribute('y', String(node.y - 12));
+        labelBg.setAttribute('width', String(labelWidth));
+        labelBg.setAttribute('height', '22');
+        labelBg.setAttribute('rx', '11');
+        labelBg.setAttribute('fill', 'rgba(6, 11, 17, 0.62)');
+        labelBg.setAttribute('stroke', colorAlpha(node.glow || node.fill, 0.24));
+        labelBg.setAttribute('stroke-width', '0.8');
+        group.appendChild(labelBg);
 
         const text = document.createElementNS(ns, 'text');
         text.setAttribute('x', String(node.x + node.r + 8));
@@ -3020,6 +3209,7 @@
         text.setAttribute('fill', '#eff7ff');
         text.setAttribute('font-size', '12');
         text.setAttribute('font-family', 'IBM Plex Mono, monospace');
+        text.setAttribute('filter', 'url(#text-glow)');
         text.textContent = node.label.slice(0, 30);
         group.appendChild(text);
 
