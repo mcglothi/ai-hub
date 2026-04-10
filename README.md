@@ -58,8 +58,7 @@ ai-hub/
 │   │   ├── app/
 │   │   ├── ui/
 │   │   ├── requirements.txt
-│   │   └── sync_agent.py
-│   └── chat-wrapper/      <-- Legacy
+│       └── sync_agent.py
 ├── assets/
 │   ├── hero-graphic.svg
 │   ├── ai-hub-logo.svg
