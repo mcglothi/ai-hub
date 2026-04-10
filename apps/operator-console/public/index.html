@@ -1848,6 +1848,9 @@
         selectedQuant: '',
         fit: null,
         hfSearchTimeout: null,
+        searchRequestId: 0,
+        inspectRequestId: 0,
+        fitRequestId: 0,
       },
     };
 
@@ -4147,11 +4150,22 @@
       el.hfSearchStatus.textContent = message;
     };
 
-    const refreshHuggingFaceFit = async () => {
+    const resetHuggingFaceSelection = ({ preserveQuery = true } = {}) => {
+      if (!preserveQuery) state.huggingFace.query = '';
+      state.huggingFace.results = [];
+      state.huggingFace.detail = null;
+      state.huggingFace.selectedQuant = '';
+      state.huggingFace.fit = null;
+      renderHuggingFaceResults();
+      renderHuggingFaceDetail();
+    };
+
+    const refreshHuggingFaceFit = async ({ requestId = null } = {}) => {
       const detail = state.huggingFace.detail;
       if (!detail) return;
       const repo = detail.id || detail.modelId || '';
       const quant = state.huggingFace.selectedQuant || detail.suggestedQuant || '';
+      const fitRequestId = ++state.huggingFace.fitRequestId;
       const out = await fetchJson(modelRoute('/fit'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -4160,6 +4174,9 @@
           quant,
         }),
       });
+      if (requestId !== null && requestId !== state.huggingFace.inspectRequestId) return;
+      if (fitRequestId !== state.huggingFace.fitRequestId) return;
+      if ((state.huggingFace.detail?.id || state.huggingFace.detail?.modelId || '') !== repo) return;
       state.huggingFace.fit = out;
       renderHuggingFaceDetail();
     };
@@ -4324,7 +4341,7 @@
             </div>
           </div>
         `;
-      }).join('') || '<div class="info-card"><div class="value">No Hugging Face results yet. Search above to start building an import ref.</div></div>';
+      }).join('') || `<div class="info-card"><div class="value">${state.huggingFace.query ? `No saved results are visible for "${escapeHtml(state.huggingFace.query)}" yet.` : 'Type two or more characters to start a live Hugging Face search.'}</div></div>`;
 
       el.hfResultList.querySelectorAll('.hf-inspect-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -4333,17 +4350,20 @@
       });
     };
 
-    const inspectHuggingFaceRepo = async (repo) => {
+    const inspectHuggingFaceRepo = async (repo, { requestId = null, silent = false } = {}) => {
       const normalizedRepo = String(repo || '').trim();
       if (!normalizedRepo) return;
-      setHuggingFaceStatus(`Inspecting ${normalizedRepo}...`);
+      const inspectRequestId = ++state.huggingFace.inspectRequestId;
+      if (!silent) setHuggingFaceStatus(`Inspecting ${normalizedRepo}...`);
       const out = await fetchJson(`${modelRoute('/huggingface/model')}?repo=${encodeURIComponent(normalizedRepo)}`);
+      if (requestId !== null && requestId !== state.huggingFace.searchRequestId) return;
+      if (inspectRequestId !== state.huggingFace.inspectRequestId) return;
       state.huggingFace.detail = out;
       state.huggingFace.selectedQuant = out.suggestedQuant || out.quantLabels?.[0] || '';
       state.huggingFace.fit = null;
       renderHuggingFaceDetail();
       setHuggingFaceStatus(`Prepared ${buildHuggingFaceImportRef()} for ${currentPlatformLabel()}.`);
-      await refreshHuggingFaceFit();
+      await refreshHuggingFaceFit({ requestId: inspectRequestId });
       logTrace('hf inspect', `${normalizedRepo} ready for import`);
     };
 
@@ -4353,17 +4373,24 @@
         setHuggingFaceStatus('Enter a Hugging Face search term first.');
         return;
       }
+      const searchRequestId = ++state.huggingFace.searchRequestId;
       state.huggingFace.query = query;
+      state.huggingFace.inspectRequestId += 1;
+      state.huggingFace.fitRequestId += 1;
       state.huggingFace.detail = null;
       state.huggingFace.selectedQuant = '';
       state.huggingFace.fit = null;
+      renderHuggingFaceResults();
       renderHuggingFaceDetail();
       setHuggingFaceStatus(`Searching Hugging Face for "${query}"...`);
       const out = await fetchJson(`${modelRoute('/huggingface/search')}?q=${encodeURIComponent(query)}`);
+      if (searchRequestId !== state.huggingFace.searchRequestId) return;
       state.huggingFace.results = out.results || [];
       renderHuggingFaceResults();
       if (state.huggingFace.results.length > 0) {
-        await inspectHuggingFaceRepo(state.huggingFace.results[0].id);
+        const preferredResult = state.huggingFace.results.find((result) => result.gguf) || state.huggingFace.results[0];
+        setHuggingFaceStatus(`${fmtNum(state.huggingFace.results.length)} match${state.huggingFace.results.length === 1 ? '' : 'es'} for "${query}". Preparing the best GGUF candidate...`);
+        await inspectHuggingFaceRepo(preferredResult.id, { requestId: searchRequestId, silent: true });
       } else {
         setHuggingFaceStatus(`No public matches for "${query}". Try a broader family name plus gguf.`);
       }
@@ -4586,9 +4613,15 @@
       if (state.huggingFace.hfSearchTimeout) clearTimeout(state.huggingFace.hfSearchTimeout);
       const query = el.hfSearchInput.value.trim();
       if (!query || query.length < 2) {
-        setHuggingFaceStatus('Type at least 2 characters to search...');
+        state.huggingFace.searchRequestId += 1;
+        state.huggingFace.inspectRequestId += 1;
+        state.huggingFace.fitRequestId += 1;
+        resetHuggingFaceSelection({ preserveQuery: false });
+        setHuggingFaceStatus(query ? 'Type at least 2 characters to search.' : 'Type two or more characters to start a live Hugging Face search.');
         return;
       }
+      state.huggingFace.query = query;
+      setHuggingFaceStatus(`Waiting for more typing before searching "${query}"...`);
       state.huggingFace.hfSearchTimeout = setTimeout(() => {
         searchHuggingFace().catch((err) => {
           setHuggingFaceStatus(err.message);
