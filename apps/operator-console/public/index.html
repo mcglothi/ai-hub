@@ -617,7 +617,12 @@
 
     .review-summary-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .followup-lane {
+      display: grid;
       gap: 12px;
     }
 
@@ -1413,7 +1418,24 @@
                 <div class="label">Needs Eyes</div>
                 <div id="review-review-count" class="value">-</div>
               </div>
+              <div class="meta-card">
+                <div class="label">Backlog Lane</div>
+                <div id="review-followup-count" class="value">-</div>
+              </div>
             </div>
+          </div>
+
+          <div class="card followup-lane">
+            <div class="card-head">
+              <div class="card-title">
+                <h2>Follow-Up Lane</h2>
+                <p>Bug reports and meaningful operator requests land here so they feel like captured work, not memory-review failures.</p>
+              </div>
+              <div class="chip-row">
+                <span class="chip mono">follow-up <span id="followup-lane-pill">pending</span></span>
+              </div>
+            </div>
+            <div id="followup-list" class="proposal-list"></div>
           </div>
 
           <div class="review-layout">
@@ -1788,6 +1810,9 @@
       reviewApproveCount: document.getElementById('review-approve-count'),
       reviewRejectCount: document.getElementById('review-reject-count'),
       reviewReviewCount: document.getElementById('review-review-count'),
+      reviewFollowupCount: document.getElementById('review-followup-count'),
+      followupLanePill: document.getElementById('followup-lane-pill'),
+      followupList: document.getElementById('followup-list'),
       layoutFilter: document.getElementById('layout-filter'),
       motionFilter: document.getElementById('motion-filter'),
       glowFilter: document.getElementById('glow-filter'),
@@ -3272,6 +3297,7 @@
       const assistantAdvice = /\bpro tip\b/.test(raw) || /\bwould you like\b/.test(raw);
       const oneOffTask = /(lets|let's|go ahead|what'?s next|continue work|for now|next step)/.test(raw || summary);
       const vagueSummary = /^(understood|everything is correctly configured|hrm\.?|not quite right|lets try running the script now|i just rebooted again)$/i.test(summaryClean);
+      const detailedRequest = summaryClean.split(/\s+/).filter(Boolean).length >= 6 || raw.length >= 90;
       const isSessionTask = proposal?.kind === 'task' && eventType === 'session_log_line';
       const looksDurableFact = hasSuggestedFile && confidence >= 0.82 && !firstPerson && !deployish;
       const pairedRunbookFamily = family.hasFact && family.hasRunbook;
@@ -3308,10 +3334,17 @@
         targetStatus = 'rejected';
         reasons.push('A companion runbook update captures the same change more durably, so this fact copy is queue duplication.');
       } else if (intent.primary === 'operator_request' && genericDestination) {
-        label = 'Reject request';
-        tone = 'reject';
-        targetStatus = 'rejected';
-        reasons.push('This is an operator ask or change request, which belongs in task/backlog tracking rather than durable memory-core facts.');
+        if (detailedRequest || proposal?.kind === 'task') {
+          label = 'Backlog candidate';
+          tone = 'review';
+          targetStatus = null;
+          reasons.push('This is a meaningful operator ask that belongs in a follow-up lane or backlog rather than durable memory-core facts.');
+        } else {
+          label = 'Reject request';
+          tone = 'reject';
+          targetStatus = 'rejected';
+          reasons.push('This is an operator ask or change request, which belongs in task/backlog tracking rather than durable memory-core facts.');
+        }
       } else if (intent.primary === 'bug_report' && genericDestination && proposal?.kind !== 'task') {
         label = 'Needs follow-up';
         tone = 'review';
@@ -3357,14 +3390,22 @@
       return { label, tone, targetStatus, reasons, family, intent };
     };
 
+    const isFollowupCandidate = (proposal, guide = proposalGuidance(proposal)) => (
+      guide.targetStatus == null
+      && (guide.label === 'Backlog candidate' || guide.label === 'Needs follow-up' || ['bug_report', 'operator_request'].includes(guide.intent.primary))
+    );
+
+    const followupProposals = () => state.proposals.filter((proposal) => isFollowupCandidate(proposal));
+
     const reviewRecommendationStats = () => state.proposals.reduce((acc, proposal) => {
       const guide = proposalGuidance(proposal);
       acc.visible += 1;
       if (guide.targetStatus === 'approved') acc.approve += 1;
       else if (guide.targetStatus === 'rejected') acc.reject += 1;
       else acc.review += 1;
+      if (isFollowupCandidate(proposal, guide)) acc.followup += 1;
       return acc;
-    }, { visible: 0, approve: 0, reject: 0, review: 0 });
+    }, { visible: 0, approve: 0, reject: 0, review: 0, followup: 0 });
 
     const renderReviewSummary = () => {
       const summary = reviewRecommendationStats();
@@ -3372,6 +3413,29 @@
       el.reviewApproveCount.textContent = fmtNum(summary.approve);
       el.reviewRejectCount.textContent = fmtNum(summary.reject);
       el.reviewReviewCount.textContent = fmtNum(summary.review);
+      el.reviewFollowupCount.textContent = fmtNum(summary.followup);
+      if (el.followupLanePill) el.followupLanePill.textContent = `${fmtNum(summary.followup)} queued`;
+    };
+
+    const renderFollowupLane = () => {
+      const rows = followupProposals().slice(0, 24);
+      el.followupList.innerHTML = rows.map((proposal) => {
+        const guide = proposalGuidance(proposal);
+        return `
+          <div class="proposal-item ${state.selectedProposalId === proposal.proposal_id ? 'active' : ''}" data-followup-id="${escapeHtml(proposal.proposal_id)}">
+            <div class="proposal-topline">
+              <span class="recommend-chip ${guide.tone}">${escapeHtml(guide.label)}</span>
+              <span class="chip">${escapeHtml(guide.intent.label)}</span>
+              <span class="chip">${escapeHtml(proposal.kind || 'proposal')}</span>
+            </div>
+            <div class="proposal-title">${escapeHtml(proposal.summary || 'Untitled follow-up')}</div>
+            <div class="proposal-copy">${escapeHtml(guide.reasons[1] || guide.reasons[0] || proposalPreviewText(proposal))}</div>
+          </div>
+        `;
+      }).join('') || '<div class="info-card"><div class="value">No backlog-shaped follow-up items are visible in the current queue.</div></div>';
+      el.followupList.querySelectorAll('[data-followup-id]').forEach((node) => {
+        node.addEventListener('click', () => selectProposal(node.dataset.followupId));
+      });
     };
 
     const defaultProposalFile = (proposal) => {
@@ -3612,6 +3676,7 @@
         node.addEventListener('click', () => selectProposal(node.dataset.proposalId));
       });
       renderReviewSummary();
+      renderFollowupLane();
     };
 
     const filteredModels = () => {
