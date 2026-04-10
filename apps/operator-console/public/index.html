@@ -2270,12 +2270,12 @@
     ]);
 
     const GRAPH_CLUSTER_PALETTE = [
-      { base: '#7fe7d8', glow: '#b8fff4' },
-      { base: '#78b8ff', glow: '#b8ddff' },
-      { base: '#ff9bd2', glow: '#ffd0ec' },
-      { base: '#ffd36e', glow: '#ffecae' },
-      { base: '#c288ff', glow: '#e0c0ff' },
-      { base: '#78f0a3', glow: '#bfffd2' },
+      '#7fe7d8',
+      '#78b8ff',
+      '#ff9bd2',
+      '#ffd36e',
+      '#c288ff',
+      '#78f0a3',
     ];
 
     const hashString = (value) => {
@@ -2462,7 +2462,6 @@
         y: height * 0.48,
         r: 24,
         fill: '#8ae6c2',
-        glow: '#d9fff2',
         heat: 1,
         detail: `Search query "${query}" anchors this graph.`,
         reason: `You searched for "${query}". The graph now highlights adjacent topics first, then the evidence supporting those topics.`,
@@ -2601,10 +2600,8 @@
           x: width * 0.5 + Math.cos(angle) * orbit,
           y: height * 0.48 + Math.sin(angle) * (orbit * 0.72),
           r: 15 + Math.min(entry.count, 4),
-          fill: entry.palette.base,
-          glow: entry.palette.glow,
-          heat: 0.78 + Math.min(entry.count, 4) * 0.12,
-          detail: `${entry.label} appears across ${entry.evidenceIds.size} matching memories.`,
+          fill: entry.palette,
+          heat: 0.78 + Math.min(entry.count, 4) * 0.12,          detail: `${entry.label} appears across ${entry.evidenceIds.size} matching memories.`,
           meta: `${entry.eventCount} events · ${entry.aikbCount} AIKB${entry.proposalCount ? ` · ${entry.proposalCount} proposals` : ''} · score ${scoreTopic(entry).toFixed(1)}`,
           reason: `${entry.label} is shown because it repeatedly appears beside "${query}" in the visible result set.`,
           record: {
@@ -2637,10 +2634,8 @@
           x: width * 0.5 + Math.cos(angle + 0.22) * orbit,
           y: height * 0.48 + Math.sin(angle + 0.22) * (orbit * 0.7),
           r: 11 + Math.min(entry.count, 3),
-          fill: blendHex(entry.palette.base, '#ffffff', 0.12),
-          glow: entry.palette.glow,
-          heat: 0.54 + Math.min(entry.count, 3) * 0.08,
-          detail: `${entry.label} is a second-ring concept connected through the current topic neighborhood.`,
+          fill: blendHex(entry.palette, '#ffffff', 0.12),
+          heat: 0.54 + Math.min(entry.count, 3) * 0.08,          detail: `${entry.label} is a second-ring concept connected through the current topic neighborhood.`,
           meta: `${entry.eventCount} events · ${entry.aikbCount} AIKB${entry.proposalCount ? ` · ${entry.proposalCount} proposals` : ''} · score ${scoreTopic(entry).toFixed(1)}`,
           reason: `${entry.label} extends the map beyond the first ring so you can explore links-to-links instead of only the closest matches.`,
           record: {
@@ -2695,10 +2690,10 @@
         const leadPalette = linkedTopics[0]?.palette || null;
         const nodeFill = leadPalette
           ? row.kind === 'aikb'
-            ? blendHex(leadPalette.base, '#6ec7ff', 0.45)
+            ? blendHex(leadPalette, '#6ec7ff', 0.45)
             : row.kind === 'proposal'
-              ? blendHex(leadPalette.base, '#d7a1ff', 0.35)
-              : blendHex(leadPalette.base, '#ffbc7b', 0.34)
+              ? blendHex(leadPalette, '#d7a1ff', 0.35)
+              : blendHex(leadPalette, '#ffbc7b', 0.34)
           : row.fill;
         const angle = (Math.PI * 2 * index) / Math.max(total, 1);
         const layoutX = layout === 'radial'
@@ -2719,7 +2714,6 @@
           y: layoutY,
           r: row.kind === 'aikb' ? 14 : 12,
           fill: nodeFill,
-          glow: leadPalette?.glow || blendHex(nodeFill, '#ffffff', 0.35),
           heat: row.kind === 'aikb' ? 0.56 : 0.46,
           detail: row.detail,
           meta: row.meta,
@@ -3062,20 +3056,6 @@
       viewportGroup.setAttribute('transform', `translate(${state.graphViewport.panX} ${state.graphViewport.panY}) scale(${state.graphViewport.scale})`);
       svg.appendChild(viewportGroup);
 
-      state.graph.nodes
-        .filter((node) => node.kind === 'topic')
-        .forEach((node, index) => {
-          const field = document.createElementNS(ns, 'circle');
-          const fieldRadius = renderRadiusForNode(node) + 24 + (node.heat || 0.35) * 20 + (index % 3) * 6;
-          field.setAttribute('cx', String(node.x));
-          field.setAttribute('cy', String(node.y));
-          field.setAttribute('r', String(fieldRadius));
-          field.setAttribute('fill', colorAlpha(node.fill, visualPreset.fieldOpacity + (node.heat || 0.35) * 0.035));
-          field.setAttribute('stroke', colorAlpha(node.fill, 0.08 + (node.heat || 0.35) * 0.04));
-          field.setAttribute('stroke-width', '1');
-          viewportGroup.appendChild(field);
-        });
-
       const activeEdgeIds = new Set();
       for (let i = 0; i < state.activePath.length - 1; i++) {
         activeEdgeIds.add(`${state.activePath[i]}::${state.activePath[i + 1]}`);
@@ -3124,21 +3104,12 @@
         const pathActive = state.activePath.includes(node.id);
         const renderRadius = renderRadiusForNode(node);
 
-        const aura = document.createElementNS(ns, 'circle');
-        aura.setAttribute('cx', String(node.x));
-        aura.setAttribute('cy', String(node.y));
-        aura.setAttribute('r', String(renderRadius + 1.8));
-        aura.setAttribute('fill', colorAlpha(node.fill, visualPreset.heatOpacity + (node.heat || 0.35) * 0.03));
-        aura.setAttribute('stroke', colorAlpha(node.glow || node.fill, 0.18));
-        aura.setAttribute('stroke-width', '0.8');
-        group.appendChild(aura);
-
         const circle = document.createElementNS(ns, 'circle');
         circle.setAttribute('cx', String(node.x));
         circle.setAttribute('cy', String(node.y));
         circle.setAttribute('r', String(renderRadius));
         circle.setAttribute('fill', node.fill);
-        circle.setAttribute('stroke', state.selectedNodeId === node.id ? '#f7fcff' : pathActive ? '#ffd7a4' : colorAlpha(node.glow || '#ffffff', 0.28));
+        circle.setAttribute('stroke', state.selectedNodeId === node.id ? '#f7fcff' : pathActive ? '#ffd7a4' : colorAlpha(node.fill, 0.35));
         circle.setAttribute('stroke-width', state.selectedNodeId === node.id ? '2' : pathActive ? '1.45' : '0.9');
         group.appendChild(circle);
 
@@ -3158,7 +3129,7 @@
         labelBg.setAttribute('height', '22');
         labelBg.setAttribute('rx', '11');
         labelBg.setAttribute('fill', `rgba(6, 11, 17, ${visualPreset.labelOpacity})`);
-        labelBg.setAttribute('stroke', colorAlpha(node.glow || node.fill, 0.24));
+        labelBg.setAttribute('stroke', colorAlpha(node.fill, 0.3));
         labelBg.setAttribute('stroke-width', '0.8');
         group.appendChild(labelBg);
 
