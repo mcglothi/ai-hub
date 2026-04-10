@@ -55,9 +55,9 @@ ai-hub/
 │   │   ├── package.json
 │   │   └── server.js
 │   ├── sessions/          <-- Session Service
-│   │   ├── app/
-│   │   ├── ui/
-│   │   ├── requirements.txt
+│       ├── app/
+│       ├── ui/
+│       ├── requirements.txt
 │       └── sync_agent.py
 ├── assets/
 │   ├── hero-graphic.svg
