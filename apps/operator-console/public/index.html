@@ -1056,6 +1056,58 @@
       font-size: 13px;
     }
 
+    .hf-result-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .hf-result-item {
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .hf-result-head,
+    .hf-detail-actions {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .hf-result-name {
+      font-size: 14px;
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+    .hf-result-copy {
+      font-size: 12px;
+      color: #dceaf8;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .hf-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .hf-ref-preview {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: #dceaf8;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
     @media (max-width: 1220px) {
       #app {
         grid-template-columns: 1fr;
@@ -1075,6 +1127,10 @@
 
       .models-layout {
         grid-template-columns: 1fr;
+      }
+
+      .hf-detail-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
@@ -1135,7 +1191,7 @@
           </button>
           <button class="nav-btn" data-view="models">
             <span class="nav-title">Models</span>
-            <span class="nav-copy">Hopper inventory, safe cleanup, pull, and experiment tagging.</span>
+            <span class="nav-copy">Platform inventory, safe cleanup, pull, fit checks, and experiment tagging.</span>
           </button>
           <button class="nav-btn" data-view="terminal">
             <span class="nav-title">Terminal</span>
@@ -1191,6 +1247,9 @@
       </div>
 
       <div class="toolbar hidden" id="models-toolbar">
+        <select id="model-platform-select" class="select-input">
+          <option value="">Platform pending</option>
+        </select>
         <div class="search-wrap">
           <input id="model-pull-input" class="text-input mono" type="text" placeholder="Pull a model, for example gemma4:31b or hf.co/owner/model:tag">
           <button id="model-pull-btn" class="action-btn primary" type="button">Pull Model</button>
@@ -1572,11 +1631,11 @@
             <div class="card">
               <div class="card-head">
                 <div class="card-title">
-                  <h2>Hopper Fleet Inventory</h2>
+                  <h2>Platform Fleet Inventory</h2>
                   <p>Use Ollama as the source of truth, keep experiment notes alongside each model, and make cleanup an intentional operation instead of filesystem archaeology.</p>
                 </div>
                 <div class="chip-row">
-                  <span id="models-host-chip" class="chip mono">hopper pending</span>
+                  <span id="models-host-chip" class="chip mono">platform pending</span>
                   <span id="models-disk-chip" class="chip mono">disk pending</span>
                   <span id="models-summary-chip" class="chip mono">models pending</span>
                 </div>
@@ -1585,7 +1644,7 @@
                 <div class="metric">
                   <div class="label">Installed</div>
                   <div id="models-installed-metric" class="value">-</div>
-                  <div class="note">Ollama models on Hopper</div>
+                  <div class="note">Ollama models on the selected platform</div>
                 </div>
                 <div class="metric">
                   <div class="label">Loaded</div>
@@ -1617,6 +1676,25 @@
           </div>
 
           <div class="models-pane">
+            <div class="card">
+              <div class="card-head">
+                <div class="card-title">
+                  <h2>Hugging Face Import</h2>
+                  <p>Search public repos, inspect likely GGUF quant labels, then send a clean <span class="mono">hf.co/owner/model:quant</span> pull straight to the selected platform.</p>
+                </div>
+              </div>
+              <div class="control-row">
+                <input id="hf-search-input" class="text-input mono" type="text" placeholder="Search GGUF repos, for example qwen3 30b gguf or medgemma gguf">
+                <button id="hf-search-btn" class="action-btn secondary" type="button">Search HF</button>
+              </div>
+              <div id="hf-search-status" class="status-note">Search for a public GGUF repo, inspect the quant lane, then either fill the pull box or pull directly into the selected platform.</div>
+              <div id="hf-detail-panel" class="detail-guidance">
+                <div class="label">Import Preparation</div>
+                <div class="value">No Hugging Face repo selected yet.</div>
+              </div>
+              <div id="hf-result-list" class="hf-result-list"></div>
+            </div>
+
             <div class="card">
               <div class="card-head">
                 <div class="card-title">
@@ -1721,6 +1799,9 @@
       health: null,
       stats: null,
       models: null,
+      modelPlatforms: [],
+      defaultPlatformId: 'hopper',
+      selectedPlatformId: 'hopper',
       search: null,
       proposals: [],
       fileFilter: '',
@@ -1760,6 +1841,13 @@
         sort: 'size',
         showProtected: true,
       },
+      huggingFace: {
+        query: '',
+        results: [],
+        detail: null,
+        selectedQuant: '',
+        fit: null,
+      },
     };
 
     const THEME_MAP = {
@@ -1780,8 +1868,8 @@
         copy: 'Harvest and proposal review are separated from search so durable memory decisions feel deliberate instead of mixed into exploration.',
       },
       models: {
-        title: 'Hopper Model Stewardship',
-        copy: 'Treat model inventory like a living fleet: keep notes, protect the keepers, and retire old experiment lanes before disk pressure starts deciding for you.',
+        title: 'Platform Model Stewardship',
+        copy: 'Treat each runtime platform like a living fleet: keep notes, protect the keepers, and retire old experiment lanes before disk pressure starts deciding for you.',
       },
       terminal: {
         title: 'Remote Shell',
@@ -1876,6 +1964,12 @@
       modelPullInput: document.getElementById('model-pull-input'),
       modelPullBtn: document.getElementById('model-pull-btn'),
       modelsRefreshBtn: document.getElementById('models-refresh-btn'),
+      modelPlatformSelect: document.getElementById('model-platform-select'),
+      hfSearchInput: document.getElementById('hf-search-input'),
+      hfSearchBtn: document.getElementById('hf-search-btn'),
+      hfSearchStatus: document.getElementById('hf-search-status'),
+      hfDetailPanel: document.getElementById('hf-detail-panel'),
+      hfResultList: document.getElementById('hf-result-list'),
       modelStageFilter: document.getElementById('model-stage-filter'),
       modelSortFilter: document.getElementById('model-sort-filter'),
       modelShowProtected: document.getElementById('model-show-protected'),
@@ -1961,6 +2055,28 @@
       if (n < 86400) return `${Math.round(n / 3600)}h ago`;
       if (n < 604800) return `${Math.round(n / 86400)}d ago`;
       return `${Math.round(n / 604800)}w ago`;
+    };
+
+    const currentPlatformId = () => state.selectedPlatformId || state.defaultPlatformId || 'hopper';
+    const currentPlatform = () => state.modelPlatforms.find((item) => item.id === currentPlatformId()) || null;
+    const currentPlatformLabel = () => currentPlatform()?.label || 'Platform';
+    const modelRoute = (suffix = '') => `/models/${encodeURIComponent(currentPlatformId())}${suffix}`;
+
+    const renderPlatformOptions = () => {
+      const platforms = state.modelPlatforms || [];
+      el.modelPlatformSelect.innerHTML = platforms.map((platform) => `
+        <option value="${escapeHtml(platform.id)}" ${platform.id === currentPlatformId() ? 'selected' : ''}>${escapeHtml(platform.label)}</option>
+      `).join('') || '<option value="hopper">Hopper</option>';
+    };
+
+    const refreshModelPlatforms = async () => {
+      const out = await fetchJson('/models/platforms');
+      state.modelPlatforms = out.platforms || [];
+      state.defaultPlatformId = out.default_platform || state.defaultPlatformId || 'hopper';
+      if (!state.modelPlatforms.some((platform) => platform.id === state.selectedPlatformId)) {
+        state.selectedPlatformId = state.defaultPlatformId;
+      }
+      renderPlatformOptions();
     };
 
     const parseEventSnippet = (event) => {
@@ -3883,17 +3999,19 @@
     const refreshModelsSummary = () => {
       const summary = state.models?.summary || {};
       const disk = state.models?.disk || null;
+      const platform = currentPlatform();
       el.modelsInstalledMetric.textContent = fmtNum(summary.model_count);
       el.modelsLoadedMetric.textContent = fmtNum(summary.loaded_count);
       el.modelsPinnedMetric.textContent = fmtNum(summary.pinned_count);
       el.modelsCleanupMetric.textContent = fmtBytes(summary.cleanup_candidate_bytes);
-      el.modelsHostChip.textContent = `host ${(state.models?.host || 'hopper')}`;
+      el.modelsHostChip.textContent = `${platform?.label || state.models?.platform_label || 'platform'} · ${(state.models?.host || 'pending')}`;
       el.modelsDiskChip.textContent = disk ? `disk ${disk.available || 'unknown'} free` : 'disk unknown';
       el.modelsSummaryChip.textContent = `models ${fmtNum(summary.model_count)} · loaded ${fmtNum(summary.loaded_count)}`;
 
       const containers = state.models?.containers || [];
       el.modelsLiveContext.innerHTML = [
-        `<div class="info-card"><div class="label">Target</div><div class="value">${escapeHtml(state.models?.target || 'hopper')}</div></div>`,
+        `<div class="info-card"><div class="label">Platform</div><div class="value">${escapeHtml(platform?.label || state.models?.platform_label || 'Platform')}</div></div>`,
+        `<div class="info-card"><div class="label">Target</div><div class="value">${escapeHtml(state.models?.target || platform?.host || 'unknown')}</div></div>`,
         `<div class="info-card"><div class="label">Ollama Container</div><div class="value">${escapeHtml(state.models?.ollama_container || 'ollama')}</div></div>`,
         `<div class="info-card"><div class="label">Model Store</div><div class="value">${escapeHtml(state.models?.model_data_path || '/opt/containers/ollama/data')}</div></div>`,
         `<div class="info-card"><div class="label">Docker Workloads</div><div class="value">${escapeHtml(containers.map((item) => item.name || item.image).join('\n') || 'none detected')}</div></div>`,
@@ -3979,7 +4097,7 @@
           const stage = root?.querySelector('.model-stage-input')?.value || 'testing';
           const pinned = root?.querySelector('.model-pin-input')?.checked === true;
           const note = root?.querySelector('.model-note-input')?.value || '';
-          fetchJson('/models/hopper/metadata', {
+          fetchJson(modelRoute('/metadata'), {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: name, stage, pinned, note }),
@@ -3993,39 +4111,273 @@
       el.modelList.querySelectorAll('.model-remove-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
           const name = btn.dataset.modelName;
-          const ok = window.confirm(`Delete ${name} from Hopper? This removes the Ollama model, not just the UI tag.`);
+          const ok = window.confirm(`Delete ${name} from ${currentPlatformLabel()}? This removes the Ollama model, not just the UI tag.`);
           if (!ok) return;
-          fetchJson('/models/hopper/remove', {
+          fetchJson(modelRoute('/remove'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: name }),
           })
             .then(() => refreshModels())
-            .then(() => logTrace('model delete', `${name} removed from Hopper`))
+            .then(() => logTrace('model delete', `${name} removed from ${currentPlatformLabel()}`))
             .catch((err) => logTrace('model delete error', err.message));
         });
       });
     };
 
     const refreshModels = async () => {
-      const out = await fetchJson('/models/hopper');
+      const out = await fetchJson(modelRoute());
       state.models = out;
       refreshModelsSummary();
       renderCleanupCandidates();
       renderModels();
-      logOp('models', `${fmtNum(out.summary?.model_count)} models on Hopper · ${out.disk?.available || 'unknown'} free`);
+      logOp('models', `${fmtNum(out.summary?.model_count)} models on ${currentPlatformLabel()} · ${out.disk?.available || 'unknown'} free`);
     };
 
-    const pullModel = async () => {
-      const model = el.modelPullInput.value.trim();
+    const buildHuggingFaceImportRef = () => {
+      const detail = state.huggingFace.detail;
+      const repo = detail?.id || detail?.modelId || '';
+      if (!repo) return '';
+      const quant = state.huggingFace.selectedQuant || detail?.suggestedQuant || '';
+      return quant ? `hf.co/${repo}:${quant}` : `hf.co/${repo}`;
+    };
+
+    const setHuggingFaceStatus = (message) => {
+      el.hfSearchStatus.textContent = message;
+    };
+
+    const refreshHuggingFaceFit = async () => {
+      const detail = state.huggingFace.detail;
+      if (!detail) return;
+      const repo = detail.id || detail.modelId || '';
+      const quant = state.huggingFace.selectedQuant || detail.suggestedQuant || '';
+      const out = await fetchJson(modelRoute('/fit'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repo,
+          quant,
+        }),
+      });
+      state.huggingFace.fit = out;
+      renderHuggingFaceDetail();
+    };
+
+    const renderHuggingFaceDetail = () => {
+      const detail = state.huggingFace.detail;
+      if (!detail) {
+        el.hfDetailPanel.innerHTML = `
+          <div class="label">Import Preparation</div>
+          <div class="value">No Hugging Face repo selected yet.</div>
+        `;
+        return;
+      }
+
+      const fit = state.huggingFace.fit;
+      const quantOptions = detail.quantLabels || [];
+      const selectedQuant = state.huggingFace.selectedQuant || detail.suggestedQuant || '';
+      const importRef = buildHuggingFaceImportRef();
+      const tagList = Array.isArray(detail.tags) ? detail.tags.filter((tag) => ['gguf', 'text-generation', 'conversational', 'safetensors'].includes(String(tag))).slice(0, 6) : [];
+      const fitTone = fit?.fit?.status || 'unknown';
+      const fitChip = fitTone === 'fit'
+        ? '<span class="chip">fit looks safe</span>'
+        : fitTone === 'tight'
+          ? '<span class="chip">tight fit</span>'
+          : fitTone === 'unfit'
+            ? '<span class="chip">would overrun budget</span>'
+            : '<span class="chip">fit pending</span>';
+      const fitGrid = fit ? `
+        <div class="hf-detail-grid">
+          <div class="model-stat">
+            <div class="label">Footprint</div>
+            <div class="value">${escapeHtml(fit.candidate?.footprint || 'unknown')}</div>
+          </div>
+          <div class="model-stat">
+            <div class="label">Safe Pool Budget</div>
+            <div class="value">${escapeHtml(fit.pool?.safe_budget || 'unknown')}</div>
+          </div>
+          <div class="model-stat">
+            <div class="label">After Load</div>
+            <div class="value">${escapeHtml(fit.fit?.remaining_after_load || 'unknown')}</div>
+          </div>
+          <div class="model-stat">
+            <div class="label">Extra Same-Size Lanes</div>
+            <div class="value">${fmtNum(fit.fit?.additional_same_model_count || 0)}</div>
+          </div>
+        </div>
+        <div class="hf-detail-grid">
+          <div class="model-stat">
+            <div class="label">Advertised Context</div>
+            <div class="value">${fit.context?.advertised_tokens ? `${fmtNum(fit.context.advertised_tokens)} tok` : 'unknown'}</div>
+          </div>
+          <div class="model-stat">
+            <div class="label">Estimated Context Ceiling</div>
+            <div class="value">${fit.context?.estimated_capacity_tokens ? `${fmtNum(fit.context.estimated_capacity_tokens)} tok` : 'unknown'}</div>
+          </div>
+          <div class="model-stat">
+            <div class="label">Decode Estimate</div>
+            <div class="value">${fit.speed?.decode_tps ? `${fit.speed.decode_tps} tok/s` : 'unknown'}</div>
+          </div>
+          <div class="model-stat">
+            <div class="label">TTFT Estimate</div>
+            <div class="value">${fit.speed?.ttft_ms ? `${fmtNum(fit.speed.ttft_ms)} ms` : 'unknown'}</div>
+          </div>
+        </div>
+        <div class="value">${escapeHtml(fit.fit?.message || '')}</div>
+        <div class="value">${fit.context?.full_advertised_context_fits === null ? 'Full advertised context fit is unknown from current metadata.' : fit.context.full_advertised_context_fits ? 'The model should retain its full advertised context window inside the current guarded pool.' : 'The full advertised context window looks larger than the current guarded pool can comfortably support once this model is loaded.'}</div>
+        <div class="value">Pool view: ${fmtNum(fit.pool?.host_count || 0)} host${(fit.pool?.host_count || 0) === 1 ? '' : 's'}, ${fit.pool?.rdma_device_count || 0} RDMA device${(fit.pool?.rdma_device_count || 0) === 1 ? '' : 's'}, ${fit.pool?.fabric_enabled ? 'fabric visible' : 'no fabric detected'}.</div>
+      ` : `
+        <div class="value">Fit and speed estimate are loading.</div>
+      `;
+      const laptimeLink = fit?.simulation?.laptime_url || `https://laptime.run/?hf=${encodeURIComponent(detail.id || detail.modelId || '')}${selectedQuant ? `&hfq=${encodeURIComponent(selectedQuant)}` : ''}`;
+
+      el.hfDetailPanel.innerHTML = `
+        <div class="label">Import Preparation</div>
+        <div class="value">${escapeHtml(detail.id || detail.modelId || 'unknown repo')}</div>
+        <div class="hf-detail-grid">
+          <div class="model-stat">
+            <div class="label">Pipeline</div>
+            <div class="value">${escapeHtml(detail.pipelineTag || 'unknown')}</div>
+          </div>
+          <div class="model-stat">
+            <div class="label">Downloads</div>
+            <div class="value">${fmtNum(detail.downloads || 0)}</div>
+          </div>
+          <div class="model-stat">
+            <div class="label">Likes</div>
+            <div class="value">${fmtNum(detail.likes || 0)}</div>
+          </div>
+          <div class="model-stat">
+            <div class="label">GGUF Files</div>
+            <div class="value">${fmtNum((detail.ggufFiles || []).length)}</div>
+          </div>
+        </div>
+        <div class="chip-row">${fitChip}${tagList.map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join('') || '<span class="chip">no summary tags</span>'}</div>
+        <div class="control-row" style="margin-top: 12px;">
+          <select id="hf-quant-select" class="select-input">
+            ${(quantOptions.length ? quantOptions : ['']).map((quant) => `<option value="${escapeHtml(quant)}" ${quant === selectedQuant ? 'selected' : ''}>${escapeHtml(quant || 'No quant found')}</option>`).join('')}
+          </select>
+          <button id="hf-fill-pull-btn" class="action-btn secondary" type="button">Fill Pull Box</button>
+          <button id="hf-pull-selected-btn" class="action-btn primary" type="button">Pull Selected</button>
+          <a id="hf-laptime-link" class="action-btn secondary" href="${escapeHtml(laptimeLink)}" target="_blank" rel="noreferrer">Open in LapTime</a>
+        </div>
+        <div class="hf-ref-preview" style="margin-top: 10px;">${escapeHtml(importRef || `hf.co/${detail.id || detail.modelId || ''}`)}</div>
+        <div class="value" style="margin-top: 10px;">${quantOptions.length ? `Ollama imports work best when ${currentPlatformLabel()} has a specific GGUF quant tag. The generated ref above is ready to pull.` : 'No GGUF quant label surfaced from Hugging Face metadata. You can still try the generated repo ref, but imports are most reliable when the repo publishes GGUF files.'}</div>
+        ${fitGrid}
+      `;
+
+      const quantSelect = document.getElementById('hf-quant-select');
+      const fillBtn = document.getElementById('hf-fill-pull-btn');
+      const pullBtn = document.getElementById('hf-pull-selected-btn');
+
+      if (quantSelect) {
+        quantSelect.addEventListener('change', () => {
+          state.huggingFace.selectedQuant = quantSelect.value;
+          renderHuggingFaceDetail();
+          state.huggingFace.fit = null;
+          refreshHuggingFaceFit().catch((err) => {
+            setHuggingFaceStatus(err.message);
+            logTrace('hf fit error', err.message);
+          });
+        });
+      }
+      if (fillBtn) {
+        fillBtn.addEventListener('click', () => {
+          const ref = buildHuggingFaceImportRef();
+          el.modelPullInput.value = ref;
+          logTrace('hf import', `${ref} queued in pull box`);
+        });
+      }
+      if (pullBtn) {
+        pullBtn.addEventListener('click', () => {
+          const ref = buildHuggingFaceImportRef();
+          el.modelPullInput.value = ref;
+          pullModel(ref).catch((err) => logTrace('hf import error', err.message));
+        });
+      }
+    };
+
+    const renderHuggingFaceResults = () => {
+      const results = state.huggingFace.results || [];
+      el.hfResultList.innerHTML = results.map((result) => {
+        return `
+          <div class="hf-result-item">
+            <div class="hf-result-head">
+              <div>
+                <div class="hf-result-name">${escapeHtml(result.id)}</div>
+                <div class="model-meta">
+                  <span>${escapeHtml(result.familyLabel || 'Model')}</span>
+                  <span>${escapeHtml(result.pipelineTag || 'pipeline unknown')}</span>
+                  <span>${fmtNum(result.downloads || 0)} downloads</span>
+                  <span>${fmtNum(result.likes || 0)} likes</span>
+                </div>
+              </div>
+              <div class="chip-row">
+                ${result.gguf ? '<span class="chip">likely gguf</span>' : '<span class="chip">check format</span>'}
+                ${(result.tags || []).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join('')}
+              </div>
+            </div>
+            <div class="hf-result-copy">${result.gguf ? 'Looks like a likely Ollama-ready GGUF repo. Inspect it to choose a quant label before pulling.' : `This repo may still be useful, but inspect it first to confirm ${currentPlatformLabel()} can import it through Ollama.`}</div>
+            <div class="hf-detail-actions">
+              <button class="action-btn secondary hf-inspect-btn" data-repo="${escapeHtml(result.id)}" type="button">Inspect Repo</button>
+            </div>
+          </div>
+        `;
+      }).join('') || '<div class="info-card"><div class="value">No Hugging Face results yet. Search above to start building an import ref.</div></div>';
+
+      el.hfResultList.querySelectorAll('.hf-inspect-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          inspectHuggingFaceRepo(btn.dataset.repo).catch((err) => logTrace('hf inspect error', err.message));
+        });
+      });
+    };
+
+    const inspectHuggingFaceRepo = async (repo) => {
+      const normalizedRepo = String(repo || '').trim();
+      if (!normalizedRepo) return;
+      setHuggingFaceStatus(`Inspecting ${normalizedRepo}...`);
+      const out = await fetchJson(`${modelRoute('/huggingface/model')}?repo=${encodeURIComponent(normalizedRepo)}`);
+      state.huggingFace.detail = out;
+      state.huggingFace.selectedQuant = out.suggestedQuant || out.quantLabels?.[0] || '';
+      state.huggingFace.fit = null;
+      renderHuggingFaceDetail();
+      setHuggingFaceStatus(`Prepared ${buildHuggingFaceImportRef()} for ${currentPlatformLabel()}.`);
+      await refreshHuggingFaceFit();
+      logTrace('hf inspect', `${normalizedRepo} ready for import`);
+    };
+
+    const searchHuggingFace = async () => {
+      const query = el.hfSearchInput.value.trim();
+      if (!query) {
+        setHuggingFaceStatus('Enter a Hugging Face search term first.');
+        return;
+      }
+      state.huggingFace.query = query;
+      state.huggingFace.detail = null;
+      state.huggingFace.selectedQuant = '';
+      state.huggingFace.fit = null;
+      renderHuggingFaceDetail();
+      setHuggingFaceStatus(`Searching Hugging Face for "${query}"...`);
+      const out = await fetchJson(`${modelRoute('/huggingface/search')}?q=${encodeURIComponent(query)}`);
+      state.huggingFace.results = out.results || [];
+      renderHuggingFaceResults();
+      if (state.huggingFace.results.length > 0) {
+        await inspectHuggingFaceRepo(state.huggingFace.results[0].id);
+      } else {
+        setHuggingFaceStatus(`No public matches for "${query}". Try a broader family name plus gguf.`);
+      }
+    };
+
+    const pullModel = async (requestedModel = '') => {
+      const model = String(requestedModel || el.modelPullInput.value).trim();
       if (!model) {
         logTrace('model pull', 'Enter a model name first.');
         return;
       }
       el.modelPullBtn.disabled = true;
-      logTrace('model pull', `Pulling ${model} on Hopper`);
+      logTrace('model pull', `Pulling ${model} on ${currentPlatformLabel()}`);
       try {
-        await fetchJson('/models/hopper/pull', {
+        await fetchJson(modelRoute('/pull'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ model }),
@@ -4204,7 +4556,30 @@
     });
     el.proposalFilter.addEventListener('change', () => refreshReview().catch((err) => logTrace('proposal filter error', err.message)));
     el.modelsRefreshBtn.addEventListener('click', () => refreshModels().catch((err) => logTrace('models refresh error', err.message)));
+    el.modelPlatformSelect.addEventListener('change', () => {
+      state.selectedPlatformId = el.modelPlatformSelect.value || state.defaultPlatformId || 'hopper';
+      state.models = null;
+      state.huggingFace.results = [];
+      state.huggingFace.detail = null;
+      state.huggingFace.fit = null;
+      renderHuggingFaceResults();
+      renderHuggingFaceDetail();
+      refreshModels().catch((err) => logTrace('platform change error', err.message));
+    });
     el.modelPullBtn.addEventListener('click', () => pullModel().catch((err) => logTrace('model pull error', err.message)));
+    el.hfSearchBtn.addEventListener('click', () => searchHuggingFace().catch((err) => {
+      setHuggingFaceStatus(err.message);
+      logTrace('hf search error', err.message);
+    }));
+    el.hfSearchInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        searchHuggingFace().catch((err) => {
+          setHuggingFaceStatus(err.message);
+          logTrace('hf search error', err.message);
+        });
+      }
+    });
     el.modelPullInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -4528,6 +4903,7 @@
       renderSavedScenes();
       logOp('boot', 'AI Hub Operator Console is loading');
       logTrace('boot', 'Building memory-first interface');
+      await refreshModelPlatforms();
       await refreshBuild();
       await refreshStats();
       await refreshSearch();

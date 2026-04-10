@@ -58,16 +58,56 @@ const AIKB_MAX_SNIPPETS = Math.max(1, Math.min(6, parseInt(process.env.AIKB_MAX_
 const MEMORY_CORE_URL = (process.env.MEMORY_CORE_URL || 'https://memory.home.timmcg.net').replace(/\/+$/, '');
 const MEMORY_CORE_API_KEY = process.env.MEMORY_CORE_API_KEY || '';
 const MEMORY_CORE_TIMEOUT_MS = Math.max(1000, parseInt(process.env.MEMORY_CORE_TIMEOUT_MS || '20000', 10));
+const HUGGING_FACE_TIMEOUT_MS = Math.max(1000, parseInt(process.env.HUGGING_FACE_TIMEOUT_MS || '15000', 10));
 const SSH_BIN = process.env.SSH_BIN || '/usr/bin/ssh';
+const DEFAULT_PLATFORM_ID = process.env.DEFAULT_MODEL_PLATFORM || 'hopper';
 const HOPPER_HOST = process.env.HOPPER_HOST || 'mcglothi@hopper.home.timmcg.net';
+const HOPPER_POOL_TARGETS = [...new Set(String(process.env.HOPPER_POOL_TARGETS || HOPPER_HOST).split(',').map((item) => item.trim()).filter(Boolean))];
 const HOPPER_DOCKER_BIN = process.env.HOPPER_DOCKER_BIN || 'docker';
 const HOPPER_OLLAMA_CONTAINER = process.env.HOPPER_OLLAMA_CONTAINER || 'ollama';
 const HOPPER_MODEL_DATA_PATH = process.env.HOPPER_MODEL_DATA_PATH || '/opt/containers/ollama/data';
 const HOPPER_MODEL_METADATA_PATH = process.env.HOPPER_MODEL_METADATA_PATH || path.join(__dirname, 'data', 'hopper-model-metadata.json');
+const HOPPER_MEMORY_RESERVE_BYTES = Math.max(2 * 1024 ** 3, parseInt(process.env.HOPPER_MEMORY_RESERVE_BYTES || String(8 * 1024 ** 3), 10));
+const NEWTON_HOST = process.env.NEWTON_HOST || 'svc_ansible@newton.home.timmcg.net';
+const NEWTON_POOL_TARGETS = [...new Set(String(process.env.NEWTON_POOL_TARGETS || NEWTON_HOST).split(',').map((item) => item.trim()).filter(Boolean))];
+const NEWTON_DOCKER_BIN = process.env.NEWTON_DOCKER_BIN || 'docker';
+const NEWTON_OLLAMA_CONTAINER = process.env.NEWTON_OLLAMA_CONTAINER || 'ollama';
+const NEWTON_MODEL_DATA_PATH = process.env.NEWTON_MODEL_DATA_PATH || '/opt/containers/ollama/data';
+const NEWTON_MODEL_METADATA_PATH = process.env.NEWTON_MODEL_METADATA_PATH || path.join(__dirname, 'data', 'newton-model-metadata.json');
+const NEWTON_MEMORY_RESERVE_BYTES = Math.max(2 * 1024 ** 3, parseInt(process.env.NEWTON_MEMORY_RESERVE_BYTES || String(8 * 1024 ** 3), 10));
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 },
 });
+
+const PLATFORM_CONFIGS = {
+  hopper: {
+    id: 'hopper',
+    label: 'Hopper',
+    host: HOPPER_HOST,
+    poolTargets: HOPPER_POOL_TARGETS,
+    dockerBin: HOPPER_DOCKER_BIN,
+    ollamaContainer: HOPPER_OLLAMA_CONTAINER,
+    modelDataPath: HOPPER_MODEL_DATA_PATH,
+    metadataPath: HOPPER_MODEL_METADATA_PATH,
+    memoryReserveBytes: HOPPER_MEMORY_RESERVE_BYTES,
+    laptimeHardwareId: 'dgx-spark-gb10',
+    speedLabel: 'DGX Spark / GB10',
+  },
+  newton: {
+    id: 'newton',
+    label: 'Newton',
+    host: NEWTON_HOST,
+    poolTargets: NEWTON_POOL_TARGETS,
+    dockerBin: NEWTON_DOCKER_BIN,
+    ollamaContainer: NEWTON_OLLAMA_CONTAINER,
+    modelDataPath: NEWTON_MODEL_DATA_PATH,
+    metadataPath: NEWTON_MODEL_METADATA_PATH,
+    memoryReserveBytes: NEWTON_MEMORY_RESERVE_BYTES,
+    laptimeHardwareId: process.env.NEWTON_LAPTIME_HARDWARE_ID || 'dgx-spark-gb10',
+    speedLabel: process.env.NEWTON_SPEED_LABEL || 'DGX Spark / GB10',
+  },
+};
 
 const terminalProxy = createProxyServer({
   target: TERMINAL_TARGET,
@@ -741,9 +781,24 @@ function normalizeModelMetadataRecord(record = {}) {
   };
 }
 
-async function readHopperModelMetadata() {
+function getPlatformConfig(platformId = DEFAULT_PLATFORM_ID) {
+  return PLATFORM_CONFIGS[platformId] || PLATFORM_CONFIGS[DEFAULT_PLATFORM_ID] || PLATFORM_CONFIGS.hopper;
+}
+
+function listPlatformDescriptors() {
+  return Object.values(PLATFORM_CONFIGS).map((platform) => ({
+    id: platform.id,
+    label: platform.label,
+    host: platform.host,
+    pool_targets: platform.poolTargets,
+    laptime_hardware_id: platform.laptimeHardwareId,
+    speed_label: platform.speedLabel,
+  }));
+}
+
+async function readPlatformModelMetadata(platform) {
   try {
-    const raw = await fs.readFile(HOPPER_MODEL_METADATA_PATH, 'utf8');
+    const raw = await fs.readFile(platform.metadataPath, 'utf8');
     const parsed = JSON.parse(raw);
     const models = parsed && typeof parsed.models === 'object' && parsed.models ? parsed.models : {};
     const normalized = {};
@@ -756,10 +811,10 @@ async function readHopperModelMetadata() {
   }
 }
 
-async function writeHopperModelMetadata(payload) {
+async function writePlatformModelMetadata(platform, payload) {
   const safePayload = payload && typeof payload === 'object' ? payload : { models: {} };
-  await fs.mkdir(path.dirname(HOPPER_MODEL_METADATA_PATH), { recursive: true });
-  await fs.writeFile(HOPPER_MODEL_METADATA_PATH, JSON.stringify(safePayload, null, 2), 'utf8');
+  await fs.mkdir(path.dirname(platform.metadataPath), { recursive: true });
+  await fs.writeFile(platform.metadataPath, JSON.stringify(safePayload, null, 2), 'utf8');
 }
 
 function ensureSafeModelName(name) {
@@ -769,6 +824,207 @@ function ensureSafeModelName(name) {
     throw new Error('model name contains unsupported characters');
   }
   return model;
+}
+
+function parseParamsFromName(value) {
+  const normalized = String(value || '');
+  const activeMatch = normalized.match(/A(\d+(?:\.\d+)?)B/i);
+  const totalMatch = normalized.match(/(\d+(?:\.\d+)?)B(?![A-Za-z])/i);
+  return {
+    paramsB: totalMatch ? Number(totalMatch[1]) : null,
+    scalingParamsB: activeMatch ? Number(activeMatch[1]) : null,
+  };
+}
+
+function getQuantBits(quant) {
+  const normalized = String(quant || '');
+  const match = normalized.match(/q(\d+(?:\.\d+)?)/i);
+  if (match) return Number(match[1]);
+  if (/mxfp4/i.test(normalized)) return 4;
+  if (/\bbf16\b|\bfp16\b|\bf16\b/i.test(normalized)) return 16;
+  if (/fp8|int8|q8/i.test(normalized)) return 8;
+  return 4;
+}
+
+function estimateModelMemoryBytes({ paramsB = 8, quant = 'Q4_K_M', knownBytes = null } = {}) {
+  if (Number.isFinite(knownBytes) && knownBytes > 0) {
+    return knownBytes;
+  }
+  const safeParamsB = Math.max(Number(paramsB) || 8, 0.5);
+  const quantBits = getQuantBits(quant);
+  const baseWeightGb = safeParamsB * (quantBits / 8);
+  const overheadMultiplier = safeParamsB >= 30 ? 1.2 : 1.12;
+  return Math.round(baseWeightGb * overheadMultiplier * 1024 ** 3);
+}
+
+function estimateKvBytesPerToken({ paramsB = null, scalingParamsB = null } = {}) {
+  const activeParamsB = Math.max(Number(scalingParamsB) || Number(paramsB) || 8, 0.5);
+  return Math.round(activeParamsB * 32768);
+}
+
+function calculatePlatformSpeedEstimate(platform, { paramsB = 8, scalingParamsB = null, promptTokens = 1200 } = {}) {
+  const effectiveParamsB = Math.max(Number(scalingParamsB) || Number(paramsB) || 8, 0.5);
+  const sizeRatio = effectiveParamsB / 8;
+  const prefillFactor = Math.max(0.2, sizeRatio ** 0.92);
+  const decodeFactor = Math.max(0.22, sizeRatio ** 0.88);
+  const ttftFactor = Math.max(0.3, sizeRatio ** 0.72);
+  const prefillTps = 2027 / prefillFactor;
+  const decodeTps = 34.9 / decodeFactor;
+  const ttftMs = 681 * ttftFactor + Math.max(Number(promptTokens) || 0, 0) * 0.16;
+  return {
+    hardware: platform.laptimeHardwareId,
+    source: `LapTime-style modeled estimate from the ${platform.speedLabel} baseline`,
+    coverage: 'modeled',
+    prefill_tps: Number(prefillTps.toFixed(1)),
+    decode_tps: Number(decodeTps.toFixed(1)),
+    ttft_ms: Number(ttftMs.toFixed(0)),
+  };
+}
+
+function normalizeHuggingFaceRepo(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return null;
+
+  try {
+    const parsed = new URL(normalized);
+    if (!parsed.hostname.includes('huggingface.co')) return null;
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0]}/${parts[1]}`;
+    }
+    return null;
+  } catch {
+    const match = normalized.match(/^([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)$/);
+    return match ? match[1] : null;
+  }
+}
+
+function extractQuantLabel(value) {
+  const normalized = String(value || '');
+  const patterns = [
+    /MXFP4(?:[_-]MOE)?/i,
+    /IQ\d+(?:[_-][A-Z0-9]+)?/i,
+    /Q\d+(?:\.\d+)?(?:[_-][A-Z0-9]+)*/i,
+    /BF16/i,
+    /FP16/i,
+    /\bF16\b/i,
+    /FP8/i,
+    /INT8/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (match) {
+      return match[0].replace(/-/g, '_').toUpperCase();
+    }
+  }
+
+  return null;
+}
+
+function isLikelyGgufRepo(payload) {
+  const id = String(payload?.id || payload?.modelId || '');
+  const tags = Array.isArray(payload?.tags) ? payload.tags : [];
+  return /\bgguf\b/i.test(id) || tags.some((tag) => /\bgguf\b/i.test(String(tag)));
+}
+
+function getHuggingFaceSearchRank(payload, query) {
+  const normalizedQuery = String(query || '').toLowerCase();
+  const id = String(payload?.id || payload?.modelId || '').toLowerCase();
+  let score = 0;
+
+  if (normalizedQuery && id.startsWith(`${normalizedQuery}/`)) score += 80;
+  if (normalizedQuery && id.includes(`/${normalizedQuery}`)) score += 25;
+  if (normalizedQuery && id.includes(normalizedQuery)) score += 10;
+  if (isLikelyGgufRepo(payload)) score += 35;
+  if (typeof payload?.downloads === 'number') score += Math.min(payload.downloads / 50000, 20);
+  if (typeof payload?.likes === 'number') score += Math.min(payload.likes / 200, 10);
+
+  return score;
+}
+
+function compactHuggingFaceSearchResult(payload) {
+  const tags = Array.isArray(payload?.tags) ? payload.tags : [];
+  return {
+    id: payload?.id ?? payload?.modelId,
+    pipelineTag: payload?.pipeline_tag ?? null,
+    familyLabel: payload?.config?.model_type ?? payload?.library_name ?? 'Model',
+    likes: typeof payload?.likes === 'number' ? payload.likes : null,
+    downloads: typeof payload?.downloads === 'number' ? payload.downloads : null,
+    gguf: isLikelyGgufRepo(payload),
+    tags: tags.filter((tag) => ['gguf', 'text-generation', 'conversational', 'safetensors'].includes(String(tag))).slice(0, 4),
+  };
+}
+
+function extractHuggingFaceGgufFiles(payload) {
+  const siblings = Array.isArray(payload?.siblings) ? payload.siblings : [];
+  const quants = new Set();
+  const files = [];
+
+  for (const sibling of siblings) {
+    const filename = String(sibling?.rfilename || sibling?.path || '').trim();
+    if (!filename || !filename.toLowerCase().endsWith('.gguf')) continue;
+    const quant = extractQuantLabel(filename);
+    if (quant) quants.add(quant);
+    files.push({
+      name: filename.split('/').pop(),
+      path: filename,
+      quant,
+    });
+  }
+
+  return {
+    files,
+    quantLabels: [...quants],
+  };
+}
+
+function pickPreferredQuantLabel(labels) {
+  const priority = ['Q4_K_M', 'Q4_K_S', 'Q5_K_M', 'Q6_K', 'Q8_0', 'IQ4_XS', 'BF16', 'FP16', 'FP8'];
+  for (const preferred of priority) {
+    if (labels.includes(preferred)) return preferred;
+  }
+  return labels[0] || '';
+}
+
+async function fetchJsonWithTimeout(url, { timeoutMs = 15000, headers = {} } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      headers,
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload?.error || `request failed with ${response.status}`);
+    }
+    return payload;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchContentLength(url, { timeoutMs = 15000 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      headers: {
+        'user-agent': 'AI Hub Platform Fit Probe',
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`request failed with ${response.status}`);
+    }
+    const length = Number(response.headers.get('content-length'));
+    return Number.isFinite(length) && length > 0 ? length : null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function spawnAndCollect(bin, args, { timeoutMs = 20000, cwd = undefined, env = undefined } = {}) {
@@ -809,27 +1065,204 @@ function spawnAndCollect(bin, args, { timeoutMs = 20000, cwd = undefined, env = 
   });
 }
 
-async function runHopperCommand(command, { timeoutMs = 20000 } = {}) {
+async function runRemoteCommand(target, command, { timeoutMs = 20000 } = {}) {
   return spawnAndCollect(
     SSH_BIN,
-    ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', HOPPER_HOST, command],
+    ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', target, command],
     { timeoutMs }
   );
 }
 
-async function runHopperDocker(args, { timeoutMs = 20000 } = {}) {
-  const command = [HOPPER_DOCKER_BIN, ...args].map(shellQuote).join(' ');
-  return runHopperCommand(command, { timeoutMs });
+async function runPlatformCommand(platform, command, { timeoutMs = 20000 } = {}) {
+  return runRemoteCommand(platform.host, command, { timeoutMs });
 }
 
-async function getHopperModelInventory() {
-  const metadata = await readHopperModelMetadata();
+async function runRemoteDocker(target, args, { timeoutMs = 20000, dockerBin = 'docker' } = {}) {
+  const command = [dockerBin, ...args].map(shellQuote).join(' ');
+  return runRemoteCommand(target, command, { timeoutMs });
+}
+
+async function runPlatformDocker(platform, args, { timeoutMs = 20000 } = {}) {
+  const command = [platform.dockerBin, ...args].map(shellQuote).join(' ');
+  return runRemoteCommand(platform.host, command, { timeoutMs });
+}
+
+function parseFreeBytes(text) {
+  const lines = String(text || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const memLine = lines.find((line) => /^Mem:/i.test(line));
+  if (!memLine) return null;
+  const parts = memLine.split(/\s+/);
+  if (parts.length < 7) return null;
+  return {
+    total_bytes: Number(parts[1]) || null,
+    used_bytes: Number(parts[2]) || null,
+    free_bytes: Number(parts[3]) || null,
+    available_bytes: Number(parts[6]) || null,
+  };
+}
+
+function parseRdmaDevices(text) {
+  const lines = String(text || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines
+    .filter((line) => !line.toLowerCase().startsWith('device') && !line.toLowerCase().startsWith('------'))
+    .map((line) => line.split(/\s+/)[0])
+    .filter(Boolean);
+}
+
+async function getRemoteHostCapacity(target, platform) {
+  const [hostnameOut, freeOut, rdmaOut, listOut, psOut] = await Promise.all([
+    runRemoteCommand(target, 'hostname', { timeoutMs: 8000 }),
+    runRemoteCommand(target, 'free -b', { timeoutMs: 8000 }),
+    runRemoteCommand(target, 'if command -v ibv_devices >/dev/null 2>&1; then ibv_devices; fi', { timeoutMs: 8000 }),
+    runRemoteDocker(target, ['exec', platform.ollamaContainer, 'ollama', 'list'], { timeoutMs: 25000, dockerBin: platform.dockerBin }).catch(() => ({ stdout: '' })),
+    runRemoteDocker(target, ['exec', platform.ollamaContainer, 'ollama', 'ps'], { timeoutMs: 15000, dockerBin: platform.dockerBin }).catch(() => ({ stdout: '' })),
+  ]);
+
+  const memory = parseFreeBytes(freeOut.stdout);
+  const allModels = parseTable(listOut.stdout);
+  const loaded = new Set(parseTable(psOut.stdout).map((row) => row.name).filter(Boolean));
+  const loadedModelEntries = allModels
+    .filter((row) => loaded.has(row.name || ''))
+    .map((row) => ({
+      name: row.name || '',
+      size_bytes: parseHumanSizeToBytes(row.size || ''),
+      size: row.size || '',
+    }));
+  const loadedModelBytes = loadedModelEntries.reduce((sum, item) => sum + (item.size_bytes || 0), 0);
+
+  return {
+    target,
+    host: hostnameOut.stdout.trim() || target,
+    memory,
+    rdma_devices: parseRdmaDevices(rdmaOut.stdout),
+    loaded_models: loadedModelEntries,
+    loaded_model_bytes: loadedModelBytes,
+  };
+}
+
+async function getPlatformPoolCapacity(platform) {
+  const hosts = await Promise.all(platform.poolTargets.map((target) => getRemoteHostCapacity(target, platform)));
+  const totalBytes = hosts.reduce((sum, host) => sum + (host.memory?.total_bytes || 0), 0);
+  const availableBytes = hosts.reduce((sum, host) => sum + (host.memory?.available_bytes || 0), 0);
+  const loadedModelBytes = hosts.reduce((sum, host) => sum + (host.loaded_model_bytes || 0), 0);
+  const rdmaDevices = hosts.flatMap((host) => host.rdma_devices || []);
+
+  return {
+    hosts,
+    summary: {
+      host_count: hosts.length,
+      total_bytes: totalBytes,
+      available_bytes: availableBytes,
+      reserve_bytes: platform.memoryReserveBytes,
+      safe_budget_bytes: Math.max(totalBytes - platform.memoryReserveBytes, 0),
+      live_usable_bytes: Math.max(availableBytes - platform.memoryReserveBytes, 0),
+      loaded_model_bytes: loadedModelBytes,
+      rdma_device_count: rdmaDevices.length,
+      fabric_enabled: rdmaDevices.length > 0,
+    },
+  };
+}
+
+async function fetchHuggingFaceModel(repo) {
+  const [owner, model] = repo.split('/');
+  const upstreamUrl = `https://huggingface.co/api/models/${encodeURIComponent(owner)}/${encodeURIComponent(model)}`;
+  return fetchJsonWithTimeout(upstreamUrl, {
+    timeoutMs: HUGGING_FACE_TIMEOUT_MS,
+    headers: {
+      accept: 'application/json',
+      'user-agent': 'AI Hub Platform Import Proxy',
+    },
+  });
+}
+
+function findGgufFileForQuant(payload, quantLabel = '') {
+  const siblings = Array.isArray(payload?.siblings) ? payload.siblings : [];
+  const desired = String(quantLabel || '').trim().toUpperCase();
+  const ggufFiles = siblings
+    .map((sibling) => String(sibling?.rfilename || sibling?.path || '').trim())
+    .filter((filename) => filename.toLowerCase().endsWith('.gguf'));
+  if (!desired) return ggufFiles[0] || '';
+  return ggufFiles.find((filename) => extractQuantLabel(filename) === desired) || '';
+}
+
+async function resolveCandidateModelProfile(platform, { model = '', repo = '', quant = '', installedModels = [] } = {}) {
+  const safeModel = String(model || '').trim();
+  const safeRepo = normalizeHuggingFaceRepo(repo) || (safeModel.startsWith('hf.co/') ? normalizeHuggingFaceRepo(safeModel.replace(/^hf\.co\//i, '').split(':')[0]) : null);
+  const inferredQuant = String(quant || '').trim() || (safeModel.includes(':') ? safeModel.split(':').slice(1).join(':') : '');
+
+  const installedRecord = installedModels.find((item) => item.name === safeModel);
+  if (installedRecord) {
+    const params = parseParamsFromName(installedRecord.name);
+    return {
+      source: 'installed',
+      display_name: installedRecord.name,
+      model_ref: installedRecord.name,
+      repo: null,
+      quant: extractQuantLabel(installedRecord.name) || inferredQuant || '',
+      file_size_bytes: installedRecord.size_bytes || null,
+      paramsB: params.paramsB,
+      scalingParamsB: params.scalingParamsB,
+      context_length: null,
+      estimate_quality: installedRecord.size_bytes ? 'high' : 'medium',
+    };
+  }
+
+  if (safeRepo) {
+    const payload = await fetchHuggingFaceModel(safeRepo);
+    const gguf = extractHuggingFaceGgufFiles(payload);
+    const selectedQuant = inferredQuant || pickPreferredQuantLabel(gguf.quantLabels);
+    const ggufFile = findGgufFileForQuant(payload, selectedQuant);
+    const fileSizeBytes = ggufFile
+      ? await fetchContentLength(`https://huggingface.co/${safeRepo}/resolve/main/${ggufFile}`, { timeoutMs: HUGGING_FACE_TIMEOUT_MS }).catch(() => null)
+      : null;
+    const params = parseParamsFromName(payload.id || payload.modelId || safeRepo);
+
+    return {
+      source: 'huggingface',
+      display_name: payload.id || payload.modelId || safeRepo,
+      model_ref: selectedQuant ? `hf.co/${safeRepo}:${selectedQuant}` : `hf.co/${safeRepo}`,
+      repo: safeRepo,
+      quant: selectedQuant,
+      gguf_file: ggufFile || null,
+      file_size_bytes: fileSizeBytes,
+      paramsB: params.paramsB,
+      scalingParamsB: params.scalingParamsB,
+      context_length: Number(payload?.gguf?.context_length) || null,
+      estimate_quality: fileSizeBytes ? 'high' : 'medium',
+      laptime_link: `https://laptime.run/?hw=${encodeURIComponent(platform.laptimeHardwareId)}&hf=${encodeURIComponent(safeRepo)}${selectedQuant ? `&hfq=${encodeURIComponent(selectedQuant)}` : ''}`,
+    };
+  }
+
+  const guessedParams = parseParamsFromName(safeModel);
+  return {
+    source: 'heuristic',
+    display_name: safeModel || 'unknown model',
+    model_ref: safeModel || '',
+    repo: null,
+    quant: extractQuantLabel(safeModel) || inferredQuant || '',
+    file_size_bytes: null,
+    paramsB: guessedParams.paramsB,
+    scalingParamsB: guessedParams.scalingParamsB,
+    context_length: null,
+    estimate_quality: 'low',
+    laptime_link: `https://laptime.run/?hw=${encodeURIComponent(platform.laptimeHardwareId)}`,
+  };
+}
+
+async function getPlatformModelInventory(platform) {
+  const metadata = await readPlatformModelMetadata(platform);
   const [hostnameOut, dockerPsOut, listOut, psOut, diskOut] = await Promise.all([
-    runHopperCommand('hostname', { timeoutMs: 8000 }),
-    runHopperDocker(['ps', '--format', 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}']),
-    runHopperDocker(['exec', HOPPER_OLLAMA_CONTAINER, 'ollama', 'list'], { timeoutMs: 25000 }),
-    runHopperDocker(['exec', HOPPER_OLLAMA_CONTAINER, 'ollama', 'ps'], { timeoutMs: 15000 }),
-    runHopperCommand(`df -B1 ${shellQuote(HOPPER_MODEL_DATA_PATH)}`, { timeoutMs: 8000 }),
+    runPlatformCommand(platform, 'hostname', { timeoutMs: 8000 }),
+    runPlatformDocker(platform, ['ps', '--format', 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}']),
+    runPlatformDocker(platform, ['exec', platform.ollamaContainer, 'ollama', 'list'], { timeoutMs: 25000 }),
+    runPlatformDocker(platform, ['exec', platform.ollamaContainer, 'ollama', 'ps'], { timeoutMs: 15000 }),
+    runPlatformCommand(platform, `df -B1 ${shellQuote(platform.modelDataPath)}`, { timeoutMs: 8000 }),
   ]);
 
   const loadedNames = new Set(
@@ -896,10 +1329,12 @@ async function getHopperModelInventory() {
     }));
 
   return {
-    host: hostnameOut.stdout.trim() || HOPPER_HOST,
-    target: HOPPER_HOST,
-    ollama_container: HOPPER_OLLAMA_CONTAINER,
-    model_data_path: HOPPER_MODEL_DATA_PATH,
+    platform: platform.id,
+    platform_label: platform.label,
+    host: hostnameOut.stdout.trim() || platform.host,
+    target: platform.host,
+    ollama_container: platform.ollamaContainer,
+    model_data_path: platform.modelDataPath,
     disk: disk ? {
       ...disk,
       total: formatBytes(disk.total_bytes),
@@ -1362,17 +1797,26 @@ app.post('/memory/proposals/:proposalId/apply', async (req, res) => {
   }
 });
 
-app.get('/models/hopper', async (_req, res) => {
+app.get('/models/platforms', async (_req, res) => {
+  res.json({
+    default_platform: getPlatformConfig(DEFAULT_PLATFORM_ID).id,
+    platforms: listPlatformDescriptors(),
+  });
+});
+
+app.get(['/models/hopper', '/models/:platform'], async (req, res) => {
   try {
-    const out = await getHopperModelInventory();
+    const platform = getPlatformConfig(req.params.platform || 'hopper');
+    const out = await getPlatformModelInventory(platform);
     res.json(out);
   } catch (err) {
     res.status(502).json({ error: err.message });
   }
 });
 
-app.patch('/models/hopper/metadata', async (req, res) => {
+app.patch(['/models/hopper/metadata', '/models/:platform/metadata'], async (req, res) => {
   try {
+    const platform = getPlatformConfig(req.params.platform || 'hopper');
     const model = ensureSafeModelName(req.body?.model);
     const next = normalizeModelMetadataRecord({
       pinned: req.body?.pinned,
@@ -1381,23 +1825,24 @@ app.patch('/models/hopper/metadata', async (req, res) => {
       hidden: req.body?.hidden,
       updated_at: new Date().toISOString(),
     });
-    const metadata = await readHopperModelMetadata();
+    const metadata = await readPlatformModelMetadata(platform);
     metadata.models[model] = next;
-    await writeHopperModelMetadata(metadata);
-    res.json({ ok: true, model, metadata: next });
+    await writePlatformModelMetadata(platform, metadata);
+    res.json({ ok: true, platform: platform.id, model, metadata: next });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-app.post('/models/hopper/remove', async (req, res) => {
+app.post(['/models/hopper/remove', '/models/:platform/remove'], async (req, res) => {
   try {
+    const platform = getPlatformConfig(req.params.platform || 'hopper');
     const model = ensureSafeModelName(req.body?.model);
     const force = req.body?.force === true;
-    const inventory = await getHopperModelInventory();
+    const inventory = await getPlatformModelInventory(platform);
     const record = inventory.models.find((item) => item.name === model);
     if (!record) {
-      return res.status(404).json({ error: 'model not found on hopper' });
+      return res.status(404).json({ error: `model not found on ${platform.label.toLowerCase()}` });
     }
     if (record.loaded) {
       return res.status(409).json({ error: 'cannot remove a model that is currently loaded' });
@@ -1406,13 +1851,14 @@ app.post('/models/hopper/remove', async (req, res) => {
       return res.status(409).json({ error: 'model is protected; unpin it or move it out of keeper stage first' });
     }
 
-    await runHopperDocker(['exec', HOPPER_OLLAMA_CONTAINER, 'ollama', 'rm', model], { timeoutMs: 45000 });
-    const metadata = await readHopperModelMetadata();
+    await runPlatformDocker(platform, ['exec', platform.ollamaContainer, 'ollama', 'rm', model], { timeoutMs: 45000 });
+    const metadata = await readPlatformModelMetadata(platform);
     delete metadata.models[model];
-    await writeHopperModelMetadata(metadata);
-    const refreshed = await getHopperModelInventory();
+    await writePlatformModelMetadata(platform, metadata);
+    const refreshed = await getPlatformModelInventory(platform);
     res.json({
       ok: true,
+      platform: platform.id,
       removed: model,
       summary: refreshed.summary,
       disk: refreshed.disk,
@@ -1422,16 +1868,208 @@ app.post('/models/hopper/remove', async (req, res) => {
   }
 });
 
-app.post('/models/hopper/pull', async (req, res) => {
+app.post(['/models/hopper/pull', '/models/:platform/pull'], async (req, res) => {
   try {
+    const platform = getPlatformConfig(req.params.platform || 'hopper');
     const model = ensureSafeModelName(req.body?.model);
-    await runHopperDocker(['exec', HOPPER_OLLAMA_CONTAINER, 'ollama', 'pull', model], { timeoutMs: 30 * 60 * 1000 });
-    const refreshed = await getHopperModelInventory();
+    await runPlatformDocker(platform, ['exec', platform.ollamaContainer, 'ollama', 'pull', model], { timeoutMs: 30 * 60 * 1000 });
+    const refreshed = await getPlatformModelInventory(platform);
     res.json({
       ok: true,
+      platform: platform.id,
       pulled: model,
       summary: refreshed.summary,
       disk: refreshed.disk,
+    });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+app.get(['/models/hopper/huggingface/search', '/models/:platform/huggingface/search'], async (req, res) => {
+  try {
+    const platform = getPlatformConfig(req.params.platform || 'hopper');
+    const query = String(req.query?.q || '').trim();
+    if (!query) {
+      return res.status(400).json({ error: 'Expected q=<search terms>.' });
+    }
+
+    const upstreamUrl = new URL('https://huggingface.co/api/models');
+    upstreamUrl.searchParams.set('search', query);
+    upstreamUrl.searchParams.set('limit', '12');
+    upstreamUrl.searchParams.set('full', 'true');
+    upstreamUrl.searchParams.set('config', 'true');
+
+    const payload = await fetchJsonWithTimeout(upstreamUrl, {
+      timeoutMs: HUGGING_FACE_TIMEOUT_MS,
+      headers: {
+        accept: 'application/json',
+        'user-agent': `AI Hub ${platform.label} Search Proxy`,
+      },
+    });
+
+    const results = Array.isArray(payload)
+      ? payload
+          .filter((entry) => entry?.id && !entry.private && !entry.gated && !entry.disabled)
+          .sort((left, right) => getHuggingFaceSearchRank(right, query) - getHuggingFaceSearchRank(left, query))
+          .slice(0, 8)
+          .map(compactHuggingFaceSearchResult)
+      : [];
+
+    res.json({ platform: platform.id, query, results });
+  } catch (err) {
+    res.status(502).json({ error: `Unable to search Hugging Face right now: ${err.message}` });
+  }
+});
+
+app.get(['/models/hopper/huggingface/model', '/models/:platform/huggingface/model'], async (req, res) => {
+  try {
+    const platform = getPlatformConfig(req.params.platform || 'hopper');
+    const repo = normalizeHuggingFaceRepo(req.query?.repo);
+    if (!repo) {
+      return res.status(400).json({ error: 'Expected repo=<owner>/<model>.' });
+    }
+
+    const [owner, model] = repo.split('/');
+    const upstreamUrl = `https://huggingface.co/api/models/${encodeURIComponent(owner)}/${encodeURIComponent(model)}`;
+    const payload = await fetchJsonWithTimeout(upstreamUrl, {
+      timeoutMs: HUGGING_FACE_TIMEOUT_MS,
+      headers: {
+        accept: 'application/json',
+        'user-agent': `AI Hub ${platform.label} Import Proxy`,
+      },
+    });
+
+    const gguf = extractHuggingFaceGgufFiles(payload);
+    const suggestedQuant = pickPreferredQuantLabel(gguf.quantLabels);
+    const defaultImportRef = suggestedQuant ? `hf.co/${repo}:${suggestedQuant}` : `hf.co/${repo}`;
+
+    res.json({
+      platform: platform.id,
+      id: payload.id ?? payload.modelId,
+      modelId: payload.modelId ?? payload.id,
+      pipelineTag: payload.pipeline_tag ?? null,
+      private: Boolean(payload.private),
+      gated: Boolean(payload.gated),
+      disabled: Boolean(payload.disabled),
+      tags: Array.isArray(payload.tags) ? payload.tags : [],
+      config: payload.config ?? {},
+      cardData: payload.cardData ?? {},
+      likes: typeof payload.likes === 'number' ? payload.likes : null,
+      downloads: typeof payload.downloads === 'number' ? payload.downloads : null,
+      ggufFiles: gguf.files,
+      quantLabels: gguf.quantLabels,
+      suggestedQuant,
+      defaultImportRef,
+    });
+  } catch (err) {
+    res.status(502).json({ error: `Unable to reach Hugging Face right now: ${err.message}` });
+  }
+});
+
+app.post(['/models/hopper/fit', '/models/:platform/fit'], async (req, res) => {
+  try {
+    const platform = getPlatformConfig(req.params.platform || 'hopper');
+    const inventory = await getPlatformModelInventory(platform);
+    const candidate = await resolveCandidateModelProfile(platform, {
+      model: req.body?.model,
+      repo: req.body?.repo,
+      quant: req.body?.quant,
+      installedModels: inventory.models,
+    });
+    const pool = await getPlatformPoolCapacity(platform);
+    const promptTokens = Math.max(0, parseInt(req.body?.promptTokens || '1200', 10) || 1200);
+    const responseTokens = Math.max(0, parseInt(req.body?.responseTokens || '220', 10) || 220);
+    const candidateBytes = estimateModelMemoryBytes({
+      paramsB: candidate.paramsB,
+      quant: candidate.quant,
+      knownBytes: candidate.file_size_bytes,
+    });
+    const kvBytesPerToken = estimateKvBytesPerToken({
+      paramsB: candidate.paramsB,
+      scalingParamsB: candidate.scalingParamsB,
+    });
+    const speed = calculatePlatformSpeedEstimate(platform, {
+      paramsB: candidate.paramsB,
+      scalingParamsB: candidate.scalingParamsB,
+      promptTokens,
+    });
+
+    const safeBudgetBytes = pool.summary.safe_budget_bytes;
+    const availableNowBytes = pool.summary.live_usable_bytes;
+    const loadedBytes = pool.summary.loaded_model_bytes;
+    const projectedBytes = loadedBytes + candidateBytes;
+    const remainingAfterLoadBytes = Math.max(safeBudgetBytes - projectedBytes, 0);
+    const additionalSameModelCount = candidateBytes > 0 ? Math.floor(remainingAfterLoadBytes / candidateBytes) : 0;
+    const estimatedContextCapacityTokens = kvBytesPerToken > 0 ? Math.floor(remainingAfterLoadBytes / kvBytesPerToken) : null;
+    const advertisedContextTokens = candidate.context_length;
+    const fullAdvertisedContextFits = advertisedContextTokens == null
+      ? null
+      : estimatedContextCapacityTokens != null && estimatedContextCapacityTokens >= advertisedContextTokens;
+    const status = projectedBytes > safeBudgetBytes
+      ? 'unfit'
+      : projectedBytes > safeBudgetBytes * 0.9
+        ? 'tight'
+        : 'fit';
+
+    res.json({
+      ok: true,
+      platform: platform.id,
+      platform_label: platform.label,
+      candidate: {
+        ...candidate,
+        footprint_bytes: candidateBytes,
+        footprint: formatBytes(candidateBytes),
+      },
+      pool: {
+        ...pool.summary,
+        total: formatBytes(pool.summary.total_bytes),
+        available_now: formatBytes(availableNowBytes),
+        safe_budget: formatBytes(safeBudgetBytes),
+        reserve: formatBytes(pool.summary.reserve_bytes),
+        loaded_models: formatBytes(loadedBytes),
+      },
+      hosts: pool.hosts.map((host) => ({
+        target: host.target,
+        host: host.host,
+        total_bytes: host.memory?.total_bytes || null,
+        total: formatBytes(host.memory?.total_bytes),
+        available_bytes: host.memory?.available_bytes || null,
+        available: formatBytes(host.memory?.available_bytes),
+        rdma_devices: host.rdma_devices || [],
+        loaded_model_count: host.loaded_models?.length || 0,
+        loaded_model_bytes: host.loaded_model_bytes || 0,
+        loaded_models: formatBytes(host.loaded_model_bytes || 0),
+      })),
+      fit: {
+        status,
+        fits_now: projectedBytes <= safeBudgetBytes,
+        currently_safe: candidateBytes <= availableNowBytes,
+        projected_bytes: projectedBytes,
+        projected: formatBytes(projectedBytes),
+        remaining_after_load_bytes: remainingAfterLoadBytes,
+        remaining_after_load: formatBytes(remainingAfterLoadBytes),
+        additional_same_model_count: additionalSameModelCount,
+        estimate_quality: candidate.estimate_quality,
+        message: projectedBytes > safeBudgetBytes
+          ? `This looks unsafe right now. Estimated footprint is ${formatBytes(projectedBytes)} against a guarded pool budget of ${formatBytes(safeBudgetBytes)}.`
+          : projectedBytes > safeBudgetBytes * 0.9
+            ? `This is a tight fit. Estimated post-load usage is ${formatBytes(projectedBytes)} with about ${formatBytes(remainingAfterLoadBytes)} left for cache and runtime breathing room.`
+            : `This looks safe to try. Estimated post-load usage is ${formatBytes(projectedBytes)} with about ${formatBytes(remainingAfterLoadBytes)} left for cache and concurrency.`,
+      },
+      context: {
+        advertised_tokens: advertisedContextTokens,
+        estimated_capacity_tokens: estimatedContextCapacityTokens,
+        full_advertised_context_fits: fullAdvertisedContextFits,
+        kv_bytes_per_token: kvBytesPerToken,
+        kv_per_1k_tokens: formatBytes(kvBytesPerToken * 1000),
+      },
+      speed,
+      simulation: {
+        laptime_url: candidate.laptime_link || `https://laptime.run/?hw=${encodeURIComponent(platform.laptimeHardwareId)}`,
+        prompt_tokens: promptTokens,
+        response_tokens: responseTokens,
+      },
     });
   } catch (err) {
     res.status(502).json({ error: err.message });
