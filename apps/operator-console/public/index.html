@@ -1159,12 +1159,12 @@
         <select id="depth-filter" class="select-input">
           <option value="1">Depth 1 · adjacent topics</option>
           <option value="2" selected>Depth 2 · topics and evidence</option>
-          <option value="3">Depth 3 · topics, evidence, and proposals</option>
+          <option value="3">Depth 3 · topics, evidence, proposals, and neighbors</option>
         </select>
         <select id="event-cap-filter" class="select-input">
-          <option value="8">8 events</option>
-          <option value="12" selected>12 events</option>
-          <option value="16">16 events</option>
+          <option value="12">12 events</option>
+          <option value="20" selected>20 events</option>
+          <option value="28">28 events</option>
         </select>
       </div>
 
@@ -1715,7 +1715,7 @@
       activePath: [],
       graphControls: {
         depth: 2,
-        eventCap: 12,
+        eventCap: 20,
         layout: 'organic',
         motion: 'live',
         glow: 0.8,
@@ -2324,7 +2324,7 @@
       const kind = normalizeTopicToken(record?.kind || record?.eventType || '');
       const filePath = String(record?.filePath || '').toLowerCase();
       if (filePath.includes('rollout-')) return false;
-      if (filePath.endsWith('history.jsonl')) return false;
+      if (filePath.endsWith('failed-events.jsonl')) return false;
       return !TOPIC_EVENT_BLACKLIST.has(kind) && !kind.startsWith('agent');
     };
 
@@ -2351,7 +2351,7 @@
       const edges = [];
       const seen = new Set();
       const width = 1200;
-      const height = 760;
+      const height = 860;
       const depth = state.graphControls.depth;
       const eventCap = state.graphControls.eventCap;
       const layout = state.graphControls.layout;
@@ -2392,12 +2392,15 @@
       const filteredEvents = state.fileFilter
         ? (searchOut?.events || []).filter((event) => String(event?.metadata?.file_path || '').trim() === state.fileFilter)
         : (searchOut?.events || []);
-      const events = filteredEvents.slice(0, eventCap);
+      const events = filteredEvents
+        .filter((event) => topicEligibleRecord(summarizeEvent(event)))
+        .slice(0, eventCap);
       const hits = (searchOut?.aikb || []).slice(0, 8);
       const proposalRows = depth >= 3 ? (proposals || []).slice(0, 8) : [];
       const queryTerms = new Set(extractTopicTerms(query));
       const topicEntries = new Map();
       const visibleTopicIds = new Set();
+      const neighborTopicIds = new Set();
       const userSeedTerms = events.flatMap((event) => {
         const summary = summarizeEvent(event);
         if (!topicEligibleRecord(summary) || topicWeightForRecord(summary) < 1.5) return [];
@@ -2503,7 +2506,7 @@
       const topTopics = [...topicEntries.values()]
         .filter((entry) => entry.count > 0.6)
         .sort((a, b) => scoreTopic(b) - scoreTopic(a) || a.label.localeCompare(b.label))
-        .slice(0, depth === 1 ? 10 : depth === 2 ? 14 : 16);
+        .slice(0, depth === 1 ? 12 : depth === 2 ? 18 : 22);
 
       topTopics.forEach((entry, index) => {
         visibleTopicIds.add(entry.id);
@@ -2530,6 +2533,72 @@
         });
         addEdge('query', entry.id, 1.55 + Math.min(entry.count, 3) * 0.18, `${entry.label} is one of the strongest co-occurring topics beside "${query}".`);
       });
+
+      const neighboringTopics = depth >= 2
+        ? [...topicEntries.values()]
+          .filter((entry) => !visibleTopicIds.has(entry.id) && entry.count > 0.72)
+          .sort((a, b) => scoreTopic(b) - scoreTopic(a) || a.label.localeCompare(b.label))
+          .slice(0, depth === 2 ? 8 : 12)
+        : [];
+
+      neighboringTopics.forEach((entry, index) => {
+        neighborTopicIds.add(entry.id);
+        const angle = (Math.PI * 2 * index) / Math.max(neighboringTopics.length, 1);
+        const orbit = layout === 'radial' ? 320 : layout === 'constellation' ? 340 : 330;
+        addNode({
+          id: entry.id,
+          kind: 'topic',
+          queryTerm: entry.term,
+          label: entry.label,
+          x: width * 0.5 + Math.cos(angle + 0.22) * orbit,
+          y: height * 0.48 + Math.sin(angle + 0.22) * (orbit * 0.7),
+          r: 11 + Math.min(entry.count, 3),
+          fill: '#ffdf94',
+          detail: `${entry.label} is a second-ring concept connected through the current topic neighborhood.`,
+          meta: `${entry.eventCount} events · ${entry.aikbCount} AIKB${entry.proposalCount ? ` · ${entry.proposalCount} proposals` : ''} · score ${scoreTopic(entry).toFixed(1)}`,
+          reason: `${entry.label} extends the map beyond the first ring so you can explore links-to-links instead of only the closest matches.`,
+          record: {
+            kind: 'topic',
+            summary: `${entry.label} is a second-ring adjacent concept extracted from matching text.`,
+            eventType: 'topic',
+            supportCount: entry.evidenceIds.size,
+          },
+        });
+      });
+
+      const connectedTopicIds = new Set([...visibleTopicIds, ...neighborTopicIds]);
+      const topicLinks = new Map();
+      const registerTopicLinks = (terms, weight = 1) => {
+        const picked = [...new Set((terms || [])
+          .map((term) => topicEntries.get(term))
+          .filter((entry) => entry && connectedTopicIds.has(entry.id))
+          .map((entry) => entry.term))];
+        for (let first = 0; first < picked.length - 1; first += 1) {
+          for (let second = first + 1; second < picked.length; second += 1) {
+            const a = picked[first];
+            const b = picked[second];
+            const key = a < b ? `${a}::${b}` : `${b}::${a}`;
+            const entry = topicLinks.get(key) || { first: a, second: b, weight: 0, count: 0 };
+            entry.weight += weight;
+            entry.count += 1;
+            topicLinks.set(key, entry);
+          }
+        }
+      };
+
+      eventRows.forEach((row) => registerTopicLinks(row.topics, Math.max(1, topicWeightForRecord(row.record))));
+      hitRows.forEach((row) => registerTopicLinks(row.topics, 1.35));
+      proposalRowsWithTopics.forEach((row) => registerTopicLinks(row.topics, 0.7));
+
+      [...topicLinks.values()]
+        .sort((a, b) => b.weight - a.weight || b.count - a.count)
+        .slice(0, depth === 1 ? 0 : depth === 2 ? 16 : 24)
+        .forEach((link) => {
+          const firstEntry = topicEntries.get(link.first);
+          const secondEntry = topicEntries.get(link.second);
+          if (!firstEntry || !secondEntry) return;
+          addEdge(firstEntry.id, secondEntry.id, 0.62 + Math.min(link.weight, 3.4) * 0.08, `${firstEntry.label} and ${secondEntry.label} repeatedly co-occur in the current result set, so they are linked as part of the same neighborhood.`);
+        });
 
       const addEvidenceNode = (row, index, total, ringRadius = 340) => {
         const angle = (Math.PI * 2 * index) / Math.max(total, 1);
@@ -2563,7 +2632,7 @@
 
         const linkedTopics = row.topics
           .map((term) => topicEntries.get(term))
-          .filter((entry) => entry && visibleTopicIds.has(entry.id))
+          .filter((entry) => entry && connectedTopicIds.has(entry.id))
           .sort((a, b) => scoreTopic(b) - scoreTopic(a))
           .slice(0, 3);
 
@@ -2579,7 +2648,7 @@
 
       if (depth >= 2) {
         const visibleEvidence = topTopics.length
-          ? [...eventRows, ...hitRows].filter((row) => row.topics.some((term) => visibleTopicIds.has(`topic:${term}`)))
+          ? [...eventRows, ...hitRows].filter((row) => row.topics.some((term) => connectedTopicIds.has(`topic:${term}`)))
           : [...eventRows, ...hitRows];
         visibleEvidence.forEach((row, index) => addEvidenceNode(row, index, visibleEvidence.length));
       }
@@ -2602,7 +2671,7 @@
 
           const linkedTopics = row.topics
             .map((term) => topicEntries.get(term))
-            .filter((entry) => entry && visibleTopicIds.has(entry.id))
+            .filter((entry) => entry && connectedTopicIds.has(entry.id))
             .sort((a, b) => scoreTopic(b) - scoreTopic(a))
             .slice(0, 2);
 

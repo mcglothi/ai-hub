@@ -309,6 +309,17 @@ function eventLooksNoisy(summary) {
   );
 }
 
+function eventLooksSuppressedSessionArtifact(event) {
+  const filePath = String(event?.metadata?.file_path || '').toLowerCase();
+  const filename = String(event?.metadata?.filename || '').toLowerCase();
+  return (
+    filePath.includes('rollout-') ||
+    filename.includes('rollout-') ||
+    filePath.endsWith('failed-events.jsonl') ||
+    filename === 'failed-events.jsonl'
+  );
+}
+
 function rankSearchEvent(event, queryTokens) {
   const info = summarizeSearchEvent(event);
   const provider = String(event?.metadata?.provider || '').toLowerCase();
@@ -317,13 +328,14 @@ function rankSearchEvent(event, queryTokens) {
   const pathBits = `${String(event?.metadata?.file_path || '')} ${String(event?.metadata?.filename || '')}`.toLowerCase();
   const haystack = `${info.title} ${info.summary}`.toLowerCase();
   const relevantHaystack = `${haystack} ${pathBits}`;
+  const sessionArtifact = eventLooksSuppressedSessionArtifact(event);
   let score = 0;
   let matchedTokens = 0;
 
   if (['agent_message', 'gemini_chat_message', 'gemini_chat_user', 'message'].includes(eventType)) score += 8;
   if (eventType === 'agent_reasoning' || info.title === 'reasoning') score += 5;
   if (provider === 'gemini' || provider === 'codex' || provider === 'claude') score += 2;
-  if (source === 'ai-memory-sync') score += 1;
+  if (source === 'ai-memory-sync' && !sessionArtifact) score += 1;
   if (info.summary.length >= 48) score += 2;
   if (info.summary.length <= 12) score -= 2;
 
@@ -332,6 +344,7 @@ function rankSearchEvent(event, queryTokens) {
   if (info.category === 'function_call_output') score -= 7;
   if (info.category === 'function_call' || info.category === 'custom_tool_call') score -= 5;
   if (eventLooksNoisy(info.summary)) score -= 8;
+  if (sessionArtifact) score -= 16;
 
   for (const token of queryTokens) {
     if (relevantHaystack.includes(token)) {
@@ -472,6 +485,61 @@ async function buildAikbContext(userMessage) {
 
   if (!snippets.length) return null;
   return snippets.join('\n\n---\n\n');
+}
+
+async function searchAikbHits(query, limit = 8) {
+  const tokens = extractQueryTokens(query);
+  if (!tokens.length) return [];
+
+  try {
+    await fs.access(AIKB_PATH);
+  } catch {
+    return [];
+  }
+
+  const args = ['-n', '-i', '--no-heading', '--max-count', '3', '--hidden'];
+  for (const token of tokens) args.push('-e', token);
+  args.push(
+    '--glob', '*.md',
+    '--glob', '*.yaml',
+    '--glob', '*.yml',
+    '--glob', '*.txt',
+    '--glob', '*.json',
+    '--glob', '!**/.git/**',
+    '--glob', '!**/node_modules/**',
+    '--glob', '!**/_tools/aikb-search/**',
+    AIKB_PATH
+  );
+
+  const rgOutput = await runRg(args, { timeoutMs: 1600, maxBytes: 420000 });
+  if (!rgOutput.trim()) return [];
+
+  const lineHits = rgOutput
+    .split('\n')
+    .map((line) => {
+      const m = line.match(/^(.+?):(\d+):(.*)$/);
+      if (!m) return null;
+      const absPath = m[1];
+      const relPath = absPath.startsWith(`${AIKB_PATH}/`) ? absPath.slice(AIKB_PATH.length + 1) : absPath;
+      return {
+        path: relPath,
+        line: parseInt(m[2], 10),
+        snippet: m[3].trim(),
+      };
+    })
+    .filter(Boolean);
+
+  const deduped = [];
+  const seen = new Set();
+  for (const hit of lineHits) {
+    const key = `${hit.path}:${hit.line}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(hit);
+    if (deduped.length >= limit) break;
+  }
+
+  return deduped;
 }
 
 function createProviderProcess(provider, message, sessionId) {
@@ -1052,13 +1120,34 @@ app.get('/memory/search', async (req, res) => {
   const requestedLimit = Number(req.query.limit || 20);
   const safeLimit = Math.max(1, Math.min(50, Number.isFinite(requestedLimit) ? requestedLimit : 20));
   try {
-    const out = await memoryRequest('GET', '/api/v1/search', {
-      params: {
-        q: req.query.q,
-        limit: safeLimit,
+    const query = String(req.query.q || '');
+    const [out, localAikb] = await Promise.all([
+      memoryRequest('GET', '/api/v1/search', {
+        params: {
+          q: query,
+          limit: safeLimit,
+        },
+      }),
+      searchAikbHits(query, 8),
+    ]);
+    const reranked = rerankSearchResults(out, query);
+    const mergedAikb = [...(Array.isArray(reranked?.aikb) ? reranked.aikb : []), ...localAikb];
+    const dedupedAikb = [];
+    const seen = new Set();
+    for (const hit of mergedAikb) {
+      const key = `${String(hit?.path || '')}:${Number(hit?.line || 0)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      dedupedAikb.push(hit);
+    }
+    res.json({
+      ...reranked,
+      aikb: dedupedAikb.slice(0, 8),
+      counts: {
+        ...(reranked?.counts || {}),
+        aikb: dedupedAikb.slice(0, 8).length,
       },
     });
-    res.json(rerankSearchResults(out, String(req.query.q || '')));
   } catch (err) {
     res.status(502).json({ error: err.message });
   }
