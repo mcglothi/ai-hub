@@ -39,31 +39,27 @@ Manage the model fleet on real hardware, inspect Hugging Face repos, choose GGUF
 
 ## Core Capabilities
 
-- Memory-first operator console with graph exploration, provenance, and review/apply flows
-- Hugging Face search, repo inspection, quant-aware import prep, and Ollama pull workflows
-- Per-platform model inventory with notes, stages, cleanup cues, and loaded-state visibility
-- Embedded terminal and code adjacency for fast operational edits
-- Session inventory and tmux-backed orchestration through the sessions service
-- Multi-provider chat support and voice/transcription plumbing retained in the repo
+- **Memory-First Operator Console:** Graph exploration, provenance, and review/apply flows.
+- **Model Stewardship:** Hugging Face search, repo inspection, quant-aware import prep, and Ollama pull workflows.
+- **Fleet Management:** Per-platform model inventory with notes, stages, cleanup cues, and loaded-state visibility.
+- **Operator Ergonomics:** Embedded terminal and code adjacency for fast operational edits.
+- **Persistent Sessions:** Session inventory and tmux-backed orchestration through the sessions service.
 
 ## Repository Layout
 
 ```text
 ai-hub/
 ├── apps/
-│   ├── chat-wrapper/
+│   ├── operator-console/  <-- Primary Surface
 │   │   ├── public/
 │   │   ├── package.json
 │   │   └── server.js
-│   ├── operator-console/
-│   │   ├── public/
-│   │   ├── package.json
-│   │   └── server.js
-│   └── sessions/
-│       ├── app/
-│       ├── ui/
-│       ├── requirements.txt
-│       └── sync_agent.py
+│   ├── sessions/          <-- Session Service
+│   │   ├── app/
+│   │   ├── ui/
+│   │   ├── requirements.txt
+│   │   └── sync_agent.py
+│   └── chat-wrapper/      <-- Legacy
 ├── assets/
 │   ├── hero-graphic.svg
 │   ├── ai-hub-logo.svg
@@ -87,28 +83,14 @@ Browser
 Browser
   -> AI Hub Sessions (:8090)
     -> FastAPI + tmux-backed session orchestration
-
-Browser
-  -> Legacy Chat Wrapper (:3000, fallback only)
-    -> Claude / Gemini / Codex CLIs
-    -> Local STT proxy (:8008)
-    -> optional AIKB context lookup
 ```
 
 ## Deployment Status
 
 - `apps/operator-console` is the primary AI Hub surface and active operator entrypoint.
 - `apps/sessions` is the repo-backed session service for persistent workflows.
-- `apps/chat-wrapper` remains in-tree as a fallback path, not the main product surface.
+- `apps/chat-wrapper` remains in-tree as a legacy fallback path, not the main product surface.
 - Operational deployment details live in AIKB and the companion Ansible repo.
-
-## Development Model
-
-1. Branch from `main` for each focused feature or cleanup pass.
-2. Keep `main` deployable.
-3. Add new product-facing work to `apps/operator-console` first unless the feature is explicitly session-specific.
-4. Prefer real screenshots, concrete runbooks, and small deployable commits over scratch variants.
-5. Treat AIKB as the documentation and operating-memory source of truth.
 
 ## Near-Term Direction
 
