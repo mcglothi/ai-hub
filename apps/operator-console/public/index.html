@@ -1292,10 +1292,6 @@
                   <option value="presentation">Presentation</option>
                 </select>
               </div>
-              <div class="control-group">
-                <label for="glow-filter">Glow</label>
-                <input id="glow-filter" class="range-input" type="range" min="0.2" max="1.2" step="0.05" value="0.8">
-              </div>
               <button id="save-scene-btn" class="action-btn secondary" type="button">Save Scene</button>
               <button id="reset-scene-btn" class="action-btn secondary" type="button">Reset Scene</button>
             </div>
@@ -1686,10 +1682,6 @@
               <label class="mono" for="line-height-input">Density</label>
               <input id="line-height-input" class="range-input" type="range" min="0.9" max="1.5" step="0.05" value="1.1">
             </div>
-            <div class="range-group">
-              <label class="mono" for="glow-input">Glow</label>
-              <input id="glow-input" class="range-input" type="range" min="0" max="1" step="0.05" value="0.35">
-            </div>
             <button id="terminal-reload" class="action-btn secondary" type="button">Reconnect</button>
             <button id="terminal-popout" class="action-btn secondary" type="button">Open Fullscreen</button>
           </div>
@@ -1749,7 +1741,6 @@
         layout: 'organic',
         motion: 'calm',
         visualMode: 'analytic',
-        glow: 0.35,
       },
       expandedNodeIds: new Set(),
       pinnedNodePositions: {},
@@ -1761,7 +1752,6 @@
         contrast: 1,
         opacity: 0.95,
         lineHeight: 1.1,
-        glow: 0.35,
       },
       ops: [],
       trace: [],
@@ -1847,7 +1837,6 @@
       layoutFilter: document.getElementById('layout-filter'),
       motionFilter: document.getElementById('motion-filter'),
       visualFilter: document.getElementById('visual-filter'),
-      glowFilter: document.getElementById('glow-filter'),
       saveSceneBtn: document.getElementById('save-scene-btn'),
       resetSceneBtn: document.getElementById('reset-scene-btn'),
       graphFitBtn: document.getElementById('graph-fit-btn'),
@@ -1923,7 +1912,6 @@
       contrastInput: document.getElementById('contrast-input'),
       frameOpacityInput: document.getElementById('frame-opacity-input'),
       lineHeightInput: document.getElementById('line-height-input'),
-      glowInput: document.getElementById('glow-input'),
       terminalReload: document.getElementById('terminal-reload'),
       terminalPopout: document.getElementById('terminal-popout'),
       codePopout: document.getElementById('code-popout'),
@@ -2171,7 +2159,6 @@
       el.layoutFilter.value = state.graphControls.layout;
       el.motionFilter.value = state.graphControls.motion;
       el.visualFilter.value = state.graphControls.visualMode;
-      el.glowFilter.value = String(state.graphControls.glow);
       el.modelStageFilter.value = state.modelControls.stage;
       el.modelSortFilter.value = state.modelControls.sort;
       el.modelShowProtected.checked = state.modelControls.showProtected;
@@ -2181,7 +2168,6 @@
       el.contrastInput.value = String(state.terminalSettings.contrast);
       el.frameOpacityInput.value = String(state.terminalSettings.opacity);
       el.lineHeightInput.value = String(state.terminalSettings.lineHeight);
-      el.glowInput.value = String(state.terminalSettings.glow);
     };
 
     const renderSavedScenes = () => {
@@ -3084,7 +3070,7 @@
           field.setAttribute('cx', String(node.x));
           field.setAttribute('cy', String(node.y));
           field.setAttribute('r', String(fieldRadius));
-          field.setAttribute('fill', colorAlpha(node.fill, visualPreset.fieldOpacity + (node.heat || 0.35) * 0.03 + state.graphControls.glow * 0.015));
+          field.setAttribute('fill', colorAlpha(node.fill, visualPreset.fieldOpacity + (node.heat || 0.35) * 0.035));
           field.setAttribute('stroke', colorAlpha(node.fill, 0.08 + (node.heat || 0.35) * 0.04));
           field.setAttribute('stroke-width', '1');
           viewportGroup.appendChild(field);
@@ -3137,14 +3123,6 @@
         group.style.cursor = 'pointer';
         const pathActive = state.activePath.includes(node.id);
         const renderRadius = renderRadiusForNode(node);
-
-        const halo = document.createElementNS(ns, 'circle');
-        halo.setAttribute('cx', String(node.x));
-        halo.setAttribute('cy', String(node.y));
-        halo.setAttribute('r', String(renderRadius + 4 + (node.heat || 0.35) * 1.6));
-        halo.setAttribute('fill', node.glow || blendHex(node.fill, '#ffffff', 0.24));
-        halo.setAttribute('opacity', pathActive ? String(0.12 + state.graphControls.glow * 0.06) : state.selectedNodeId === node.id ? String(0.1 + state.graphControls.glow * 0.05) : String(0.03 + (node.heat || 0.35) * 0.02 + state.graphControls.glow * 0.02));
-        group.appendChild(halo);
 
         const aura = document.createElementNS(ns, 'circle');
         aura.setAttribute('cx', String(node.x));
@@ -4195,9 +4173,7 @@
       const contrast = clamp(Number(state.terminalSettings.contrast), 0.85, 1.5);
       const opacity = clamp(Number(state.terminalSettings.opacity), 0.75, 1);
       const lineHeight = clamp(Number(state.terminalSettings.lineHeight), 0.9, 1.5);
-      const glow = clamp(Number(state.terminalSettings.glow), 0, 1);
       const font = state.terminalSettings.font;
-
       styleEl.textContent = `
         html, body {
           background: ${theme.bg} !important;
@@ -4227,7 +4203,7 @@
             transparent 1px,
             transparent 4px
           );
-          opacity: ${glow * 0.18};
+          opacity: 0.12;
           mix-blend-mode: screen;
         }
       `;
@@ -4237,7 +4213,7 @@
       el.terminalFrame.style.width = `${100 / scale}%`;
       el.terminalFrame.style.height = `${100 / scale}%`;
       el.terminalFrame.style.opacity = String(opacity);
-      el.terminalFrame.style.filter = `drop-shadow(0 0 ${10 + glow * 24}px rgba(110, 199, 255, ${0.18 + glow * 0.22}))`;
+      el.terminalFrame.style.filter = 'drop-shadow(0 0 12px rgba(110, 199, 255, 0.12))';
       el.terminalStatus.textContent = `terminal ${state.terminalTheme}`;
       logTrace('terminal theme', `${state.terminalTheme}, scale ${scale.toFixed(2)}, contrast ${contrast.toFixed(2)}, density ${lineHeight.toFixed(2)}`);
     };
@@ -4332,11 +4308,9 @@
         runForce();
       }
     });
-    el.glowFilter.addEventListener('input', () => {
-      state.graphControls.glow = Number(el.glowFilter.value);
-      drawGraph();
-    });
+
     el.graphFitBtn.addEventListener('click', fitGraph);
+
     el.graphZoomInBtn.addEventListener('click', () => {
       const rect = el.graphSvg.getBoundingClientRect();
       setViewport({
@@ -4439,11 +4413,9 @@
       state.terminalSettings.lineHeight = Number(el.lineHeightInput.value);
       applyTerminalAppearance();
     });
-    el.glowInput.addEventListener('input', () => {
-      state.terminalSettings.glow = Number(el.glowInput.value);
-      applyTerminalAppearance();
-    });
+
     el.saveSceneBtn.addEventListener('click', saveNamedScene);
+
     el.resetSceneBtn.addEventListener('click', () => {
       state.expandedNodeIds = new Set();
       state.pinnedNodePositions = {};
