@@ -528,15 +528,10 @@
       inset: 0;
       pointer-events: none;
       background:
-        radial-gradient(circle at 12% 16%, rgba(255,255,255,0.95) 0 1px, transparent 1.8px),
-        radial-gradient(circle at 24% 72%, rgba(160,220,255,0.7) 0 1px, transparent 2px),
-        radial-gradient(circle at 41% 28%, rgba(255,255,255,0.82) 0 1.1px, transparent 2px),
-        radial-gradient(circle at 58% 14%, rgba(255,210,255,0.78) 0 1px, transparent 2px),
-        radial-gradient(circle at 72% 62%, rgba(140,239,208,0.72) 0 1.1px, transparent 2px),
-        radial-gradient(circle at 84% 22%, rgba(255,255,255,0.82) 0 1px, transparent 1.8px),
-        radial-gradient(circle at 91% 79%, rgba(139,197,255,0.68) 0 1.1px, transparent 2px);
-      opacity: 0.75;
-      animation: twinkle 18s ease-in-out infinite alternate;
+        radial-gradient(520px 260px at 18% 22%, rgba(92, 137, 255, 0.08), transparent 70%),
+        radial-gradient(420px 240px at 78% 18%, rgba(215, 118, 255, 0.07), transparent 72%),
+        radial-gradient(680px 320px at 50% 100%, rgba(122, 233, 198, 0.06), transparent 78%);
+      opacity: 0.7;
     }
 
     .graph-stage::after {
@@ -547,15 +542,10 @@
       background:
         linear-gradient(90deg, rgba(170, 214, 255, 0.04) 1px, transparent 1px),
         linear-gradient(180deg, rgba(170, 214, 255, 0.03) 1px, transparent 1px);
-      background-size: 48px 48px;
-      opacity: 0.18;
+      background-size: 64px 64px;
+      opacity: 0.08;
       mix-blend-mode: screen;
       mask-image: radial-gradient(circle at 50% 45%, black 36%, transparent 100%);
-    }
-
-    @keyframes twinkle {
-      from { opacity: 0.45; transform: translateY(-2px) scale(1); }
-      to { opacity: 0.82; transform: translateY(2px) scale(1.01); }
     }
 
     #graph-svg {
@@ -1289,9 +1279,17 @@
               <div class="control-group">
                 <label for="motion-filter">Motion</label>
                 <select id="motion-filter" class="select-input">
-                  <option value="calm">Calm</option>
-                  <option value="live" selected>Live</option>
+                  <option value="calm" selected>Calm</option>
+                  <option value="live">Live</option>
                   <option value="pinned">Pinned</option>
+                </select>
+              </div>
+              <div class="control-group">
+                <label for="visual-filter">Visual Mode</label>
+                <select id="visual-filter" class="select-input">
+                  <option value="analytic" selected>Analytic</option>
+                  <option value="cinematic">Cinematic</option>
+                  <option value="presentation">Presentation</option>
                 </select>
               </div>
               <div class="control-group">
@@ -1749,7 +1747,8 @@
         depth: 2,
         eventCap: 20,
         layout: 'organic',
-        motion: 'live',
+        motion: 'calm',
+        visualMode: 'analytic',
         glow: 0.8,
       },
       expandedNodeIds: new Set(),
@@ -1847,6 +1846,7 @@
       followupList: document.getElementById('followup-list'),
       layoutFilter: document.getElementById('layout-filter'),
       motionFilter: document.getElementById('motion-filter'),
+      visualFilter: document.getElementById('visual-filter'),
       glowFilter: document.getElementById('glow-filter'),
       saveSceneBtn: document.getElementById('save-scene-btn'),
       resetSceneBtn: document.getElementById('reset-scene-btn'),
@@ -2170,6 +2170,7 @@
       el.eventCapFilter.value = String(state.graphControls.eventCap);
       el.layoutFilter.value = state.graphControls.layout;
       el.motionFilter.value = state.graphControls.motion;
+      el.visualFilter.value = state.graphControls.visualMode;
       el.glowFilter.value = String(state.graphControls.glow);
       el.modelStageFilter.value = state.modelControls.stage;
       el.modelSortFilter.value = state.modelControls.sort;
@@ -2326,6 +2327,19 @@
     };
 
     const clusterPaletteFor = (index) => GRAPH_CLUSTER_PALETTE[index % GRAPH_CLUSTER_PALETTE.length];
+
+    const graphVisualPreset = () => ({
+      analytic: { glowBoost: 0.58, starCount: 26, starOpacity: 0.22, nebulaOpacity: 0.2, radiusScale: 0.72, edgeGlow: 0.14, labelOpacity: 0.54 },
+      cinematic: { glowBoost: 0.96, starCount: 42, starOpacity: 0.3, nebulaOpacity: 0.34, radiusScale: 0.82, edgeGlow: 0.22, labelOpacity: 0.62 },
+      presentation: { glowBoost: 1.14, starCount: 34, starOpacity: 0.26, nebulaOpacity: 0.28, radiusScale: 0.78, edgeGlow: 0.18, labelOpacity: 0.6 },
+    }[state.graphControls.visualMode || 'analytic']);
+
+    const renderRadiusForNode = (node) => {
+      const preset = graphVisualPreset();
+      const base = Number(node?.r || 10);
+      const kindScale = node?.kind === 'query' ? 0.84 : node?.kind === 'topic' ? 0.76 : node?.kind === 'aikb' ? 0.7 : 0.68;
+      return Math.max(node?.kind === 'query' ? 15 : 8, base * preset.radiusScale * kindScale);
+    };
 
     const normalizeTopicToken = (token) => String(token || '')
       .toLowerCase()
@@ -2884,20 +2898,21 @@
       const step = () => {
         ticks += 1;
         const motion = state.graphControls.motion;
-        const springFactor = motion === 'calm' ? 0.7 : motion === 'pinned' ? 0.18 : 1;
+        const springFactor = motion === 'calm' ? 0.42 : motion === 'pinned' ? 0.12 : 0.68;
+        const damping = motion === 'calm' ? 0.82 : motion === 'pinned' ? 0.76 : 0.88;
 
         for (let i = 0; i < nodes.length; i++) {
           const a = nodes[i];
           if (a.fixed) continue;
-          a.vx *= motion === 'calm' ? 0.95 : 0.92;
-          a.vy *= motion === 'calm' ? 0.95 : 0.92;
+          a.vx *= damping;
+          a.vy *= damping;
 
           for (let j = i + 1; j < nodes.length; j++) {
             const b = nodes[j];
             const dx = a.x - b.x;
             const dy = a.y - b.y;
-            const d2 = Math.max(90, dx * dx + dy * dy);
-            const repulse = (2600 / d2) * springFactor;
+            const d2 = Math.max(140, dx * dx + dy * dy);
+            const repulse = (1500 / d2) * springFactor;
             const dist = Math.sqrt(d2);
             const fx = (dx / dist) * repulse;
             const fy = (dy / dist) * repulse;
@@ -2913,8 +2928,8 @@
           const dx = to.x - from.x;
           const dy = to.y - from.y;
           const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-          const target = 120 - edge.weight * 16;
-          const spring = (dist - target) * 0.008 * springFactor;
+          const target = 132 - edge.weight * 12;
+          const spring = (dist - target) * 0.0052 * springFactor;
           const fx = (dx / dist) * spring;
           const fy = (dy / dist) * spring;
           if (!from.fixed) { from.vx += fx; from.vy += fy; }
@@ -2923,8 +2938,8 @@
 
         nodes.forEach((node) => {
           if (node.id === 'query') {
-            node.x += (width * 0.5 - node.x) * 0.06 * springFactor;
-            node.y += (height * 0.48 - node.y) * 0.06 * springFactor;
+            node.x += (width * 0.5 - node.x) * 0.045 * springFactor;
+            node.y += (height * 0.48 - node.y) * 0.045 * springFactor;
             return;
           }
           if (node.fixed) return;
@@ -2933,7 +2948,7 @@
         });
 
         drawGraph();
-        if (motion !== 'pinned' && ticks < 220) state.graph.raf = requestAnimationFrame(step);
+        if (motion !== 'pinned' && ticks < 140) state.graph.raf = requestAnimationFrame(step);
       };
 
       state.graph.raf = requestAnimationFrame(step);
@@ -3042,27 +3057,22 @@
     const drawGraph = () => {
       const svg = el.graphSvg;
       const ns = 'http://www.w3.org/2000/svg';
+      const visualPreset = graphVisualPreset();
       svg.innerHTML = '';
 
       const defs = document.createElementNS(ns, 'defs');
       defs.innerHTML = `
-        <filter id="glow">
-          <feGaussianBlur stdDeviation="8" result="blur"></feGaussianBlur>
-          <feColorMatrix type="matrix" values="
-            1 0 0 0 0
-            0 1 0 0 0
-            0 0 1 0 0
-            0 0 0 18 -7" result="glowAlpha"></feColorMatrix>
-          <feMerge>
-            <feMergeNode in="glowAlpha"></feMergeNode>
-            <feMergeNode in="SourceGraphic"></feMergeNode>
-          </feMerge>
+        <filter id="soft-bloom">
+          <feGaussianBlur stdDeviation="16"></feGaussianBlur>
+        </filter>
+        <filter id="edge-glow">
+          <feGaussianBlur stdDeviation="2.6"></feGaussianBlur>
         </filter>
         <filter id="nebula-blur">
-          <feGaussianBlur stdDeviation="34"></feGaussianBlur>
+          <feGaussianBlur stdDeviation="40"></feGaussianBlur>
         </filter>
         <filter id="text-glow">
-          <feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur>
+          <feGaussianBlur stdDeviation="2.2" result="blur"></feGaussianBlur>
           <feMerge>
             <feMergeNode in="blur"></feMergeNode>
             <feMergeNode in="SourceGraphic"></feMergeNode>
@@ -3077,15 +3087,17 @@
 
       const graphWidth = state.graph.width || 1200;
       const graphHeight = state.graph.height || 760;
-      const stars = 90 + Math.min(70, state.graph.nodes.length * 2);
+      const stars = visualPreset.starCount + Math.min(18, Math.round(state.graph.nodes.length * 0.4));
       for (let index = 0; index < stars; index += 1) {
         const seed = hashString(`star-${state.search?.query || 'memory'}-${index}`);
+        const xSeed = hashString(`star-x-${state.search?.query || 'memory'}-${index}`);
+        const ySeed = hashString(`star-y-${state.search?.query || 'memory'}-${index}`);
         const star = document.createElementNS(ns, 'circle');
-        star.setAttribute('cx', String((seed % 997) / 997 * graphWidth));
-        star.setAttribute('cy', String(((seed >> 3) % 991) / 991 * graphHeight));
-        star.setAttribute('r', String(0.6 + ((seed % 13) / 13) * 1.7));
-        star.setAttribute('fill', seed % 5 === 0 ? 'rgba(201, 233, 255, 0.95)' : seed % 7 === 0 ? 'rgba(255, 212, 247, 0.72)' : 'rgba(171, 226, 255, 0.7)');
-        star.setAttribute('opacity', String(0.2 + ((seed >> 5) % 100) / 180));
+        star.setAttribute('cx', String((xSeed % 1009) / 1009 * graphWidth));
+        star.setAttribute('cy', String((ySeed % 1013) / 1013 * graphHeight));
+        star.setAttribute('r', String(0.35 + ((seed % 11) / 11) * 0.9));
+        star.setAttribute('fill', seed % 9 === 0 ? 'rgba(255, 221, 247, 0.9)' : seed % 4 === 0 ? 'rgba(203, 234, 255, 0.9)' : 'rgba(170, 217, 255, 0.78)');
+        star.setAttribute('opacity', String(0.08 + ((seed >> 4) % 100) / 320 + visualPreset.starOpacity * 0.25));
         backdropGroup.appendChild(star);
       }
 
@@ -3100,7 +3112,7 @@
           nebula.setAttribute('ry', String((node.r + 32) * (1.08 + (index % 2) * 0.18)));
           nebula.setAttribute('fill', colorAlpha(node.fill, 0.15 + (node.heat || 0.4) * 0.08));
           nebula.setAttribute('filter', 'url(#nebula-blur)');
-          nebula.setAttribute('opacity', String(0.42 + Math.min(0.24, (node.heat || 0.4) * 0.16)));
+          nebula.setAttribute('opacity', String(visualPreset.nebulaOpacity + Math.min(0.12, (node.heat || 0.4) * 0.08)));
           backdropGroup.appendChild(nebula);
         });
 
@@ -3139,10 +3151,10 @@
         path.setAttribute('d', curve);
         path.setAttribute('fill', 'none');
         path.setAttribute('stroke', edgeSelected ? 'rgba(198, 232, 255, 0.96)' : pathActive ? colorAlpha('#ffbc7b', 0.92) : state.selectedNodeId && (edge.from === state.selectedNodeId || edge.to === state.selectedNodeId) ? colorAlpha(from.fill, 0.62) : `url(#${gradientId})`);
-        path.setAttribute('stroke-width', String(edgeSelected ? edge.weight * 2.4 : pathActive ? edge.weight * 1.95 : edge.weight * 1.2));
+        path.setAttribute('stroke-width', String(edgeSelected ? edge.weight * 1.9 : pathActive ? edge.weight * 1.55 : edge.weight * 0.92));
         path.setAttribute('stroke-linecap', 'round');
-        path.setAttribute('opacity', edgeSelected ? '1' : pathActive ? '0.98' : '0.88');
-        if (!edgeSelected && !pathActive) path.setAttribute('filter', 'url(#glow)');
+        path.setAttribute('opacity', edgeSelected ? '1' : pathActive ? '0.9' : '0.68');
+        if (!edgeSelected && !pathActive) path.setAttribute('filter', 'url(#edge-glow)');
         path.style.cursor = 'pointer';
         path.addEventListener('click', (event) => {
           event.stopPropagation();
@@ -3155,59 +3167,68 @@
         const group = document.createElementNS(ns, 'g');
         group.style.cursor = 'pointer';
         const pathActive = state.activePath.includes(node.id);
+        const renderRadius = renderRadiusForNode(node);
+
+        const bloom = document.createElementNS(ns, 'circle');
+        bloom.setAttribute('cx', String(node.x));
+        bloom.setAttribute('cy', String(node.y));
+        bloom.setAttribute('r', String(renderRadius + 18 + (node.heat || 0.35) * 8));
+        bloom.setAttribute('fill', node.glow || blendHex(node.fill, '#ffffff', 0.32));
+        bloom.setAttribute('opacity', pathActive ? String(0.14 + visualPreset.glowBoost * 0.08 + state.graphControls.glow * 0.03) : state.selectedNodeId === node.id ? String(0.12 + visualPreset.glowBoost * 0.06) : String(0.04 + visualPreset.glowBoost * 0.035 + (node.heat || 0.35) * 0.01));
+        bloom.setAttribute('filter', 'url(#soft-bloom)');
+        group.appendChild(bloom);
 
         const halo = document.createElementNS(ns, 'circle');
         halo.setAttribute('cx', String(node.x));
         halo.setAttribute('cy', String(node.y));
-        halo.setAttribute('r', String(node.r + 10 + (node.heat || 0.35) * 8));
+        halo.setAttribute('r', String(renderRadius + 7 + (node.heat || 0.35) * 3));
         halo.setAttribute('fill', node.glow || blendHex(node.fill, '#ffffff', 0.3));
-        halo.setAttribute('opacity', pathActive ? String(0.18 + state.graphControls.glow * 0.2) : state.selectedNodeId === node.id ? String(0.16 + state.graphControls.glow * 0.16) : String(0.06 + state.graphControls.glow * 0.1 + (node.heat || 0.35) * 0.03));
-        halo.setAttribute('filter', 'url(#glow)');
+        halo.setAttribute('opacity', pathActive ? String(0.12 + state.graphControls.glow * 0.1) : state.selectedNodeId === node.id ? String(0.11 + state.graphControls.glow * 0.08) : String(0.045 + state.graphControls.glow * 0.05));
         group.appendChild(halo);
 
         const aura = document.createElementNS(ns, 'circle');
         aura.setAttribute('cx', String(node.x));
         aura.setAttribute('cy', String(node.y));
-        aura.setAttribute('r', String(node.r + 4));
+        aura.setAttribute('r', String(renderRadius + 2.6));
         aura.setAttribute('fill', colorAlpha(node.fill, 0.16));
         aura.setAttribute('stroke', colorAlpha(node.glow || node.fill, 0.24));
-        aura.setAttribute('stroke-width', '1');
+        aura.setAttribute('stroke-width', '0.8');
         group.appendChild(aura);
 
         const circle = document.createElementNS(ns, 'circle');
         circle.setAttribute('cx', String(node.x));
         circle.setAttribute('cy', String(node.y));
-        circle.setAttribute('r', String(node.r));
+        circle.setAttribute('r', String(renderRadius));
         circle.setAttribute('fill', node.fill);
         circle.setAttribute('stroke', state.selectedNodeId === node.id ? '#f7fcff' : pathActive ? '#ffd7a4' : colorAlpha(node.glow || '#ffffff', 0.44));
-        circle.setAttribute('stroke-width', state.selectedNodeId === node.id ? '2.8' : pathActive ? '2' : '1.2');
+        circle.setAttribute('stroke-width', state.selectedNodeId === node.id ? '2.2' : pathActive ? '1.6' : '1');
         group.appendChild(circle);
 
         const core = document.createElementNS(ns, 'circle');
         core.setAttribute('cx', String(node.x));
         core.setAttribute('cy', String(node.y));
-        core.setAttribute('r', String(Math.max(2.6, node.r * 0.3)));
+        core.setAttribute('r', String(Math.max(1.8, renderRadius * 0.24)));
         core.setAttribute('fill', blendHex(node.fill, '#ffffff', 0.48));
         core.setAttribute('opacity', node.kind === 'query' ? '0.95' : '0.82');
         group.appendChild(core);
 
         const labelWidth = Math.min(224, Math.max(86, node.label.length * 7.2 + 20));
         const labelBg = document.createElementNS(ns, 'rect');
-        labelBg.setAttribute('x', String(node.x + node.r + 4));
+        labelBg.setAttribute('x', String(node.x + renderRadius + 4));
         labelBg.setAttribute('y', String(node.y - 12));
         labelBg.setAttribute('width', String(labelWidth));
         labelBg.setAttribute('height', '22');
         labelBg.setAttribute('rx', '11');
-        labelBg.setAttribute('fill', 'rgba(6, 11, 17, 0.62)');
+        labelBg.setAttribute('fill', `rgba(6, 11, 17, ${visualPreset.labelOpacity})`);
         labelBg.setAttribute('stroke', colorAlpha(node.glow || node.fill, 0.24));
         labelBg.setAttribute('stroke-width', '0.8');
         group.appendChild(labelBg);
 
         const text = document.createElementNS(ns, 'text');
-        text.setAttribute('x', String(node.x + node.r + 8));
+        text.setAttribute('x', String(node.x + renderRadius + 8));
         text.setAttribute('y', String(node.y + 4));
         text.setAttribute('fill', '#eff7ff');
-        text.setAttribute('font-size', '12');
+        text.setAttribute('font-size', '11');
         text.setAttribute('font-family', 'IBM Plex Mono, monospace');
         text.setAttribute('filter', 'url(#text-glow)');
         text.textContent = node.label.slice(0, 30);
@@ -3265,7 +3286,7 @@
 
       el.nodeChip.textContent = `${state.graph.nodes.length} nodes`;
       el.edgeChip.textContent = `${state.graph.edges.length} edges`;
-      document.getElementById('hud-mode').textContent = `mode: ${state.graphControls.layout}/${state.graphControls.motion}`;
+      document.getElementById('hud-mode').textContent = `mode: ${state.graphControls.visualMode}/${state.graphControls.layout}/${state.graphControls.motion}`;
       drawMiniMap();
     };
 
@@ -4339,6 +4360,13 @@
     });
     el.motionFilter.addEventListener('change', () => {
       state.graphControls.motion = el.motionFilter.value;
+      if (state.search) {
+        drawGraph();
+        runForce();
+      }
+    });
+    el.visualFilter.addEventListener('change', () => {
+      state.graphControls.visualMode = el.visualFilter.value;
       if (state.search) {
         drawGraph();
         runForce();
