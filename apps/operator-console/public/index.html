@@ -968,14 +968,31 @@
     }
 
     .models-primary-card {
-      background: rgba(9, 16, 25, 0.94);
+      background:
+        linear-gradient(180deg, rgba(11, 19, 29, 0.96), rgba(8, 14, 22, 0.93));
       border-color: rgba(147, 185, 220, 0.22);
     }
 
     .models-aside-card {
-      background: rgba(8, 13, 21, 0.72);
-      border-color: rgba(147, 185, 220, 0.14);
+      background:
+        linear-gradient(180deg, rgba(14, 23, 35, 0.84), rgba(10, 16, 25, 0.76));
+      border-color: rgba(147, 185, 220, 0.16);
       box-shadow: 0 16px 32px rgba(0, 0, 0, 0.12);
+    }
+
+    .models-platform-identity {
+      margin-bottom: 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(147, 185, 220, 0.16);
+      background: rgba(255, 255, 255, 0.035);
+      padding: 12px 14px;
+      color: #dceaf8;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .models-platform-identity strong {
+      color: var(--text);
     }
 
     .model-list {
@@ -1048,6 +1065,20 @@
       font-weight: 800;
       line-height: 1.35;
       word-break: break-word;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .model-live-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #8ae6c2;
+      box-shadow:
+        0 0 0 4px rgba(138, 230, 194, 0.12),
+        0 0 18px rgba(138, 230, 194, 0.72);
+      flex: 0 0 auto;
     }
 
     .model-meta {
@@ -1104,8 +1135,8 @@
 
     .model-stat {
       border-radius: 14px;
-      border: 1px solid var(--line);
-      background: rgba(7, 12, 20, 0.54);
+      border: 1px solid rgba(147, 185, 220, 0.12);
+      background: rgba(255, 255, 255, 0.038);
       padding: 10px 11px;
       display: grid;
       gap: 4px;
@@ -1217,7 +1248,7 @@
     .hf-result-item {
       border-radius: 16px;
       border: 1px solid rgba(147, 185, 220, 0.14);
-      background: rgba(255, 255, 255, 0.022);
+      background: rgba(255, 255, 255, 0.03);
       padding: 12px;
       display: grid;
       gap: 8px;
@@ -1792,6 +1823,7 @@
                   <span id="models-summary-chip" class="chip mono">models pending</span>
                 </div>
               </div>
+              <div id="models-platform-identity" class="models-platform-identity">Selected device profile pending.</div>
               <div class="metric-grid">
                 <div class="metric">
                   <div class="label">Installed</div>
@@ -2133,6 +2165,7 @@
       modelsHostChip: document.getElementById('models-host-chip'),
       modelsDiskChip: document.getElementById('models-disk-chip'),
       modelsSummaryChip: document.getElementById('models-summary-chip'),
+      modelsPlatformIdentity: document.getElementById('models-platform-identity'),
       modelsInstalledMetric: document.getElementById('models-installed-metric'),
       modelsLoadedMetric: document.getElementById('models-loaded-metric'),
       modelsPinnedMetric: document.getElementById('models-pinned-metric'),
@@ -4168,6 +4201,21 @@
       return 'Available for testing';
     };
 
+    const selectedSearchResultForDetail = () => {
+      const repo = state.huggingFace.detail?.id || state.huggingFace.detail?.modelId || '';
+      if (!repo) return null;
+      return (state.huggingFace.results || []).find((item) => item.id === repo) || null;
+    };
+
+    const quantOptionsForDetail = (detail) => {
+      const detailLabels = Array.isArray(detail?.quantLabels) ? detail.quantLabels.filter(Boolean) : [];
+      const searchLabels = Array.isArray(detail?.searchQuantLabels) ? detail.searchQuantLabels.filter(Boolean) : [];
+      if (!searchLabels.length) return detailLabels;
+      const detailSet = new Set(detailLabels);
+      const trimmed = searchLabels.filter((label) => detailSet.has(label));
+      return trimmed.length ? trimmed : detailLabels;
+    };
+
     const refreshModelsSummary = () => {
       const summary = state.models?.summary || {};
       const disk = state.models?.disk || null;
@@ -4179,6 +4227,9 @@
       el.modelsHostChip.textContent = `${platform?.label || state.models?.platform_label || 'platform'} · ${(state.models?.host || 'pending')}`;
       el.modelsDiskChip.textContent = disk ? `disk ${disk.available || 'unknown'} free` : 'disk unknown';
       el.modelsSummaryChip.textContent = `models ${fmtNum(summary.model_count)} · loaded ${fmtNum(summary.loaded_count)}`;
+      el.modelsPlatformIdentity.innerHTML = platform
+        ? `<strong>${escapeHtml(platform.label)}</strong> · ${escapeHtml(platform.profile || 'device profile not set')} · ${escapeHtml(platform.memory_label || platform.speed_label || 'memory profile pending')}`
+        : 'Selected device profile pending.';
 
       const containers = state.models?.containers || [];
       el.modelsLiveContext.innerHTML = [
@@ -4215,7 +4266,7 @@
           <div class="model-item stage-${escapeHtml(stage)} ${selected ? 'is-selected' : ''} ${model.loaded ? 'is-loaded' : ''} ${pinned || stage === 'keeper' ? 'is-protected' : ''}" data-model-name="${escapeHtml(model.name)}">
             <div class="model-head">
               <div>
-                <div class="model-name">${escapeHtml(model.name)}</div>
+                <div class="model-name">${model.loaded ? '<span class="model-live-dot" aria-hidden="true"></span>' : ''}${escapeHtml(model.name)}</div>
                 <div class="model-meta">
                   <span>${escapeHtml(model.id || 'no id')}</span>
                   <span>${escapeHtml(model.size || fmtBytes(model.size_bytes))}</span>
@@ -4383,10 +4434,11 @@
       }
 
       const fit = state.huggingFace.fit;
-      const quantOptions = detail.quantLabels || [];
+      const quantOptions = quantOptionsForDetail(detail);
       const selectedQuant = state.huggingFace.selectedQuant || detail.suggestedQuant || '';
       const importRef = buildHuggingFaceImportRef();
       const tagList = Array.isArray(detail.tags) ? detail.tags.filter((tag) => ['gguf', 'text-generation', 'conversational', 'safetensors'].includes(String(tag))).slice(0, 6) : [];
+      const searchResult = selectedSearchResultForDetail();
       const fitTone = fit?.fit?.status || 'unknown';
       const fitChip = fitTone === 'fit'
         ? '<span class="chip">fit looks safe</span>'
@@ -4461,7 +4513,7 @@
             <div class="value">${fmtNum((detail.ggufFiles || []).length)}</div>
           </div>
         </div>
-        <div class="chip-row">${fitChip}${tagList.map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join('') || '<span class="chip">no summary tags</span>'}</div>
+        <div class="chip-row">${fitChip}${tagList.map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join('') || '<span class="chip">no summary tags</span>'}${searchResult?.quantLabels?.length ? `<span class="chip">${fmtNum(searchResult.quantLabels.length)} quants in search</span>` : ''}</div>
         <div class="control-row" style="margin-top: 12px;">
           <select id="hf-quant-select" class="select-input">
             ${(quantOptions.length ? quantOptions : ['']).map((quant) => `<option value="${escapeHtml(quant)}" ${quant === selectedQuant ? 'selected' : ''}>${escapeHtml(quant || 'No quant found')}</option>`).join('')}
@@ -4472,6 +4524,7 @@
         </div>
         <div class="hf-ref-preview" style="margin-top: 10px;">${escapeHtml(importRef || `hf.co/${detail.id || detail.modelId || ''}`)}</div>
         <div class="value" style="margin-top: 10px;">${quantOptions.length ? `Ollama imports work best when ${currentPlatformLabel()} has a specific GGUF quant tag. The generated ref above is ready to pull.` : 'No GGUF quant label surfaced from Hugging Face metadata. You can still try the generated repo ref, but imports are most reliable when the repo publishes GGUF files.'}</div>
+        ${searchResult?.quantLabels?.length ? `<div class="value">Dropdown trimmed to the ${fmtNum(searchResult.quantLabels.length)} quant label${searchResult.quantLabels.length === 1 ? '' : 's'} surfaced with the selected search result.</div>` : ''}
         ${fitGrid}
       `;
 
@@ -4523,6 +4576,8 @@
               </div>
               <div class="chip-row">
                 ${result.gguf ? '<span class="chip">likely gguf</span>' : '<span class="chip">check format</span>'}
+                ${(result.quantLabels || []).slice(0, 3).map((label) => `<span class="chip">${escapeHtml(label)}</span>`).join('')}
+                ${(result.quantLabels || []).length > 3 ? `<span class="chip">+${fmtNum(result.quantLabels.length - 3)} more</span>` : ''}
                 ${(result.tags || []).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join('')}
               </div>
             </div>
@@ -4549,8 +4604,11 @@
       const out = await fetchJson(`${modelRoute('/huggingface/model')}?repo=${encodeURIComponent(normalizedRepo)}`);
       if (requestId !== null && requestId !== state.huggingFace.searchRequestId) return;
       if (inspectRequestId !== state.huggingFace.inspectRequestId) return;
+      const matchedResult = (state.huggingFace.results || []).find((item) => item.id === normalizedRepo);
+      if (matchedResult?.quantLabels?.length) out.searchQuantLabels = matchedResult.quantLabels;
       state.huggingFace.detail = out;
-      state.huggingFace.selectedQuant = out.suggestedQuant || out.quantLabels?.[0] || '';
+      const nextQuantOptions = quantOptionsForDetail(out);
+      state.huggingFace.selectedQuant = out.suggestedQuant || nextQuantOptions[0] || out.quantLabels?.[0] || '';
       state.huggingFace.fit = null;
       renderHuggingFaceDetail();
       setHuggingFaceStatus(`Prepared ${buildHuggingFaceImportRef()} for ${currentPlatformLabel()}.`);

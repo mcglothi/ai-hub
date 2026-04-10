@@ -85,6 +85,8 @@ const PLATFORM_CONFIGS = {
     id: 'hopper',
     label: 'Hopper',
     host: HOPPER_HOST,
+    profile: 'Gigabyte AI Top Atom / DGX Spark variant',
+    memoryLabel: '128 GB unified memory',
     poolTargets: HOPPER_POOL_TARGETS,
     dockerBin: HOPPER_DOCKER_BIN,
     ollamaContainer: HOPPER_OLLAMA_CONTAINER,
@@ -98,6 +100,8 @@ const PLATFORM_CONFIGS = {
     id: 'newton',
     label: 'Newton',
     host: NEWTON_HOST,
+    profile: 'MacBook Pro M5 Max',
+    memoryLabel: '128 GB unified memory',
     poolTargets: NEWTON_POOL_TARGETS,
     dockerBin: NEWTON_DOCKER_BIN,
     ollamaContainer: NEWTON_OLLAMA_CONTAINER,
@@ -790,6 +794,8 @@ function listPlatformDescriptors() {
     id: platform.id,
     label: platform.label,
     host: platform.host,
+    profile: platform.profile || '',
+    memory_label: platform.memoryLabel || '',
     pool_targets: platform.poolTargets,
     laptime_hardware_id: platform.laptimeHardwareId,
     speed_label: platform.speedLabel,
@@ -945,6 +951,7 @@ function getHuggingFaceSearchRank(payload, query) {
 
 function compactHuggingFaceSearchResult(payload) {
   const tags = Array.isArray(payload?.tags) ? payload.tags : [];
+  const gguf = extractHuggingFaceGgufFiles(payload);
   return {
     id: payload?.id ?? payload?.modelId,
     pipelineTag: payload?.pipeline_tag ?? null,
@@ -952,6 +959,7 @@ function compactHuggingFaceSearchResult(payload) {
     likes: typeof payload?.likes === 'number' ? payload.likes : null,
     downloads: typeof payload?.downloads === 'number' ? payload.downloads : null,
     gguf: isLikelyGgufRepo(payload),
+    quantLabels: gguf.quantLabels,
     tags: tags.filter((tag) => ['gguf', 'text-generation', 'conversational', 'safetensors'].includes(String(tag))).slice(0, 4),
   };
 }
