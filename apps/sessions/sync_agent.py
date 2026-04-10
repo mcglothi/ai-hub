@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import glob
 import hashlib
 import json
@@ -22,6 +23,8 @@ DEFAULT_GLOBS = [
     "~/.codex/sessions/**/*.jsonl",
     "~/.claude/projects/**/*.jsonl",
     "~/.gemini/**/*.jsonl",
+    "~/.gemini/tmp/*/logs.json",
+    "~/.gemini/tmp/*/chats/session-*.json",
     "~/.local/share/ai-hub-sessions/logs/*.jsonl",
 ]
 
@@ -145,8 +148,16 @@ def _normalize_state(data: object) -> dict[str, dict[str, int]]:
         if isinstance(v, dict):
             offset = v.get("offset")
             inode = v.get("inode", 0)
-            if isinstance(offset, int) and offset >= 0 and isinstance(inode, int) and inode >= 0:
-                out[k] = {"offset": offset, "inode": inode}
+            json_index = v.get("json_index", 0)
+            if (
+                isinstance(offset, int)
+                and offset >= 0
+                and isinstance(inode, int)
+                and inode >= 0
+                and isinstance(json_index, int)
+                and json_index >= 0
+            ):
+                out[k] = {"offset": offset, "inode": inode, "json_index": json_index}
     return out
 
 
@@ -267,7 +278,7 @@ def discover_files(globs_in: list[str], logs_dir: str | None) -> list[Path]:
         expanded = os.path.expanduser(pattern)
         for match in glob.glob(expanded, recursive=True):
             p = Path(match)
-            if p.is_file() and p.suffix == ".jsonl":
+            if p.is_file() and p.suffix in {".jsonl", ".json"}:
                 files[str(p.resolve())] = p.resolve()
     return [files[k] for k in sorted(files)]
 
@@ -281,6 +292,140 @@ def infer_provider(path: Path) -> str:
     if "/.gemini/" in p:
         return "gemini"
     return path.name.split("__", 1)[0] if "__" in path.name else "unknown"
+
+
+def parse_timestamp(value: object) -> int | None:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        if text.isdigit():
+            try:
+                return int(text)
+            except ValueError:
+                return None
+        try:
+            dt = datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=datetime.timezone.utc)
+            return int(dt.timestamp())
+        except ValueError:
+            return None
+    return None
+
+
+def content_to_text(content: object) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict):
+                text = item.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+                    continue
+                nested = item.get("content")
+                if isinstance(nested, str):
+                    parts.append(nested)
+                    continue
+                parts.append(json.dumps(item, ensure_ascii=False, sort_keys=True))
+                continue
+            parts.append(str(item))
+        return "\n".join(p for p in parts if p)
+    if isinstance(content, dict):
+        text = content.get("text")
+        if isinstance(text, str):
+            return text
+        return json.dumps(content, ensure_ascii=False, sort_keys=True)
+    return str(content)
+
+
+def json_events_from_file(
+    *,
+    data: object,
+    abs_path: str,
+    device: str,
+    source: str,
+    provider: str,
+    start_index: int,
+) -> tuple[list[dict], int]:
+    records: list[dict[str, object]] = []
+
+    if isinstance(data, dict) and isinstance(data.get("messages"), list):
+        session_id = str(data.get("sessionId") or Path(abs_path).stem)
+        for idx, msg in enumerate(data["messages"]):
+            if not isinstance(msg, dict):
+                continue
+            records.append(
+                {
+                    "idx": idx,
+                    "event_type": f"gemini_chat_{str(msg.get('type') or 'message')}",
+                    "content": content_to_text(msg.get("content", "")),
+                    "ts": parse_timestamp(msg.get("timestamp")),
+                    "session_id": session_id,
+                    "message_id": str(msg.get("id") or idx),
+                }
+            )
+    elif isinstance(data, list):
+        for idx, msg in enumerate(data):
+            if not isinstance(msg, dict):
+                continue
+            records.append(
+                {
+                    "idx": idx,
+                    "event_type": f"gemini_log_{str(msg.get('type') or 'message')}",
+                    "content": str(msg.get("message") or msg.get("content") or ""),
+                    "ts": parse_timestamp(msg.get("timestamp")),
+                    "session_id": str(msg.get("sessionId") or Path(abs_path).stem),
+                    "message_id": str(msg.get("messageId") or idx),
+                }
+            )
+    else:
+        return ([], 0)
+
+    total = len(records)
+    if start_index < 0:
+        start_index = 0
+    if start_index > total:
+        start_index = 0
+
+    events: list[dict] = []
+    for row in records[start_index:]:
+        content = str(row.get("content") or "").strip()
+        if not content:
+            continue
+        event_type = str(row.get("event_type") or "session_log_line")
+        session_id = str(row.get("session_id") or "")
+        message_id = str(row.get("message_id") or "")
+        idx = int(row.get("idx") or 0)
+        ts_val = row.get("ts")
+        event_key = f"{device}|{abs_path}|{session_id}|{message_id}|{event_type}|{content}"
+        event_id = hashlib.sha256(event_key.encode("utf-8", errors="ignore")).hexdigest()[:32]
+        events.append(
+            {
+                "event_id": event_id,
+                "ts": int(ts_val) if isinstance(ts_val, int) else None,
+                "source": source,
+                "event_type": event_type,
+                "content": content[:4000],
+                "metadata": {
+                    "device": device,
+                    "file_path": abs_path,
+                    "filename": Path(abs_path).name,
+                    "provider": provider,
+                    "line_index": idx,
+                    "session_id": session_id,
+                    "message_id": message_id,
+                },
+                "redact": True,
+            }
+        )
+    return (events, total)
 
 
 def main() -> None:
@@ -403,6 +548,8 @@ def main() -> None:
         entry = state.get(abs_path, {"offset": 0, "inode": inode})
         offset = int(entry.get("offset", 0))
         previous_inode = int(entry.get("inode", 0))
+        json_index = int(entry.get("json_index", 0))
+        provider = infer_provider(path)
 
         if previous_inode and inode and previous_inode != inode:
             log("warn", "Log rotation detected; resetting offset", file=path.name, previous_inode=previous_inode, inode=inode)
@@ -411,6 +558,57 @@ def main() -> None:
         if offset > file_size:
             log("warn", "File truncation detected; resetting offset", file=path.name, offset=offset, file_size=file_size)
             offset = 0
+
+        if path.suffix == ".json":
+            try:
+                data = json.loads(path.read_text(encoding="utf-8", errors="ignore"))
+            except Exception:
+                state[abs_path] = {"offset": file_size, "inode": inode, "json_index": 0}
+                continue
+
+            events, total_records = json_events_from_file(
+                data=data,
+                abs_path=abs_path,
+                device=args.device,
+                source=args.source,
+                provider=provider,
+                start_index=json_index,
+            )
+            if not events:
+                state[abs_path] = {"offset": file_size, "inode": inode, "json_index": total_records}
+                continue
+
+            try:
+                result = send_with_retry(
+                    endpoint=endpoint,
+                    payload={"events": events},
+                    api_key=api_key,
+                    max_retries=max(1, args.max_retries),
+                    backoff_base=max(0.1, args.backoff_base),
+                )
+                state[abs_path] = {"offset": file_size, "inode": inode, "json_index": total_records}
+                total_sent += len(events)
+                files_touched += 1
+                log(
+                    "info",
+                    "Ingested session events",
+                    file=path.name,
+                    provider=provider,
+                    events=len(events),
+                    inserted=result.get("inserted"),
+                    duplicates=result.get("duplicates"),
+                )
+            except PermanentSyncError as exc:
+                files_failed += 1
+                append_dlq(dlq_path, events, f"permanent_error:{exc}")
+                state[abs_path] = {"offset": file_size, "inode": inode, "json_index": total_records}
+                log("error", "Permanent ingest failure; moved to DLQ", file=path.name, events=len(events), dlq=str(dlq_path), reason=str(exc))
+            except Exception as exc:
+                files_failed += 1
+                append_dlq(dlq_path, events, f"transient_exhausted:{exc}")
+                state[abs_path] = {"offset": file_size, "inode": inode, "json_index": total_records}
+                log("error", "Retries exhausted; moved to DLQ", file=path.name, events=len(events), dlq=str(dlq_path), reason=str(exc))
+            continue
 
         if offset == file_size:
             state[abs_path] = {"offset": file_size, "inode": inode}
@@ -430,7 +628,6 @@ def main() -> None:
         text = raw.decode("utf-8", errors="ignore")
         lines = [ln for ln in text.splitlines() if ln.strip()]
         events: list[dict] = []
-        provider = infer_provider(path)
         for idx, line in enumerate(lines):
             try:
                 parsed = json.loads(line)

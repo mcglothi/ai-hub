@@ -4,26 +4,47 @@
 
 <p align="center">
   <strong>AI Hub</strong><br/>
-  A unified, self-hosted workspace for AI chat, terminal workflows, and persistent session orchestration.
+  A self-hosted operator workspace for local LLM routing, memory operations, model stewardship, and persistent agent sessions.
 </p>
 
-## Overview
+## Why AI Hub Exists
 
-AI Hub combines two operational surfaces into one project:
+AI Hub is the control surface for a broader local AI ecosystem:
 
-- `apps/chat-wrapper`: Browser-based chat and workspace hub for Claude, Gemini, and Codex, with terminal and code surfaces.
-- `apps/sessions`: Session lifecycle API and UI for persistent, resumable AI workflows.
+- `AI Hub` handles operator workflows, model inventory, import/pull flows, terminal/code adjacency, and session orchestration.
+- `AIKB` is the durable memory and runbook system behind the scenes.
+- `LapTime` provides model fit, hardware, and performance context for practical deployment choices.
 
-This repository is now the source of truth for application code. AIKB remains the source of truth for operational documentation and runbooks.
+Together they form a home-lab-native stack for running local models and agent workflows with real operational context instead of isolated demos.
+
+## Product Surfaces
+
+### Explore Memory
+
+Search memory, inspect graph relationships, review provenance, and keep nearby evidence visible while navigating AIKB-backed results.
+
+![Explore Memory](assets/screenshots/memory-explorer.png)
+
+### Review Proposals
+
+Harvest runtime memory proposals, review queue recommendations, and apply durable knowledge into AIKB with a cleaner operator workflow.
+
+![Review Proposals](assets/screenshots/review-harvest.png)
+
+### Model Stewardship
+
+Manage the model fleet on real hardware, inspect Hugging Face repos, choose GGUF quants, stage cleanup safely, and pull models directly into the selected platform.
+
+![Model Stewardship](assets/screenshots/models-stewardship.png)
 
 ## Core Capabilities
 
-- Multi-provider chat routing for Claude, Gemini, and Codex.
-- Voice input pipeline with transcription proxy support.
-- Optional AIKB context augmentation for chat requests.
-- Embedded terminal and code workspace access patterns.
-- Session inventory and state management service on `:8090`.
-- Service-friendly structure for systemd and Ansible automation.
+- Memory-first operator console with graph exploration, provenance, and review/apply flows
+- Hugging Face search, repo inspection, quant-aware import prep, and Ollama pull workflows
+- Per-platform model inventory with notes, stages, cleanup cues, and loaded-state visibility
+- Embedded terminal and code adjacency for fast operational edits
+- Session inventory and tmux-backed orchestration through the sessions service
+- Multi-provider chat support and voice/transcription plumbing retained in the repo
 
 ## Repository Layout
 
@@ -34,52 +55,67 @@ ai-hub/
 │   │   ├── public/
 │   │   ├── package.json
 │   │   └── server.js
+│   ├── operator-console/
+│   │   ├── public/
+│   │   ├── package.json
+│   │   └── server.js
 │   └── sessions/
 │       ├── app/
 │       ├── ui/
 │       ├── requirements.txt
 │       └── sync_agent.py
 ├── assets/
-│   └── ai-hub-logo.svg
+│   ├── ai-hub-logo.svg
+│   └── screenshots/
 └── infra/
     └── systemd/
 ```
 
-## Runtime Model
+## Architecture Snapshot
 
 ```text
 Browser
-  -> AI Hub Chat Wrapper (:3000)
-    -> Claude / Gemini / Codex CLIs
-    -> Local STT proxy (:8008)
-    -> AIKB context lookup (optional)
+  -> AI Hub Operator Console (:3001)
+    -> Memory Core search + proposal APIs
+    -> AIKB preview/apply flows
+    -> Hugging Face search + model fit estimation
+    -> Ollama platform inventory / pull / cleanup workflows
+    -> ttyd terminal proxy
+    -> code-server adjacency
 
 Browser
   -> AI Hub Sessions (:8090)
     -> FastAPI + tmux-backed session orchestration
+
+Browser
+  -> Legacy Chat Wrapper (:3000, fallback only)
+    -> Claude / Gemini / Codex CLIs
+    -> Local STT proxy (:8008)
+    -> optional AIKB context lookup
 ```
 
 ## Deployment Status
 
-- `ai-hub-sessions` is currently running on `turing` from this repository path.
-- `chat-wrapper` remains active and is in migration toward direct repo-backed deployment.
-- Historical sessions snapshots were captured on both `turing` and `feynman` before migration.
+- `apps/operator-console` is the primary AI Hub surface and active operator entrypoint.
+- `apps/sessions` is the repo-backed session service for persistent workflows.
+- `apps/chat-wrapper` remains in-tree as a fallback path, not the main product surface.
+- Operational deployment details live in AIKB and the companion Ansible repo.
 
-## Development Workflow
+## Development Model
 
-1. Create a feature branch.
-2. Make changes under `apps/chat-wrapper` or `apps/sessions`.
-3. Validate locally or in staging.
-4. Open a PR and merge to `main`.
-5. Deploy via Ansible/systemd rollout.
+1. Branch from `main` for each focused feature or cleanup pass.
+2. Keep `main` deployable.
+3. Add new product-facing work to `apps/operator-console` first unless the feature is explicitly session-specific.
+4. Prefer real screenshots, concrete runbooks, and small deployable commits over scratch variants.
+5. Treat AIKB as the documentation and operating-memory source of truth.
 
-## Roadmap
+## Near-Term Direction
 
-- Add first-class deployment playbooks for both apps from this repo.
-- Add CI checks for JavaScript and Python lint/syntax validation.
-- Add versioned releases and rollback notes.
-- Add operational dashboards and health probes for both services.
+- Bring platform/device configuration into a first-class settings surface
+- Continue improving model grouping, visual hierarchy, and operator ergonomics
+- Add stronger CI checks for JavaScript and Python services
+- Capture more product documentation and architecture notes directly in this repo
 
 ## License
 
-Private internal project. Add explicit license terms if distribution scope changes.
+Private internal project. Add explicit license terms if the distribution scope changes.
