@@ -511,15 +511,15 @@
       overflow: hidden;
       border: 1px solid rgba(140, 196, 245, 0.18);
       background:
-        radial-gradient(1200px 700px at 50% -12%, rgba(110, 199, 255, 0.18), transparent 46%),
-        radial-gradient(760px 520px at 18% 16%, rgba(84, 144, 255, 0.12), transparent 58%),
-        radial-gradient(860px 580px at 82% 22%, rgba(212, 113, 255, 0.11), transparent 60%),
-        radial-gradient(900px 540px at 50% 115%, rgba(138, 230, 194, 0.09), transparent 55%),
+        radial-gradient(1200px 700px at 50% -12%, rgba(110, 199, 255, 0.12), transparent 44%),
+        radial-gradient(760px 520px at 18% 16%, rgba(84, 144, 255, 0.08), transparent 56%),
+        radial-gradient(860px 580px at 82% 22%, rgba(212, 113, 255, 0.06), transparent 58%),
+        radial-gradient(900px 540px at 50% 115%, rgba(138, 230, 194, 0.05), transparent 54%),
         linear-gradient(180deg, #050a12, #08121d 42%, #050b14 100%);
       box-shadow:
         inset 0 0 0 1px rgba(255,255,255,0.02),
-        inset 0 28px 120px rgba(109, 162, 255, 0.05),
-        0 30px 60px rgba(0, 0, 0, 0.3);
+        inset 0 18px 72px rgba(109, 162, 255, 0.035),
+        0 24px 48px rgba(0, 0, 0, 0.24);
     }
 
     .graph-stage::before {
@@ -528,10 +528,10 @@
       inset: 0;
       pointer-events: none;
       background:
-        radial-gradient(520px 260px at 18% 22%, rgba(92, 137, 255, 0.08), transparent 70%),
-        radial-gradient(420px 240px at 78% 18%, rgba(215, 118, 255, 0.07), transparent 72%),
-        radial-gradient(680px 320px at 50% 100%, rgba(122, 233, 198, 0.06), transparent 78%);
-      opacity: 0.7;
+        radial-gradient(520px 260px at 18% 22%, rgba(92, 137, 255, 0.04), transparent 70%),
+        radial-gradient(420px 240px at 78% 18%, rgba(215, 118, 255, 0.04), transparent 72%),
+        radial-gradient(680px 320px at 50% 100%, rgba(122, 233, 198, 0.035), transparent 78%);
+      opacity: 0.5;
     }
 
     .graph-stage::after {
@@ -543,7 +543,7 @@
         linear-gradient(90deg, rgba(170, 214, 255, 0.04) 1px, transparent 1px),
         linear-gradient(180deg, rgba(170, 214, 255, 0.03) 1px, transparent 1px);
       background-size: 64px 64px;
-      opacity: 0.08;
+      opacity: 0.05;
       mix-blend-mode: screen;
       mask-image: radial-gradient(circle at 50% 45%, black 36%, transparent 100%);
     }
@@ -1749,7 +1749,7 @@
         layout: 'organic',
         motion: 'calm',
         visualMode: 'analytic',
-        glow: 0.8,
+        glow: 0.35,
       },
       expandedNodeIds: new Set(),
       pinnedNodePositions: {},
@@ -2329,9 +2329,9 @@
     const clusterPaletteFor = (index) => GRAPH_CLUSTER_PALETTE[index % GRAPH_CLUSTER_PALETTE.length];
 
     const graphVisualPreset = () => ({
-      analytic: { glowBoost: 0.58, starCount: 26, starOpacity: 0.22, nebulaOpacity: 0.2, radiusScale: 0.72, edgeGlow: 0.14, labelOpacity: 0.54 },
-      cinematic: { glowBoost: 0.96, starCount: 42, starOpacity: 0.3, nebulaOpacity: 0.34, radiusScale: 0.82, edgeGlow: 0.22, labelOpacity: 0.62 },
-      presentation: { glowBoost: 1.14, starCount: 34, starOpacity: 0.26, nebulaOpacity: 0.28, radiusScale: 0.78, edgeGlow: 0.18, labelOpacity: 0.6 },
+      analytic: { heatOpacity: 0.14, fieldOpacity: 0.08, radiusScale: 0.68, edgeOpacity: 0.58, edgeAccent: 0.82, labelOpacity: 0.48 },
+      cinematic: { heatOpacity: 0.18, fieldOpacity: 0.11, radiusScale: 0.72, edgeOpacity: 0.62, edgeAccent: 0.86, labelOpacity: 0.54 },
+      presentation: { heatOpacity: 0.2, fieldOpacity: 0.12, radiusScale: 0.74, edgeOpacity: 0.66, edgeAccent: 0.9, labelOpacity: 0.58 },
     }[state.graphControls.visualMode || 'analytic']);
 
     const renderRadiusForNode = (node) => {
@@ -3062,17 +3062,8 @@
 
       const defs = document.createElementNS(ns, 'defs');
       defs.innerHTML = `
-        <filter id="soft-bloom">
-          <feGaussianBlur stdDeviation="16"></feGaussianBlur>
-        </filter>
-        <filter id="edge-glow">
-          <feGaussianBlur stdDeviation="2.6"></feGaussianBlur>
-        </filter>
-        <filter id="nebula-blur">
-          <feGaussianBlur stdDeviation="40"></feGaussianBlur>
-        </filter>
         <filter id="text-glow">
-          <feGaussianBlur stdDeviation="2.2" result="blur"></feGaussianBlur>
+          <feGaussianBlur stdDeviation="1.4" result="blur"></feGaussianBlur>
           <feMerge>
             <feMergeNode in="blur"></feMergeNode>
             <feMergeNode in="SourceGraphic"></feMergeNode>
@@ -3081,44 +3072,23 @@
       `;
       svg.appendChild(defs);
 
-      const backdropGroup = document.createElementNS(ns, 'g');
-      backdropGroup.setAttribute('opacity', '0.95');
-      svg.appendChild(backdropGroup);
-
-      const graphWidth = state.graph.width || 1200;
-      const graphHeight = state.graph.height || 760;
-      const stars = visualPreset.starCount + Math.min(18, Math.round(state.graph.nodes.length * 0.4));
-      for (let index = 0; index < stars; index += 1) {
-        const seed = hashString(`star-${state.search?.query || 'memory'}-${index}`);
-        const xSeed = hashString(`star-x-${state.search?.query || 'memory'}-${index}`);
-        const ySeed = hashString(`star-y-${state.search?.query || 'memory'}-${index}`);
-        const star = document.createElementNS(ns, 'circle');
-        star.setAttribute('cx', String((xSeed % 1009) / 1009 * graphWidth));
-        star.setAttribute('cy', String((ySeed % 1013) / 1013 * graphHeight));
-        star.setAttribute('r', String(0.35 + ((seed % 11) / 11) * 0.9));
-        star.setAttribute('fill', seed % 9 === 0 ? 'rgba(255, 221, 247, 0.9)' : seed % 4 === 0 ? 'rgba(203, 234, 255, 0.9)' : 'rgba(170, 217, 255, 0.78)');
-        star.setAttribute('opacity', String(0.08 + ((seed >> 4) % 100) / 320 + visualPreset.starOpacity * 0.25));
-        backdropGroup.appendChild(star);
-      }
+      const viewportGroup = document.createElementNS(ns, 'g');
+      viewportGroup.setAttribute('transform', `translate(${state.graphViewport.panX} ${state.graphViewport.panY}) scale(${state.graphViewport.scale})`);
+      svg.appendChild(viewportGroup);
 
       state.graph.nodes
         .filter((node) => node.kind === 'topic')
         .forEach((node, index) => {
-          const nebula = document.createElementNS(ns, 'ellipse');
-          const stretch = 1 + (index % 3) * 0.22;
-          nebula.setAttribute('cx', String(node.x));
-          nebula.setAttribute('cy', String(node.y));
-          nebula.setAttribute('rx', String((node.r + 54) * stretch));
-          nebula.setAttribute('ry', String((node.r + 32) * (1.08 + (index % 2) * 0.18)));
-          nebula.setAttribute('fill', colorAlpha(node.fill, 0.15 + (node.heat || 0.4) * 0.08));
-          nebula.setAttribute('filter', 'url(#nebula-blur)');
-          nebula.setAttribute('opacity', String(visualPreset.nebulaOpacity + Math.min(0.12, (node.heat || 0.4) * 0.08)));
-          backdropGroup.appendChild(nebula);
+          const field = document.createElementNS(ns, 'circle');
+          const fieldRadius = renderRadiusForNode(node) + 24 + (node.heat || 0.35) * 20 + (index % 3) * 6;
+          field.setAttribute('cx', String(node.x));
+          field.setAttribute('cy', String(node.y));
+          field.setAttribute('r', String(fieldRadius));
+          field.setAttribute('fill', colorAlpha(node.fill, visualPreset.fieldOpacity + (node.heat || 0.35) * 0.03 + state.graphControls.glow * 0.015));
+          field.setAttribute('stroke', colorAlpha(node.fill, 0.08 + (node.heat || 0.35) * 0.04));
+          field.setAttribute('stroke-width', '1');
+          viewportGroup.appendChild(field);
         });
-
-      const viewportGroup = document.createElementNS(ns, 'g');
-      viewportGroup.setAttribute('transform', `translate(${state.graphViewport.panX} ${state.graphViewport.panY}) scale(${state.graphViewport.scale})`);
-      svg.appendChild(viewportGroup);
 
       const activeEdgeIds = new Set();
       for (let i = 0; i < state.activePath.length - 1; i++) {
@@ -3150,11 +3120,10 @@
         const edgeSelected = state.selectedEdgeId === edge.id;
         path.setAttribute('d', curve);
         path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', edgeSelected ? 'rgba(198, 232, 255, 0.96)' : pathActive ? colorAlpha('#ffbc7b', 0.92) : state.selectedNodeId && (edge.from === state.selectedNodeId || edge.to === state.selectedNodeId) ? colorAlpha(from.fill, 0.62) : `url(#${gradientId})`);
-        path.setAttribute('stroke-width', String(edgeSelected ? edge.weight * 1.9 : pathActive ? edge.weight * 1.55 : edge.weight * 0.92));
+        path.setAttribute('stroke', edgeSelected ? 'rgba(198, 232, 255, 0.96)' : pathActive ? colorAlpha('#ffbc7b', visualPreset.edgeAccent) : state.selectedNodeId && (edge.from === state.selectedNodeId || edge.to === state.selectedNodeId) ? colorAlpha(from.fill, 0.58) : `url(#${gradientId})`);
+        path.setAttribute('stroke-width', String(edgeSelected ? edge.weight * 1.75 : pathActive ? edge.weight * 1.4 : Math.max(1.1, edge.weight * 0.82)));
         path.setAttribute('stroke-linecap', 'round');
-        path.setAttribute('opacity', edgeSelected ? '1' : pathActive ? '0.9' : '0.68');
-        if (!edgeSelected && !pathActive) path.setAttribute('filter', 'url(#edge-glow)');
+        path.setAttribute('opacity', edgeSelected ? '1' : pathActive ? '0.9' : String(visualPreset.edgeOpacity));
         path.style.cursor = 'pointer';
         path.addEventListener('click', (event) => {
           event.stopPropagation();
@@ -3169,29 +3138,20 @@
         const pathActive = state.activePath.includes(node.id);
         const renderRadius = renderRadiusForNode(node);
 
-        const bloom = document.createElementNS(ns, 'circle');
-        bloom.setAttribute('cx', String(node.x));
-        bloom.setAttribute('cy', String(node.y));
-        bloom.setAttribute('r', String(renderRadius + 18 + (node.heat || 0.35) * 8));
-        bloom.setAttribute('fill', node.glow || blendHex(node.fill, '#ffffff', 0.32));
-        bloom.setAttribute('opacity', pathActive ? String(0.14 + visualPreset.glowBoost * 0.08 + state.graphControls.glow * 0.03) : state.selectedNodeId === node.id ? String(0.12 + visualPreset.glowBoost * 0.06) : String(0.04 + visualPreset.glowBoost * 0.035 + (node.heat || 0.35) * 0.01));
-        bloom.setAttribute('filter', 'url(#soft-bloom)');
-        group.appendChild(bloom);
-
         const halo = document.createElementNS(ns, 'circle');
         halo.setAttribute('cx', String(node.x));
         halo.setAttribute('cy', String(node.y));
-        halo.setAttribute('r', String(renderRadius + 7 + (node.heat || 0.35) * 3));
-        halo.setAttribute('fill', node.glow || blendHex(node.fill, '#ffffff', 0.3));
-        halo.setAttribute('opacity', pathActive ? String(0.12 + state.graphControls.glow * 0.1) : state.selectedNodeId === node.id ? String(0.11 + state.graphControls.glow * 0.08) : String(0.045 + state.graphControls.glow * 0.05));
+        halo.setAttribute('r', String(renderRadius + 4 + (node.heat || 0.35) * 1.6));
+        halo.setAttribute('fill', node.glow || blendHex(node.fill, '#ffffff', 0.24));
+        halo.setAttribute('opacity', pathActive ? String(0.12 + state.graphControls.glow * 0.06) : state.selectedNodeId === node.id ? String(0.1 + state.graphControls.glow * 0.05) : String(0.03 + (node.heat || 0.35) * 0.02 + state.graphControls.glow * 0.02));
         group.appendChild(halo);
 
         const aura = document.createElementNS(ns, 'circle');
         aura.setAttribute('cx', String(node.x));
         aura.setAttribute('cy', String(node.y));
-        aura.setAttribute('r', String(renderRadius + 2.6));
-        aura.setAttribute('fill', colorAlpha(node.fill, 0.16));
-        aura.setAttribute('stroke', colorAlpha(node.glow || node.fill, 0.24));
+        aura.setAttribute('r', String(renderRadius + 1.8));
+        aura.setAttribute('fill', colorAlpha(node.fill, visualPreset.heatOpacity + (node.heat || 0.35) * 0.03));
+        aura.setAttribute('stroke', colorAlpha(node.glow || node.fill, 0.18));
         aura.setAttribute('stroke-width', '0.8');
         group.appendChild(aura);
 
@@ -3200,8 +3160,8 @@
         circle.setAttribute('cy', String(node.y));
         circle.setAttribute('r', String(renderRadius));
         circle.setAttribute('fill', node.fill);
-        circle.setAttribute('stroke', state.selectedNodeId === node.id ? '#f7fcff' : pathActive ? '#ffd7a4' : colorAlpha(node.glow || '#ffffff', 0.44));
-        circle.setAttribute('stroke-width', state.selectedNodeId === node.id ? '2.2' : pathActive ? '1.6' : '1');
+        circle.setAttribute('stroke', state.selectedNodeId === node.id ? '#f7fcff' : pathActive ? '#ffd7a4' : colorAlpha(node.glow || '#ffffff', 0.28));
+        circle.setAttribute('stroke-width', state.selectedNodeId === node.id ? '2' : pathActive ? '1.45' : '0.9');
         group.appendChild(circle);
 
         const core = document.createElementNS(ns, 'circle');
