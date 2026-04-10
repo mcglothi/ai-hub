@@ -943,7 +943,7 @@
     .models-layout {
       display: grid;
       grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
-      gap: 14px;
+      gap: 18px;
       min-height: 0;
       align-items: start;
     }
@@ -955,27 +955,84 @@
       align-content: start;
     }
 
+    .models-secondary-pane {
+      gap: 12px;
+    }
+
+    .models-summary-card {
+      background:
+        radial-gradient(540px 220px at 10% 0%, rgba(110, 199, 255, 0.14), transparent 60%),
+        radial-gradient(420px 220px at 100% 0%, rgba(138, 230, 194, 0.1), transparent 58%),
+        rgba(7, 13, 21, 0.92);
+      border-color: rgba(138, 198, 255, 0.22);
+    }
+
+    .models-primary-card {
+      background: rgba(9, 16, 25, 0.94);
+      border-color: rgba(147, 185, 220, 0.22);
+    }
+
+    .models-aside-card {
+      background: rgba(8, 13, 21, 0.72);
+      border-color: rgba(147, 185, 220, 0.14);
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.12);
+    }
+
     .model-list {
       display: grid;
-      gap: 10px;
+      gap: 12px;
     }
 
     .model-item {
-      border-radius: 18px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.03);
-      padding: 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(147, 185, 220, 0.14);
+      background:
+        linear-gradient(180deg, rgba(12, 19, 29, 0.94), rgba(8, 14, 22, 0.9));
+      padding: 15px 16px;
       display: grid;
-      gap: 10px;
+      gap: 12px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.015);
+      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .model-item:hover {
+      transform: translateY(-1px);
+      border-color: rgba(147, 185, 220, 0.24);
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
     }
 
     .model-item.is-loaded {
       border-color: rgba(138, 230, 194, 0.34);
-      background: linear-gradient(135deg, rgba(138, 230, 194, 0.08), rgba(255,255,255,0.03));
+      background:
+        radial-gradient(320px 120px at 0% 0%, rgba(138, 230, 194, 0.12), transparent 62%),
+        linear-gradient(180deg, rgba(12, 21, 24, 0.96), rgba(8, 14, 20, 0.92));
     }
 
     .model-item.is-protected {
       border-color: rgba(110, 199, 255, 0.32);
+    }
+
+    .model-item.stage-testing {
+      border-left: 4px solid rgba(255, 188, 123, 0.72);
+    }
+
+    .model-item.stage-candidate {
+      border-left: 4px solid rgba(110, 199, 255, 0.78);
+    }
+
+    .model-item.stage-keeper {
+      border-left: 4px solid rgba(138, 230, 194, 0.78);
+    }
+
+    .model-item.stage-archive {
+      border-left: 4px solid rgba(147, 168, 191, 0.62);
+    }
+
+    .model-item.is-selected {
+      border-color: rgba(138, 230, 194, 0.34);
+      box-shadow:
+        0 18px 34px rgba(0, 0, 0, 0.2),
+        inset 0 0 0 1px rgba(138, 230, 194, 0.08);
     }
 
     .model-head {
@@ -987,7 +1044,7 @@
     }
 
     .model-name {
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 800;
       line-height: 1.35;
       word-break: break-word;
@@ -1002,12 +1059,41 @@
       font-family: 'IBM Plex Mono', monospace;
     }
 
+    .model-summary-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .model-summary-line {
+      color: #dceaf8;
+      font-size: 12px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .model-summary-line strong {
+      color: var(--text);
+    }
+
     .model-note {
       color: #dceaf8;
       font-size: 12px;
       line-height: 1.5;
       white-space: pre-wrap;
       word-break: break-word;
+      border-radius: 14px;
+      border: 1px solid rgba(147, 185, 220, 0.1);
+      background: rgba(255, 255, 255, 0.025);
+      padding: 10px 12px;
+    }
+
+    .model-note.is-empty {
+      color: var(--muted);
+      border-style: dashed;
+      background: rgba(255, 255, 255, 0.015);
     }
 
     .model-grid {
@@ -1037,6 +1123,13 @@
       font-weight: 700;
     }
 
+    .model-detail {
+      display: grid;
+      gap: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(147, 185, 220, 0.12);
+    }
+
     .model-actions {
       display: flex;
       flex-wrap: wrap;
@@ -1056,6 +1149,65 @@
       font-size: 13px;
     }
 
+    .model-expand-btn {
+      min-width: 122px;
+      justify-self: start;
+    }
+
+    .model-remove-btn {
+      border-color: rgba(255, 141, 141, 0.24);
+      color: #ffd0d0;
+      background: rgba(255, 141, 141, 0.08);
+    }
+
+    .model-remove-btn[disabled] {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .chip.loaded-chip {
+      border-color: rgba(138, 230, 194, 0.34);
+      background: rgba(138, 230, 194, 0.12);
+      color: #c9ffea;
+    }
+
+    .chip.cleanup-chip {
+      border-color: rgba(255, 188, 123, 0.34);
+      background: rgba(255, 188, 123, 0.12);
+      color: #ffd9b0;
+    }
+
+    .chip.pinned-chip {
+      border-color: rgba(110, 199, 255, 0.34);
+      background: rgba(110, 199, 255, 0.12);
+      color: #cceaff;
+    }
+
+    .chip.stage-chip-testing {
+      border-color: rgba(255, 188, 123, 0.26);
+      background: rgba(255, 188, 123, 0.1);
+      color: #ffd9b0;
+    }
+
+    .chip.stage-chip-candidate {
+      border-color: rgba(110, 199, 255, 0.28);
+      background: rgba(110, 199, 255, 0.11);
+      color: #cceaff;
+    }
+
+    .chip.stage-chip-keeper {
+      border-color: rgba(138, 230, 194, 0.28);
+      background: rgba(138, 230, 194, 0.11);
+      color: #cbffea;
+    }
+
+    .chip.stage-chip-archive {
+      border-color: rgba(147, 168, 191, 0.28);
+      background: rgba(147, 168, 191, 0.1);
+      color: #d6dfeb;
+    }
+
     .hf-result-list {
       display: grid;
       gap: 10px;
@@ -1064,8 +1216,8 @@
 
     .hf-result-item {
       border-radius: 16px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(147, 185, 220, 0.14);
+      background: rgba(255, 255, 255, 0.022);
       padding: 12px;
       display: grid;
       gap: 8px;
@@ -1628,7 +1780,7 @@
       <section id="models-view" class="view models-wrap">
         <div class="models-layout">
           <div class="models-pane">
-            <div class="card">
+            <div class="card models-summary-card">
               <div class="card-head">
                 <div class="card-title">
                   <h2>Platform Fleet Inventory</h2>
@@ -1664,7 +1816,7 @@
               </div>
             </div>
 
-            <div class="card">
+            <div class="card models-primary-card">
               <div class="card-head">
                 <div class="card-title">
                   <h2>Installed Models</h2>
@@ -1675,8 +1827,8 @@
             </div>
           </div>
 
-          <div class="models-pane">
-            <div class="card">
+          <div class="models-pane models-secondary-pane">
+            <div class="card models-aside-card">
               <div class="card-head">
                 <div class="card-title">
                   <h2>Hugging Face Import</h2>
@@ -1695,7 +1847,7 @@
               <div id="hf-result-list" class="hf-result-list"></div>
             </div>
 
-            <div class="card">
+            <div class="card models-aside-card">
               <div class="card-head">
                 <div class="card-title">
                   <h2>Cleanup Radar</h2>
@@ -1705,7 +1857,7 @@
               <div id="cleanup-candidates" class="trace-list"></div>
             </div>
 
-            <div class="card">
+            <div class="card models-aside-card">
               <div class="card-head">
                 <div class="card-title">
                   <h2>Live Context</h2>
@@ -1841,6 +1993,7 @@
         sort: 'size',
         showProtected: true,
       },
+      selectedModelName: '',
       huggingFace: {
         query: '',
         results: [],
@@ -4000,6 +4153,21 @@
         });
     };
 
+    const stageToneClass = (stage) => {
+      const normalized = String(stage || 'testing').toLowerCase();
+      if (normalized === 'candidate') return 'stage-chip-candidate';
+      if (normalized === 'keeper') return 'stage-chip-keeper';
+      if (normalized === 'archive') return 'stage-chip-archive';
+      return 'stage-chip-testing';
+    };
+
+    const modelStatusSummary = (model, stage, pinned) => {
+      if (model.loaded) return 'Active in memory now';
+      if (pinned || stage === 'keeper') return 'Protected from casual cleanup';
+      if (model.cleanup_candidate) return 'Needs attention before storage pressure stacks up';
+      return 'Available for testing';
+    };
+
     const refreshModelsSummary = () => {
       const summary = state.models?.summary || {};
       const disk = state.models?.disk || null;
@@ -4038,8 +4206,13 @@
         const note = model?.metadata?.note || '';
         const stage = model?.metadata?.stage || 'testing';
         const pinned = model?.metadata?.pinned === true;
+        const selected = state.selectedModelName === model.name;
+        const stageClass = stageToneClass(stage);
+        const notePreview = note || 'No note yet. Expand this lane if you want to capture why it exists or whether it can go.';
+        const protectionCopy = pinned || stage === 'keeper' ? 'protected' : 'removable';
+        const summaryCopy = modelStatusSummary(model, stage, pinned);
         return `
-          <div class="model-item ${model.loaded ? 'is-loaded' : ''} ${pinned || stage === 'keeper' ? 'is-protected' : ''}" data-model-name="${escapeHtml(model.name)}">
+          <div class="model-item stage-${escapeHtml(stage)} ${selected ? 'is-selected' : ''} ${model.loaded ? 'is-loaded' : ''} ${pinned || stage === 'keeper' ? 'is-protected' : ''}" data-model-name="${escapeHtml(model.name)}">
             <div class="model-head">
               <div>
                 <div class="model-name">${escapeHtml(model.name)}</div>
@@ -4051,48 +4224,66 @@
                 </div>
               </div>
               <div class="chip-row">
-                ${pinned ? '<span class="chip">pinned</span>' : ''}
-                <span class="chip">${escapeHtml(stage)}</span>
-                ${model.cleanup_candidate ? '<span class="chip">cleanup</span>' : ''}
+                ${model.loaded ? '<span class="chip loaded-chip">loaded</span>' : ''}
+                ${pinned ? '<span class="chip pinned-chip">pinned</span>' : ''}
+                <span class="chip ${stageClass}">${escapeHtml(stage)}</span>
+                ${model.cleanup_candidate ? '<span class="chip cleanup-chip">cleanup</span>' : ''}
               </div>
             </div>
 
-            <div class="model-grid">
-              <div class="model-stat">
-                <div class="label">Size</div>
-                <div class="value">${escapeHtml(model.size || fmtBytes(model.size_bytes))}</div>
-              </div>
-              <div class="model-stat">
-                <div class="label">Modified</div>
-                <div class="value">${escapeHtml(model.modified || fmtRelativeAge(model.age_seconds))}</div>
-              </div>
-              <div class="model-stat">
-                <div class="label">Stage</div>
-                <div class="value">${escapeHtml(stage)}</div>
-              </div>
-              <div class="model-stat">
-                <div class="label">Protection</div>
-                <div class="value">${pinned || stage === 'keeper' ? 'protected' : 'removable'}</div>
-              </div>
+            <div class="model-summary-bar">
+              <div class="model-summary-line"><strong>${escapeHtml(summaryCopy)}</strong> · ${escapeHtml(model.size || fmtBytes(model.size_bytes))} · ${escapeHtml(model.modified || fmtRelativeAge(model.age_seconds))} · ${escapeHtml(protectionCopy)}</div>
+              <button class="action-btn secondary model-expand-btn" data-model-name="${escapeHtml(model.name)}" type="button">${selected ? 'Hide Details' : 'Edit Details'}</button>
             </div>
 
-            <div class="model-note">${escapeHtml(note || 'No note yet. Use notes to capture why a model exists, what it was good at, or why it can safely go.')}</div>
+            <div class="model-note ${note ? '' : 'is-empty'}">${escapeHtml(notePreview)}</div>
 
-            <div class="model-actions">
-              <select class="select-input model-stage-input" data-model-name="${escapeHtml(model.name)}">
-                <option value="testing" ${stage === 'testing' ? 'selected' : ''}>testing</option>
-                <option value="candidate" ${stage === 'candidate' ? 'selected' : ''}>candidate</option>
-                <option value="keeper" ${stage === 'keeper' ? 'selected' : ''}>keeper</option>
-                <option value="archive" ${stage === 'archive' ? 'selected' : ''}>archive</option>
-              </select>
-              <label class="chip"><input type="checkbox" class="model-pin-input" data-model-name="${escapeHtml(model.name)}" ${pinned ? 'checked' : ''}> pinned</label>
-              <input class="text-input model-note-input" data-model-name="${escapeHtml(model.name)}" type="text" value="${escapeHtml(note)}" placeholder="note why this lane exists or what to remember">
-              <button class="action-btn secondary model-save-btn" data-model-name="${escapeHtml(model.name)}" type="button">Save Meta</button>
-              <button class="action-btn secondary model-remove-btn" data-model-name="${escapeHtml(model.name)}" type="button" ${model.loaded ? 'disabled' : ''}>Delete</button>
-            </div>
+            ${selected ? `
+              <div class="model-detail">
+                <div class="model-grid">
+                  <div class="model-stat">
+                    <div class="label">Size</div>
+                    <div class="value">${escapeHtml(model.size || fmtBytes(model.size_bytes))}</div>
+                  </div>
+                  <div class="model-stat">
+                    <div class="label">Modified</div>
+                    <div class="value">${escapeHtml(model.modified || fmtRelativeAge(model.age_seconds))}</div>
+                  </div>
+                  <div class="model-stat">
+                    <div class="label">Stage</div>
+                    <div class="value">${escapeHtml(stage)}</div>
+                  </div>
+                  <div class="model-stat">
+                    <div class="label">Protection</div>
+                    <div class="value">${escapeHtml(protectionCopy)}</div>
+                  </div>
+                </div>
+
+                <div class="model-actions">
+                  <select class="select-input model-stage-input" data-model-name="${escapeHtml(model.name)}">
+                    <option value="testing" ${stage === 'testing' ? 'selected' : ''}>testing</option>
+                    <option value="candidate" ${stage === 'candidate' ? 'selected' : ''}>candidate</option>
+                    <option value="keeper" ${stage === 'keeper' ? 'selected' : ''}>keeper</option>
+                    <option value="archive" ${stage === 'archive' ? 'selected' : ''}>archive</option>
+                  </select>
+                  <label class="chip"><input type="checkbox" class="model-pin-input" data-model-name="${escapeHtml(model.name)}" ${pinned ? 'checked' : ''}> pinned</label>
+                  <input class="text-input model-note-input" data-model-name="${escapeHtml(model.name)}" type="text" value="${escapeHtml(note)}" placeholder="note why this lane exists or what to remember">
+                  <button class="action-btn secondary model-save-btn" data-model-name="${escapeHtml(model.name)}" type="button">Save Meta</button>
+                  <button class="action-btn secondary model-remove-btn" data-model-name="${escapeHtml(model.name)}" type="button" ${model.loaded ? 'disabled' : ''}>Delete</button>
+                </div>
+              </div>
+            ` : ''}
           </div>
         `;
       }).join('') || '<div class="info-card"><div class="value">No models match the current filter.</div></div>';
+
+      el.modelList.querySelectorAll('.model-expand-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const name = btn.dataset.modelName || '';
+          state.selectedModelName = state.selectedModelName === name ? '' : name;
+          renderModels();
+        });
+      });
 
       el.modelList.querySelectorAll('.model-save-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
