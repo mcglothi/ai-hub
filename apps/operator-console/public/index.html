@@ -1000,6 +1000,56 @@
       gap: 12px;
     }
 
+    .model-group {
+      display: grid;
+      gap: 12px;
+    }
+
+    .model-group-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 2px 2px 0;
+      flex-wrap: wrap;
+    }
+
+    .model-group-copy {
+      display: grid;
+      gap: 4px;
+    }
+
+    .model-group-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #dceaf8;
+    }
+
+    .model-group-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .model-group-count {
+      border-radius: 999px;
+      border: 1px solid rgba(147, 185, 220, 0.18);
+      background: rgba(255, 255, 255, 0.03);
+      padding: 6px 10px;
+      color: #dceaf8;
+      font-size: 11px;
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .model-group-list {
+      display: grid;
+      gap: 12px;
+    }
+
     .model-item {
       border-radius: 20px;
       border: 1px solid rgba(147, 185, 220, 0.14);
@@ -1289,6 +1339,28 @@
       color: #dceaf8;
       line-height: 1.5;
       word-break: break-word;
+    }
+
+    .hf-quant-stack {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .hf-action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .toolbar-jump-active {
+      border-color: rgba(138, 230, 194, 0.44);
+      box-shadow:
+        0 0 0 1px rgba(138, 230, 194, 0.16),
+        0 0 0 6px rgba(138, 230, 194, 0.08),
+        0 0 24px rgba(138, 230, 194, 0.24);
+      background:
+        linear-gradient(180deg, rgba(15, 26, 29, 0.98), rgba(8, 14, 22, 0.94));
     }
 
     @media (max-width: 1220px) {
@@ -4194,6 +4266,72 @@
       return 'stage-chip-testing';
     };
 
+    const modelGroupingMeta = [
+      {
+        key: 'loaded',
+        title: 'Loaded Now',
+        note: 'These lanes are currently resident on the selected device, so they stay visually anchored at the top.',
+      },
+      {
+        key: 'attention',
+        title: 'Needs Attention',
+        note: 'Cleanup candidates and loose testing lanes that probably deserve either a note, a pin, or removal.',
+      },
+      {
+        key: 'candidate',
+        title: 'Candidates',
+        note: 'Promising experiments worth comparing before they graduate into keepers.',
+      },
+      {
+        key: 'keeper',
+        title: 'Keepers',
+        note: 'Pinned or keeper-tagged models that look intentionally retained for ongoing use.',
+      },
+      {
+        key: 'archive',
+        title: 'Archive',
+        note: 'Inactive lanes kept mostly for history, rollback, or occasional comparison.',
+      },
+    ];
+
+    const classifyModelGroup = (model) => {
+      const stage = model?.metadata?.stage || 'testing';
+      const pinned = model?.metadata?.pinned === true;
+      if (model.loaded) return 'loaded';
+      if (stage === 'archive') return 'archive';
+      if (pinned || stage === 'keeper') return 'keeper';
+      if (stage === 'candidate') return 'candidate';
+      if (model.cleanup_candidate || stage === 'testing') return 'attention';
+      return 'candidate';
+    };
+
+    const groupedModels = (models) => {
+      const buckets = new Map(modelGroupingMeta.map((group) => [group.key, []]));
+      models.forEach((model) => {
+        const key = classifyModelGroup(model);
+        if (!buckets.has(key)) buckets.set(key, []);
+        buckets.get(key).push(model);
+      });
+      return modelGroupingMeta
+        .map((group) => ({ ...group, models: buckets.get(group.key) || [] }))
+        .filter((group) => group.models.length);
+    };
+
+    const jumpToPullBox = () => {
+      const toolbar = document.getElementById('models-toolbar');
+      if (toolbar) {
+        toolbar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      el.modelPullInput.classList.add('toolbar-jump-active');
+      window.setTimeout(() => el.modelPullInput.classList.remove('toolbar-jump-active'), 1800);
+      try {
+        el.modelPullInput.focus({ preventScroll: true });
+      } catch (_err) {
+        el.modelPullInput.focus();
+      }
+      el.modelPullInput.select();
+    };
+
     const modelStatusSummary = (model, stage, pinned) => {
       if (model.loaded) return 'Active in memory now';
       if (pinned || stage === 'keeper') return 'Protected from casual cleanup';
@@ -4253,7 +4391,7 @@
 
     const renderModels = () => {
       const models = filteredModels();
-      el.modelList.innerHTML = models.map((model) => {
+      const renderModelCard = (model) => {
         const note = model?.metadata?.note || '';
         const stage = model?.metadata?.stage || 'testing';
         const pinned = model?.metadata?.pinned === true;
@@ -4326,7 +4464,23 @@
             ` : ''}
           </div>
         `;
-      }).join('') || '<div class="info-card"><div class="value">No models match the current filter.</div></div>';
+      };
+
+      const groups = groupedModels(models);
+      el.modelList.innerHTML = groups.map((group) => `
+        <section class="model-group">
+          <div class="model-group-head">
+            <div class="model-group-copy">
+              <div class="model-group-title">${escapeHtml(group.title)}</div>
+              <div class="model-group-note">${escapeHtml(group.note)}</div>
+            </div>
+            <div class="model-group-count">${fmtNum(group.models.length)} model${group.models.length === 1 ? '' : 's'}</div>
+          </div>
+          <div class="model-group-list">
+            ${group.models.map((model) => renderModelCard(model)).join('')}
+          </div>
+        </section>
+      `).join('') || '<div class="info-card"><div class="value">No models match the current filter.</div></div>';
 
       el.modelList.querySelectorAll('.model-expand-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -4514,13 +4668,15 @@
           </div>
         </div>
         <div class="chip-row">${fitChip}${tagList.map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join('') || '<span class="chip">no summary tags</span>'}${searchResult?.quantLabels?.length ? `<span class="chip">${fmtNum(searchResult.quantLabels.length)} quants in search</span>` : ''}</div>
-        <div class="control-row" style="margin-top: 12px;">
+        <div class="hf-quant-stack">
           <select id="hf-quant-select" class="select-input">
             ${(quantOptions.length ? quantOptions : ['']).map((quant) => `<option value="${escapeHtml(quant)}" ${quant === selectedQuant ? 'selected' : ''}>${escapeHtml(quant || 'No quant found')}</option>`).join('')}
           </select>
-          <button id="hf-fill-pull-btn" class="action-btn secondary" type="button">Fill Pull Box</button>
-          <button id="hf-pull-selected-btn" class="action-btn primary" type="button">Pull Selected</button>
-          <a id="hf-laptime-link" class="action-btn secondary" href="${escapeHtml(laptimeLink)}" target="_blank" rel="noreferrer">Open in LapTime</a>
+          <div class="hf-action-row">
+            <button id="hf-fill-pull-btn" class="action-btn secondary" type="button">Fill Pull Box</button>
+            <button id="hf-pull-selected-btn" class="action-btn primary" type="button">Pull Selected</button>
+            <a id="hf-laptime-link" class="action-btn secondary" href="${escapeHtml(laptimeLink)}" target="_blank" rel="noreferrer">Open in LapTime</a>
+          </div>
         </div>
         <div class="hf-ref-preview" style="margin-top: 10px;">${escapeHtml(importRef || `hf.co/${detail.id || detail.modelId || ''}`)}</div>
         <div class="value" style="margin-top: 10px;">${quantOptions.length ? `Ollama imports work best when ${currentPlatformLabel()} has a specific GGUF quant tag. The generated ref above is ready to pull.` : 'No GGUF quant label surfaced from Hugging Face metadata. You can still try the generated repo ref, but imports are most reliable when the repo publishes GGUF files.'}</div>
@@ -4547,6 +4703,7 @@
         fillBtn.addEventListener('click', () => {
           const ref = buildHuggingFaceImportRef();
           el.modelPullInput.value = ref;
+          jumpToPullBox();
           logTrace('hf import', `${ref} queued in pull box`);
         });
       }

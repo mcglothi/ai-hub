@@ -4,28 +4,47 @@
 
 <p align="center">
   <strong>AI Hub</strong><br/>
-  A unified, self-hosted workspace for AI chat, terminal workflows, and persistent session orchestration.
+  A self-hosted operator workspace for local LLM routing, memory operations, model stewardship, and persistent agent sessions.
 </p>
 
-## Overview
+## Why AI Hub Exists
 
-AI Hub now spans three related surfaces inside one repo:
+AI Hub is the control surface for a broader local AI ecosystem:
 
-- `apps/operator-console`: Memory-first operator workspace for review, search, provenance, terminal access, code adjacency, and Hopper model stewardship. This is the primary AI Hub surface on Turing.
-- `apps/chat-wrapper`: Legacy chat-centric surface retained only as a fallback code path. It is no longer the public AI Hub landing page.
-- `apps/sessions`: Session lifecycle API and UI for persistent, resumable AI workflows.
+- `AI Hub` handles operator workflows, model inventory, import/pull flows, terminal/code adjacency, and session orchestration.
+- `AIKB` is the durable memory and runbook system behind the scenes.
+- `LapTime` provides model fit, hardware, and performance context for practical deployment choices.
 
-This repository is now the source of truth for application code. AIKB remains the source of truth for operational documentation and runbooks.
+Together they form a home-lab-native stack for running local models and agent workflows with real operational context instead of isolated demos.
+
+## Product Surfaces
+
+### Explore Memory
+
+Search memory, inspect graph relationships, review provenance, and keep nearby evidence visible while navigating AIKB-backed results.
+
+![Explore Memory](assets/screenshots/memory-explorer.png)
+
+### Review Proposals
+
+Harvest runtime memory proposals, review queue recommendations, and apply durable knowledge into AIKB with a cleaner operator workflow.
+
+![Review Proposals](assets/screenshots/review-harvest.png)
+
+### Model Stewardship
+
+Manage the model fleet on real hardware, inspect Hugging Face repos, choose GGUF quants, stage cleanup safely, and pull models directly into the selected platform.
+
+![Model Stewardship](assets/screenshots/models-stewardship.png)
 
 ## Core Capabilities
 
-- Multi-provider chat routing for Claude, Gemini, and Codex.
-- Voice input pipeline with transcription proxy support.
-- Optional AIKB context augmentation for chat requests.
-- Memory-native operator review and apply workflows.
-- Embedded terminal and code workspace access patterns.
-- Session inventory and state management service on `:8090`.
-- Service-friendly structure for systemd and Ansible automation.
+- Memory-first operator console with graph exploration, provenance, and review/apply flows
+- Hugging Face search, repo inspection, quant-aware import prep, and Ollama pull workflows
+- Per-platform model inventory with notes, stages, cleanup cues, and loaded-state visibility
+- Embedded terminal and code adjacency for fast operational edits
+- Session inventory and tmux-backed orchestration through the sessions service
+- Multi-provider chat support and voice/transcription plumbing retained in the repo
 
 ## Repository Layout
 
@@ -46,74 +65,57 @@ ai-hub/
 │       ├── requirements.txt
 │       └── sync_agent.py
 ├── assets/
-│   └── ai-hub-logo.svg
+│   ├── ai-hub-logo.svg
+│   └── screenshots/
 └── infra/
     └── systemd/
 ```
 
-## Runtime Model
+## Architecture Snapshot
 
 ```text
 Browser
   -> AI Hub Operator Console (:3001)
     -> Memory Core search + proposal APIs
+    -> AIKB preview/apply flows
+    -> Hugging Face search + model fit estimation
+    -> Ollama platform inventory / pull / cleanup workflows
     -> ttyd terminal proxy
     -> code-server adjacency
-    -> AIKB apply-preview/apply flows
-    -> Hopper model inventory / cleanup / pull workflows
-
-Browser
-  -> Legacy Chat Wrapper (:3000, retired from public entry)
-    -> Claude / Gemini / Codex CLIs
-    -> Local STT proxy (:8008)
-    -> AIKB context lookup (optional)
 
 Browser
   -> AI Hub Sessions (:8090)
     -> FastAPI + tmux-backed session orchestration
+
+Browser
+  -> Legacy Chat Wrapper (:3000, fallback only)
+    -> Claude / Gemini / Codex CLIs
+    -> Local STT proxy (:8008)
+    -> optional AIKB context lookup
 ```
 
 ## Deployment Status
 
-- `ai-hub-sessions` is currently running on `turing` from this repository path.
-- `operator-console` is the active and public AI Hub surface on `:3001`, with `ai.home.timmcg.net` and `chat.home.timmcg.net` now routed to it.
-- `chat-wrapper` is retired from the public path and should stay disabled unless a specific rollback is needed.
-- Historical sessions snapshots were captured on both `turing` and `feynman` before migration.
+- `apps/operator-console` is the primary AI Hub surface and active operator entrypoint.
+- `apps/sessions` is the repo-backed session service for persistent workflows.
+- `apps/chat-wrapper` remains in-tree as a fallback path, not the main product surface.
+- Operational deployment details live in AIKB and the companion Ansible repo.
 
-## Development Workflow
+## Development Model
 
-1. Create a feature branch immediately from `main`.
-2. Keep `main` deployable at all times.
-3. Make changes under the single canonical app directory that owns the feature.
-4. Validate locally or in staging before merging.
-5. Merge small, focused feature branches back to `main`.
-6. Deploy via Ansible/systemd rollout from the repo-backed source tree.
+1. Branch from `main` for each focused feature or cleanup pass.
+2. Keep `main` deployable.
+3. Add new product-facing work to `apps/operator-console` first unless the feature is explicitly session-specific.
+4. Prefer real screenshots, concrete runbooks, and small deployable commits over scratch variants.
+5. Treat AIKB as the documentation and operating-memory source of truth.
 
-## Repo Model
+## Near-Term Direction
 
-- `apps/operator-console` is the canonical AI Hub workspace and should receive new operator-surface features first.
-- `apps/chat-wrapper` is a legacy fallback only. Do not add new product-facing features there unless the work is specifically rollback-related.
-- `ansible` should deploy code from the canonical app name and avoid scratch duplicates.
-- Scratch variants like `.new`, `.v2`, `.v3`, and ad hoc verification files should be replaced by branches, not accumulated in tracked paths.
-
-## Branch Model
-
-- `main`: deployable, trusted, production-ready
-- `feat/*`: one feature or focused cleanup
-- `release/*`: optional stabilization branch for bigger cutovers
-
-Examples:
-- `feat/operator-console-review-flow`
-- `feat/operator-console-search-ranking`
-- `release/operator-console-cutover`
-
-## Roadmap
-
-- Add first-class deployment playbooks for both apps from this repo.
-- Add CI checks for JavaScript and Python lint/syntax validation.
-- Add versioned releases and rollback notes.
-- Add operational dashboards and health probes for both services.
+- Bring platform/device configuration into a first-class settings surface
+- Continue improving model grouping, visual hierarchy, and operator ergonomics
+- Add stronger CI checks for JavaScript and Python services
+- Capture more product documentation and architecture notes directly in this repo
 
 ## License
 
-Private internal project. Add explicit license terms if distribution scope changes.
+Private internal project. Add explicit license terms if the distribution scope changes.
