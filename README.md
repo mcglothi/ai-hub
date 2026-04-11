@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/hero-graphic.svg" alt="AI Hub" width="1000" />
+  <img src="assets/hero-graphic.png" alt="AI Hub" width="1000" />
 </p>
 
 <p align="center">
@@ -60,8 +60,7 @@ ai-hub/
 │       ├── requirements.txt
 │       └── sync_agent.py
 ├── assets/
-│   ├── hero-graphic.svg
-│   ├── ai-hub-logo.svg
+│   ├── hero-graphic.png
 │   └── screenshots/
 └── infra/
     └── systemd/
