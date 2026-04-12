@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>AI Hub Operator Console</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' rx='24' fill='%23060b11'/%3E%3Cpath d='M22 70 40 26h16l18 44H60l-3.8-10H39.8L36 70Zm21.4-21h9.2L48 37.4Z' fill='%238ae6c2'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -101,7 +102,7 @@
       border-radius: var(--radius-xl);
       padding: 18px;
       display: grid;
-      grid-template-rows: auto auto auto 1fr auto;
+      grid-template-rows: auto auto auto minmax(0, 1fr);
       gap: 14px;
       overflow: auto;
     }
@@ -171,11 +172,11 @@
 
     .nav-btn {
       border-radius: 16px;
-      padding: 13px 14px;
+      padding: 12px 14px;
       text-align: left;
       cursor: pointer;
       display: grid;
-      gap: 3px;
+      gap: 0;
       transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
     }
 
@@ -185,9 +186,7 @@
     }
 
     .nav-btn .nav-copy {
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.4;
+      display: none;
     }
 
     .nav-btn.active {
@@ -203,7 +202,7 @@
 
     .sidebar-section {
       display: grid;
-      gap: 10px;
+      gap: 6px;
       min-height: 0;
     }
 
@@ -220,6 +219,93 @@
       overflow: auto;
       min-height: 0;
       padding-right: 4px;
+    }
+
+    .status-panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.02);
+      overflow: hidden;
+    }
+
+    .status-panel summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+    }
+
+    .status-panel summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .status-summary-text {
+      display: grid;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .status-summary-text strong {
+      font-size: 11px;
+      color: #deedf9;
+      font-weight: 700;
+    }
+
+    .status-summary-text span {
+      font-size: 10px;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-chevron {
+      color: var(--muted);
+      font-size: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .status-panel[open] .status-chevron {
+      color: #deedf9;
+    }
+
+    .status-body {
+      padding: 0 10px 10px;
+      display: grid;
+      gap: 6px;
+      border-top: 1px solid rgba(147, 185, 220, 0.12);
+    }
+
+    .compact-disclosure {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      overflow: hidden;
+    }
+
+    .compact-disclosure summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .compact-disclosure summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .compact-disclosure-body {
+      padding: 0 12px 12px;
+      display: grid;
+      gap: 10px;
+      border-top: 1px solid rgba(147, 185, 220, 0.12);
     }
 
     .ops-item {
@@ -254,6 +340,10 @@
       color: var(--muted);
       font-size: 12px;
       line-height: 1.5;
+    }
+
+    .topbar-copy p:empty {
+      display: none;
     }
 
     main {
@@ -371,6 +461,7 @@
     .view {
       display: none;
       min-height: 0;
+      overflow: hidden;
     }
 
     .view.active {
@@ -393,6 +484,12 @@
       padding: 14px 8px 14px 14px;
       gap: 14px;
       overflow: hidden;
+    }
+
+    .scroll-stack {
+      height: auto;
+      overflow: visible;
+      padding: 0;
     }
 
     .card {
@@ -821,6 +918,58 @@
       background: rgba(255, 255, 255, 0.05);
     }
 
+    details.result-item {
+      gap: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    details.result-item summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 10px 12px;
+      display: grid;
+      gap: 4px;
+    }
+
+    details.result-item summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .result-summary-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .result-summary-title {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: #eef5fc;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .result-summary-kind {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+      flex-shrink: 0;
+    }
+
+    .result-detail-body {
+      padding: 0 12px 12px;
+      display: grid;
+      gap: 6px;
+      border-top: 1px solid rgba(147, 185, 220, 0.12);
+    }
+
     .tone-history {
       border-color: rgba(255, 188, 123, 0.3);
       background: linear-gradient(135deg, rgba(255, 188, 123, 0.08), rgba(255, 255, 255, 0.03));
@@ -1023,6 +1172,8 @@
       gap: 14px;
       padding: 14px;
       min-height: 0;
+      overflow: auto;
+      align-content: start;
     }
 
     .surface-frame {
@@ -1041,7 +1192,7 @@
 
     #terminal-view .surface-frame,
     #code-view .surface-frame {
-      min-height: clamp(560px, 72vh, 980px);
+      min-height: clamp(420px, 62vh, 980px);
     }
 
     .toolbar-block {
@@ -1092,7 +1243,7 @@
       display: grid;
       grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
       gap: 18px;
-      min-height: 0;
+      min-height: max-content;
       align-items: start;
     }
 
@@ -1146,6 +1297,12 @@
     .model-list {
       display: grid;
       gap: 12px;
+    }
+
+    #review-view {
+      overflow: auto;
+      padding: 14px;
+      align-content: start;
     }
 
     .model-group {
@@ -1573,7 +1730,6 @@
       <div class="brand">
         <div class="eyebrow">AI Hub</div>
         <div class="title">Operator Console</div>
-        <div class="copy">A separate track for a calmer, more legible operator surface. Memory comes first. Terminal and code stay close.</div>
       </div>
 
       <div class="pill-row">
@@ -1586,43 +1742,43 @@
         <div class="nav">
           <button class="nav-btn active" data-view="memory">
             <span class="nav-title">Explore</span>
-            <span class="nav-copy">Graph search, relationships, provenance, and record inspection.</span>
           </button>
           <button class="nav-btn" data-view="review">
             <span class="nav-title">Review</span>
-            <span class="nav-copy">Harvest, queue review, and durable memory shaping.</span>
           </button>
           <button class="nav-btn" data-view="models">
             <span class="nav-title">Models</span>
-            <span class="nav-copy">Platform inventory, safe cleanup, pull, fit checks, and experiment tagging.</span>
           </button>
           <button class="nav-btn" data-view="terminal">
             <span class="nav-title">Terminal</span>
-            <span class="nav-copy">Remote shell with stronger styling and density controls.</span>
           </button>
           <button class="nav-btn" data-view="code">
             <span class="nav-title">Code</span>
-            <span class="nav-copy">Keep code-server close for real edits and project context.</span>
           </button>
         </div>
       </div>
 
       <div class="sidebar-section">
-        <div class="section-title">Operating Model</div>
-        <div class="ops-list" id="ops-log"></div>
+        <div class="section-title">Activity Summary</div>
+        <details id="ops-panel" class="status-panel">
+          <summary>
+            <div class="status-summary-text">
+              <strong id="ops-summary-title">System Status</strong>
+              <span id="ops-summary-copy">Collapsed to reduce sidebar noise.</span>
+            </div>
+            <span class="status-chevron" aria-hidden="true">more</span>
+          </summary>
+          <div id="ops-log" class="status-body"></div>
+        </details>
       </div>
 
-      <div class="footer-note">
-        <strong>Transparent by default.</strong><br>
-        Search uses <span class="mono">/memory/search</span>. Proposals use <span class="mono">/memory/proposals</span>. Terminal is proxied through <span class="mono">/terminal/</span>. This operator console remains a separate track until it replaces the legacy chat surface.
-      </div>
     </aside>
 
     <main class="shell">
       <div class="topbar">
         <div class="topbar-copy">
           <h1 id="view-title">Graphical Memory Search</h1>
-          <p id="view-copy">World class retrieval is not just search quality. It is orientation, motion, provenance, and confidence. This view keeps the graph, the evidence, and the operational trace visible at the same time.</p>
+          <p id="view-copy"></p>
         </div>
         <div class="pill-row">
           <span id="search-summary" class="status-pill mono">query idle</span>
@@ -1850,7 +2006,7 @@
       </section>
 
       <section id="review-view" class="view">
-        <div class="stack" style="padding:14px;">
+        <div class="stack scroll-stack">
           <div class="card">
             <div class="card-head">
               <div class="card-title">
@@ -2107,50 +2263,61 @@
       </section>
 
       <section id="terminal-view" class="view terminal-wrap">
-        <iframe id="terminal-frame" class="surface-frame" src="/terminal/" title="Terminal" loading="eager" referrerpolicy="same-origin"></iframe>
+        <iframe id="terminal-frame" class="surface-frame" src="about:blank" data-src="/terminal/" title="Terminal" loading="lazy" referrerpolicy="same-origin"></iframe>
         <div class="card toolbar-block">
           <div class="card-head">
             <div class="card-title">
               <h2>Remote Shell</h2>
-              <p>Keep the shell front and center. Styling controls stay below so the first screen gives you immediate working room.</p>
+              <p>Keep the shell front and center. Tuning controls stay out of the way until you need them.</p>
             </div>
             <div class="chip-row">
               <span id="terminal-status" class="chip mono">terminal pending</span>
             </div>
           </div>
-          <div class="theme-grid">
-            <button class="theme-btn active" data-theme="harbor" type="button">Harbor</button>
-            <button class="theme-btn" data-theme="ice" type="button">Ice</button>
-            <button class="theme-btn" data-theme="forest" type="button">Forest</button>
-            <button class="theme-btn" data-theme="amber" type="button">Amber</button>
-            <button class="theme-btn" data-theme="classic" type="button">Classic</button>
-          </div>
-          <div class="control-row compact">
-            <select id="font-select" class="select-input">
-              <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
-              <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
-              <option value="'Fira Code', monospace">Fira Code</option>
-              <option value="'SF Mono', Menlo, monospace">SF Mono</option>
-            </select>
-            <div class="range-group">
-              <label class="mono" for="scale-input">Scale</label>
-              <input id="scale-input" class="range-input" type="range" min="0.8" max="1.45" step="0.05" value="1">
+          <details class="compact-disclosure">
+            <summary>
+              <div class="status-summary-text">
+                <strong>Shell Controls</strong>
+                <span>Appearance, density, reconnect, and fullscreen actions.</span>
+              </div>
+              <span class="status-chevron" aria-hidden="true">more</span>
+            </summary>
+            <div class="compact-disclosure-body">
+              <div class="theme-grid">
+                <button class="theme-btn active" data-theme="harbor" type="button">Harbor</button>
+                <button class="theme-btn" data-theme="ice" type="button">Ice</button>
+                <button class="theme-btn" data-theme="forest" type="button">Forest</button>
+                <button class="theme-btn" data-theme="amber" type="button">Amber</button>
+                <button class="theme-btn" data-theme="classic" type="button">Classic</button>
+              </div>
+              <div class="control-row compact">
+                <select id="font-select" class="select-input">
+                  <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
+                  <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+                  <option value="'Fira Code', monospace">Fira Code</option>
+                  <option value="'SF Mono', Menlo, monospace">SF Mono</option>
+                </select>
+                <div class="range-group">
+                  <label class="mono" for="scale-input">Scale</label>
+                  <input id="scale-input" class="range-input" type="range" min="0.8" max="1.45" step="0.05" value="1">
+                </div>
+                <div class="range-group">
+                  <label class="mono" for="contrast-input">Contrast</label>
+                  <input id="contrast-input" class="range-input" type="range" min="0.85" max="1.5" step="0.05" value="1">
+                </div>
+                <div class="range-group">
+                  <label class="mono" for="frame-opacity-input">Glass</label>
+                  <input id="frame-opacity-input" class="range-input" type="range" min="0.75" max="1" step="0.05" value="0.95">
+                </div>
+                <div class="range-group">
+                  <label class="mono" for="line-height-input">Density</label>
+                  <input id="line-height-input" class="range-input" type="range" min="0.9" max="1.5" step="0.05" value="1.1">
+                </div>
+                <button id="terminal-reload" class="action-btn secondary" type="button">Reconnect</button>
+                <button id="terminal-popout" class="action-btn secondary" type="button">Fullscreen</button>
+              </div>
             </div>
-            <div class="range-group">
-              <label class="mono" for="contrast-input">Contrast</label>
-              <input id="contrast-input" class="range-input" type="range" min="0.85" max="1.5" step="0.05" value="1">
-            </div>
-            <div class="range-group">
-              <label class="mono" for="frame-opacity-input">Glass</label>
-              <input id="frame-opacity-input" class="range-input" type="range" min="0.75" max="1" step="0.05" value="0.95">
-            </div>
-            <div class="range-group">
-              <label class="mono" for="line-height-input">Density</label>
-              <input id="line-height-input" class="range-input" type="range" min="0.9" max="1.5" step="0.05" value="1.1">
-            </div>
-            <button id="terminal-reload" class="action-btn secondary" type="button">Reconnect</button>
-            <button id="terminal-popout" class="action-btn secondary" type="button">Open Fullscreen</button>
-          </div>
+          </details>
         </div>
       </section>
 
@@ -2160,15 +2327,26 @@
           <div class="card-head">
             <div class="card-title">
               <h2>Code Surface</h2>
-              <p>Give the editor the full first-screen footprint. Secondary actions stay below so you land directly in the working surface.</p>
+              <p>Give the editor the first-screen footprint and keep the extra action minimal.</p>
             </div>
             <div class="chip-row">
               <span class="chip mono">origin: code.home.timmcg.net</span>
             </div>
           </div>
-          <div class="control-row">
-            <button id="code-popout" class="action-btn secondary" type="button">Open Fullscreen</button>
-          </div>
+          <details class="compact-disclosure">
+            <summary>
+              <div class="status-summary-text">
+                <strong>Code Actions</strong>
+                <span>Open the editor in its own tab when you need more room.</span>
+              </div>
+              <span class="status-chevron" aria-hidden="true">more</span>
+            </summary>
+            <div class="compact-disclosure-body">
+              <div class="control-row">
+                <button id="code-popout" class="action-btn secondary" type="button">Open Fullscreen</button>
+              </div>
+            </div>
+          </details>
         </div>
       </section>
     </main>
@@ -2256,23 +2434,23 @@
     const viewMeta = {
       memory: {
         title: 'Explore Memory',
-        copy: 'Search, graph navigation, provenance, and source inspection stay together here so exploration feels calm and legible.',
+        copy: '',
       },
       review: {
         title: 'Review Proposals',
-        copy: 'Harvest and proposal review are separated from search so durable memory decisions feel deliberate instead of mixed into exploration.',
+        copy: '',
       },
       models: {
         title: 'Platform Model Stewardship',
-        copy: 'Treat each runtime platform like a living fleet: keep notes, protect the keepers, and retire old experiment lanes before disk pressure starts deciding for you.',
+        copy: '',
       },
       terminal: {
         title: 'Remote Shell',
-        copy: 'The shell remains intentionally simple: fast access, richer visual tuning, and zero confusion about where commands are actually running.',
+        copy: '',
       },
       code: {
         title: 'Embedded Code Surface',
-        copy: 'Code-server remains available when you want real edits, but v2 keeps memory as the primary operating context rather than letting editing dominate the whole screen.',
+        copy: '',
       },
     };
 
@@ -2409,6 +2587,9 @@
       terminalReload: document.getElementById('terminal-reload'),
       terminalPopout: document.getElementById('terminal-popout'),
       codePopout: document.getElementById('code-popout'),
+      opsPanel: document.getElementById('ops-panel'),
+      opsSummaryTitle: document.getElementById('ops-summary-title'),
+      opsSummaryCopy: document.getElementById('ops-summary-copy'),
     };
 
     const fmtNum = (value) => {
@@ -2461,6 +2642,16 @@
     const currentPlatform = () => state.modelPlatforms.find((item) => item.id === currentPlatformId()) || null;
     const currentPlatformLabel = () => currentPlatform()?.label || 'Platform';
     const modelRoute = (suffix = '') => `/models/${encodeURIComponent(currentPlatformId())}${suffix}`;
+    const ensureTerminalLoaded = ({ force = false } = {}) => {
+      const terminalSrc = el.terminalFrame.dataset.src || '/terminal/';
+      if (!force && el.terminalFrame.dataset.loaded === 'true') return;
+      if (!force && el.terminalFrame.getAttribute('src') === terminalSrc) {
+        el.terminalFrame.dataset.loaded = 'true';
+        return;
+      }
+      el.terminalFrame.src = terminalSrc;
+      el.terminalFrame.dataset.loaded = 'true';
+    };
 
     const renderPlatformOptions = () => {
       const platforms = state.modelPlatforms || [];
@@ -2707,15 +2898,31 @@
       });
     };
 
+    const renderStatusBlock = () => {
+      const health = state.health?.status || 'unknown';
+      const currentViewLabel = viewMeta[state.view]?.title || 'Operator Console';
+      const modelCount = state.models?.summary?.model_count;
+      const modelPlatform = state.models?.platform_label || currentPlatformLabel();
+      const proposalCount = state.proposals?.length;
+      const lastOp = state.ops[0] || null;
+      el.opsSummaryTitle.textContent = `${currentViewLabel} · memory ${health}`;
+      el.opsSummaryCopy.textContent = lastOp
+        ? `${lastOp.title} · ${lastOp.value}`
+        : 'Collapsed to reduce sidebar noise.';
+      el.opsLog.innerHTML = [
+        `<div class="ops-item"><div class="meta">current view</div><div class="value">${escapeHtml(currentViewLabel)}</div></div>`,
+        `<div class="ops-item"><div class="meta">memory</div><div class="value">${escapeHtml(health)}</div></div>`,
+        `<div class="ops-item"><div class="meta">models</div><div class="value">${escapeHtml(modelCount != null ? `${fmtNum(modelCount)} on ${modelPlatform}` : 'not loaded yet')}</div></div>`,
+        `<div class="ops-item"><div class="meta">review queue</div><div class="value">${escapeHtml(proposalCount != null ? `${fmtNum(proposalCount)} visible proposals` : 'not loaded yet')}</div></div>`,
+        `<div class="ops-item"><div class="meta">build</div><div class="value">${escapeHtml(state.build?.build ? String(state.build.build).slice(0, 19) : 'unknown')}</div></div>`,
+        `<div class="ops-item"><div class="meta">last change</div><div class="value">${escapeHtml(lastOp ? `${lastOp.at} · ${lastOp.title} · ${lastOp.value}` : 'No recent state changes captured yet.')}</div></div>`,
+      ].join('');
+    };
+
     const logOp = (title, value) => {
       state.ops.unshift({ title, value, at: new Date().toLocaleTimeString() });
-      state.ops = state.ops.slice(0, 8);
-      el.opsLog.innerHTML = state.ops.map((item) => `
-        <div class="ops-item">
-          <div class="meta">${escapeHtml(item.at)} · ${escapeHtml(item.title)}</div>
-          <div class="value">${escapeHtml(item.value)}</div>
-        </div>
-      `).join('');
+      state.ops = state.ops.slice(0, 6);
+      renderStatusBlock();
     };
 
     const logTrace = (title, value) => {
@@ -2735,8 +2942,10 @@
       Object.entries(el.views).forEach(([name, node]) => node.classList.toggle('active', name === view));
       el.viewTitle.textContent = viewMeta[view].title;
       el.viewCopy.textContent = viewMeta[view].copy;
+      el.viewCopy.hidden = !viewMeta[view].copy;
       el.memoryToolbar.classList.toggle('hidden', view !== 'memory');
       el.modelsToolbar.classList.toggle('hidden', view !== 'models');
+      if (view === 'terminal') ensureTerminalLoaded();
       logOp('view', viewMeta[view].title);
     };
 
@@ -4087,16 +4296,25 @@
         const summary = summarizeEvent(event);
         const tone = classifyResultTone(summary, 'tone-history');
         const snippet = cleanSnippet(summary?.summary || event?.snippet || '');
+        const sourceLabel = String(summary?.sourceRef || '').split(':')[0] || String(event?.metadata?.filename || event?.source || `event ${origIndex + 1}`);
         rows.push(`
-          <div class="result-item ${tone} ${state.selectedNodeId === id ? 'active' : ''}" data-node-id="${escapeHtml(id)}">
-            <div class="result-title">${escapeHtml(summary?.title || String(event?.title || relationLabel(event) || `event ${origIndex + 1}`))}</div>
-            <div class="meta">${escapeHtml(fmtTime(event?.ts))} · ${escapeHtml(String(event?.metadata?.device || 'unknown'))} · ${escapeHtml(summary?.sourceRef || String(event?.source || 'unknown'))}</div>
-            <div class="result-meta-row">
-              <span class="chip">${escapeHtml(summary?.kind || relationLabel(event))}</span>
-              <span class="chip">${escapeHtml(String(event?.metadata?.provider || ''))}</span>
+          <details class="result-item ${tone} ${state.selectedNodeId === id ? 'active' : ''}" data-node-id="${escapeHtml(id)}">
+            <summary>
+              <div class="result-summary-line">
+                <div class="result-summary-title">${escapeHtml(sourceLabel)}</div>
+                <div class="result-summary-kind">${escapeHtml(summary?.kind || relationLabel(event))}</div>
+              </div>
+              <div class="meta">${escapeHtml(fmtTime(event?.ts))} · ${escapeHtml(String(event?.metadata?.device || 'unknown'))}</div>
+            </summary>
+            <div class="result-detail-body">
+              <div class="result-title">${escapeHtml(summary?.title || String(event?.title || relationLabel(event) || `event ${origIndex + 1}`))}</div>
+              <div class="result-meta-row">
+                <span class="chip">${escapeHtml(summary?.sourceRef || String(event?.source || 'unknown'))}</span>
+                <span class="chip">${escapeHtml(String(event?.metadata?.provider || ''))}</span>
+              </div>
+              ${snippet ? `<div class="result-copy">${escapeHtml(snippet)}</div>` : ''}
             </div>
-            ${snippet ? `<div class="result-copy">${escapeHtml(snippet)}</div>` : ''}
-          </div>
+          </details>
         `);
       });
 
@@ -4105,11 +4323,18 @@
         const id = `aikb-${origIndex}`;
         const snippet = cleanSnippet(hit?.snippet || '');
         rows.push(`
-          <div class="result-item tone-aikb ${state.selectedNodeId === id ? 'active' : ''}" data-node-id="${escapeHtml(id)}">
-            <div class="result-title">${escapeHtml((hit?.path || '').split('/').pop() || `AIKB ${origIndex + 1}`)}</div>
-            <div class="meta">${escapeHtml(hit?.path || 'AIKB')}${hit?.line ? ` : ${escapeHtml(String(hit.line))}` : ''}</div>
-            ${snippet ? `<div class="result-copy">${escapeHtml(snippet)}</div>` : ''}
-          </div>
+          <details class="result-item tone-aikb ${state.selectedNodeId === id ? 'active' : ''}" data-node-id="${escapeHtml(id)}">
+            <summary>
+              <div class="result-summary-line">
+                <div class="result-summary-title">${escapeHtml((hit?.path || '').split('/').pop() || `AIKB ${origIndex + 1}`)}</div>
+                <div class="result-summary-kind">AIKB</div>
+              </div>
+              <div class="meta">${escapeHtml(hit?.path || 'AIKB')}${hit?.line ? ` : ${escapeHtml(String(hit.line))}` : ''}</div>
+            </summary>
+            <div class="result-detail-body">
+              ${snippet ? `<div class="result-copy">${escapeHtml(snippet)}</div>` : '<div class="result-copy">No excerpt available.</div>'}
+            </div>
+          </details>
         `);
       });
 
@@ -4118,6 +4343,11 @@
         : 'No high-signal results. Try a different query.';
       el.resultList.innerHTML = rows.join('') || `<div class="info-card"><div class="value">${emptyMsg}</div></div>`;
       el.resultList.querySelectorAll('[data-node-id]').forEach((node) => {
+        const summary = node.querySelector('summary');
+        if (summary) {
+          summary.addEventListener('click', () => selectNode(node.dataset.nodeId));
+          return;
+        }
         node.addEventListener('click', () => selectNode(node.dataset.nodeId));
       });
     };
@@ -5647,7 +5877,7 @@
     });
     el.terminalReload.addEventListener('click', () => {
       el.terminalStatus.textContent = 'terminal reconnecting';
-      el.terminalFrame.src = '/terminal/';
+      ensureTerminalLoaded({ force: true });
     });
     el.terminalPopout.addEventListener('click', () => window.open('/terminal/', '_blank', 'noopener'));
     el.codePopout.addEventListener('click', () => window.open('https://code.home.timmcg.net', '_blank', 'noopener'));
@@ -5723,17 +5953,19 @@
           if (!state.graph.raf) drawGraph();
         }
       });
-      el.miniMapSvg.addEventListener('click', (event) => {
-        const rect = el.miniMapSvg.getBoundingClientRect();
-        const x = ((event.clientX - rect.left) / rect.width) * (state.graph.width || 1200);
-        const y = ((event.clientY - rect.top) / rect.height) * (state.graph.height || 760);
-        const stageRect = el.graphSvg.getBoundingClientRect();
-        setViewport({
-          panX: stageRect.width / 2 - x * state.graphViewport.scale,
-          panY: stageRect.height / 2 - y * state.graphViewport.scale,
+      if (el.miniMapSvg) {
+        el.miniMapSvg.addEventListener('click', (event) => {
+          const rect = el.miniMapSvg.getBoundingClientRect();
+          const x = ((event.clientX - rect.left) / rect.width) * (state.graph.width || 1200);
+          const y = ((event.clientY - rect.top) / rect.height) * (state.graph.height || 760);
+          const stageRect = el.graphSvg.getBoundingClientRect();
+          setViewport({
+            panX: stageRect.width / 2 - x * state.graphViewport.scale,
+            panY: stageRect.height / 2 - y * state.graphViewport.scale,
+          });
+          drawGraph();
         });
-        drawGraph();
-      });
+      }
     })();
 
     const bootstrap = async () => {
@@ -5741,15 +5973,34 @@
       loadScene();
       syncControlsFromState();
       renderSavedScenes();
+      renderStatusBlock();
       logOp('boot', 'AI Hub Operator Console is loading');
       logTrace('boot', 'Building memory-first interface');
-      await refreshModelPlatforms();
-      await refreshBuild();
-      await refreshStats();
-      await refreshSearch();
-      await refreshReview();
-      await refreshModels();
       setView('memory');
+      await Promise.allSettled([
+        refreshModelPlatforms()
+          .then(() => refreshModels())
+          .catch((err) => {
+            logTrace('models bootstrap error', err.message);
+            throw err;
+          }),
+        refreshBuild().catch((err) => {
+          logTrace('build bootstrap error', err.message);
+          throw err;
+        }),
+        refreshStats().catch((err) => {
+          logTrace('stats bootstrap error', err.message);
+          throw err;
+        }),
+        refreshSearch().catch((err) => {
+          logTrace('search bootstrap error', err.message);
+          throw err;
+        }),
+        refreshReview().catch((err) => {
+          logTrace('review bootstrap error', err.message);
+          throw err;
+        }),
+      ]);
     };
 
     bootstrap().catch((err) => {
