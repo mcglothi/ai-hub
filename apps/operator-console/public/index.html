@@ -5084,7 +5084,7 @@
       el.modelList.querySelectorAll('.model-save-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
           const name = btn.dataset.modelName;
-          const root = btn.closest('[data-model-name]');
+          const root = btn.closest('.model-item');
           const stage = root?.querySelector('.model-stage-input')?.value || 'testing';
           const pinned = root?.querySelector('.model-pin-input')?.checked === true;
           const note = root?.querySelector('.model-note-input')?.value || '';
