@@ -471,6 +471,50 @@
       color: #060b11 !important;
     }
 
+    .metric-meter {
+      height: 24px;
+      min-width: 160px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+    }
+
+    .metric-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      background: linear-gradient(90deg, #8ae6c2 0%, #ffbc7b 60%, #ff8b8b 90%);
+      opacity: 0.25;
+      transition: width 400ms ease;
+      z-index: 1;
+    }
+
+    .metric-content {
+      position: relative;
+      z-index: 2;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: 'IBM Plex Mono', monospace;
+      color: #deedf9;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
     .action-btn.secondary {
       background: rgba(255, 255, 255, 0.05);
     }
@@ -1798,6 +1842,27 @@
           <p id="view-copy"></p>
         </div>
         <div class="pill-row">
+          <div id="gpu-meter" class="metric-meter hidden">
+            <div class="metric-fill"></div>
+            <div class="metric-content">
+              <span class="metric-label">gpu</span>
+              <span class="metric-value">-</span>
+            </div>
+          </div>
+          <div id="memory-meter" class="metric-meter hidden">
+            <div class="metric-fill"></div>
+            <div class="metric-content">
+              <span class="metric-label">mem</span>
+              <span class="metric-value">-</span>
+            </div>
+          </div>
+          <div id="disk-meter" class="metric-meter hidden">
+            <div class="metric-fill"></div>
+            <div class="metric-content">
+              <span class="metric-label">disk</span>
+              <span class="metric-value">-</span>
+            </div>
+          </div>
           <span id="search-summary" class="status-pill mono">query idle</span>
           <span id="proposal-summary" class="status-pill mono">proposals idle</span>
           <span id="selection-pill" class="status-pill mono">selection none</span>
@@ -2489,6 +2554,9 @@
       searchSummary: document.getElementById('search-summary'),
       proposalSummary: document.getElementById('proposal-summary'),
       selectionPill: document.getElementById('selection-pill'),
+      gpuMeter: document.getElementById('gpu-meter'),
+      memoryMeter: document.getElementById('memory-meter'),
+      diskMeter: document.getElementById('disk-meter'),
       sourceChip: document.getElementById('source-chip'),
       latencyChip: document.getElementById('latency-chip'),
       metricHealth: document.getElementById('metric-health'),
@@ -2963,6 +3031,7 @@
       el.memoryToolbar.classList.toggle('hidden', view !== 'memory');
       el.modelsToolbar.classList.toggle('hidden', view !== 'models');
       if (view === 'terminal') ensureTerminalLoaded();
+      renderMeters();
       logOp('view', viewMeta[view].title);
     };
 
@@ -4956,6 +5025,45 @@
       return trimmed.length ? trimmed : detailLabels;
     };
 
+    const renderMeters = () => {
+      const out = state.models || {};
+      const showMeters = state.view === 'models';
+      
+      const updateMeter = (meterEl, data, label) => {
+        if (!meterEl) return;
+        if (!showMeters || !data || typeof data.used_bytes !== 'number' || typeof data.total_bytes !== 'number') {
+          meterEl.classList.add('hidden');
+          return;
+        }
+        meterEl.classList.remove('hidden');
+        const percent = Math.max(0, Math.min(100, Math.round((data.used_bytes / data.total_bytes) * 100)));
+        const fill = meterEl.querySelector('.metric-fill');
+        const value = meterEl.querySelector('.metric-value');
+        if (fill) {
+          fill.style.width = `${percent}%`;
+          fill.style.opacity = percent > 85 ? '0.6' : percent > 60 ? '0.45' : '0.25';
+        }
+        if (value) {
+          const used = fmtBytes(data.used_bytes);
+          const total = fmtBytes(data.total_bytes);
+          if (label === 'gpu' && typeof data.utilization_percent === 'number') {
+            value.textContent = `${data.utilization_percent}% util · ${used} / ${total} vram`;
+          } else {
+            value.textContent = `${percent}% · ${used} / ${total}`;
+          }
+        }
+      };
+
+      updateMeter(el.gpuMeter, out.gpu, 'gpu');
+      updateMeter(el.memoryMeter, out.host_memory, 'mem');
+      
+      const diskData = out.disk ? {
+        used_bytes: out.disk.used_bytes,
+        total_bytes: out.disk.total_bytes
+      } : null;
+      updateMeter(el.diskMeter, diskData, 'disk');
+    };
+
     const refreshModelsSummary = () => {
       const summary = state.models?.summary || {};
       const disk = state.models?.disk || null;
@@ -4970,6 +5078,7 @@
       el.modelsPlatformIdentity.innerHTML = platform
         ? `<strong>${escapeHtml(platform.label)}</strong> · ${escapeHtml(platform.profile || 'device profile not set')} · ${escapeHtml(platform.memory_label || platform.speed_label || 'memory profile pending')}`
         : 'Selected device profile pending.';
+      renderMeters();
 
       const containers = state.models?.containers || [];
       el.modelsLiveContext.innerHTML = [

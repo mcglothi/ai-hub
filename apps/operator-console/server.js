@@ -95,6 +95,8 @@ const PLATFORM_CONFIGS = {
     memoryReserveBytes: HOPPER_MEMORY_RESERVE_BYTES,
     laptimeHardwareId: 'dgx-spark-gb10',
     speedLabel: 'DGX Spark / GB10',
+    hostMemoryCommand: 'free -b',
+    gpuCommand: 'nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits && nvidia-smi',
   },
   newton: {
     id: 'newton',
@@ -110,6 +112,8 @@ const PLATFORM_CONFIGS = {
     memoryReserveBytes: NEWTON_MEMORY_RESERVE_BYTES,
     laptimeHardwareId: process.env.NEWTON_LAPTIME_HARDWARE_ID || 'dgx-spark-gb10',
     speedLabel: process.env.NEWTON_SPEED_LABEL || 'DGX Spark / GB10',
+    hostMemoryCommand: 'top -l 1 | grep "PhysMem:"',
+    gpuCommand: '', // Newton is M5 Max unified memory, separate GPU metrics are complex without external tools
   },
 };
 
@@ -1263,14 +1267,63 @@ async function resolveCandidateModelProfile(platform, { model = '', repo = '', q
   };
 }
 
+function parseHostMemory(stdout, platformId) {
+  if (!stdout) return null;
+  if (platformId === 'newton' || stdout.includes('PhysMem:')) {
+    // macOS: PhysMem: 40G used (10G wired), 88G unused.
+    const usedMatch = stdout.match(/PhysMem:\s+(\d+)([GMBK])\s+used/i);
+    const unusedMatch = stdout.match(/(\d+)([GMBK])\s+unused/i);
+    if (usedMatch && unusedMatch) {
+      const used = parseHumanSizeToBytes(`${usedMatch[1]}${usedMatch[2]}`);
+      const free = parseHumanSizeToBytes(`${unusedMatch[1]}${unusedMatch[2]}`);
+      return { total_bytes: used + free, used_bytes: used, free_bytes: free };
+    }
+    return null;
+  }
+  // Linux (free -b)
+  const lines = stdout.trim().split('\n');
+  const memLine = lines.find((l) => l.startsWith('Mem:'));
+  if (memLine) {
+    const parts = memLine.split(/\s+/);
+    return {
+      total_bytes: parseInt(parts[1], 10),
+      used_bytes: parseInt(parts[2], 10),
+      free_bytes: parseInt(parts[3], 10) + parseInt(parts[5], 10) + parseInt(parts[6], 10), // free + buffers + cache
+    };
+  }
+  return null;
+}
+
+function parseGpuMetrics(stdout, platformId) {
+  if (!stdout || platformId !== 'hopper') return null;
+  const lines = stdout.trim().split('\n');
+  const util = parseInt(lines[0], 10);
+  
+  // Parse processes to estimate used memory
+  const procLines = lines.filter(l => l.includes('MiB') && (l.includes(' C ') || l.includes(' G ')));
+  let usedMiB = 0;
+  for (const line of procLines) {
+    const match = line.match(/(\d+)MiB/);
+    if (match) usedMiB += parseInt(match[1], 10);
+  }
+  
+  return {
+    utilization_percent: isNaN(util) ? null : util,
+    used_bytes: usedMiB * 1024 * 1024,
+    total_bytes: 128 * 1024 * 1024 * 1024, // Assumed for GB10 in this lab context
+  };
+}
+
 async function getPlatformModelInventory(platform) {
   const metadata = await readPlatformModelMetadata(platform);
-  const [hostnameOut, dockerPsOut, listOut, psOut, diskOut] = await Promise.all([
+  const [hostnameOut, dockerPsOut, listOut, psOut, diskOut, hostMemOut, gpuOut] = await Promise.all([
     runPlatformCommand(platform, 'hostname', { timeoutMs: 8000 }),
     runPlatformDocker(platform, ['ps', '--format', 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}']),
     runPlatformDocker(platform, ['exec', platform.ollamaContainer, 'ollama', 'list'], { timeoutMs: 25000 }),
     runPlatformDocker(platform, ['exec', platform.ollamaContainer, 'ollama', 'ps'], { timeoutMs: 15000 }),
     runPlatformCommand(platform, `df -B1 ${shellQuote(platform.modelDataPath)}`, { timeoutMs: 8000 }),
+    platform.hostMemoryCommand ? runPlatformCommand(platform, platform.hostMemoryCommand, { timeoutMs: 8000 }) : Promise.resolve({ stdout: '' }),
+    platform.gpuCommand ? runPlatformCommand(platform, platform.gpuCommand, { timeoutMs: 12000 }) : Promise.resolve({ stdout: '' }),
   ]);
 
   const loadedNames = new Set(
@@ -1343,6 +1396,8 @@ async function getPlatformModelInventory(platform) {
     target: platform.host,
     ollama_container: platform.ollamaContainer,
     model_data_path: platform.modelDataPath,
+    host_memory: parseHostMemory(hostMemOut.stdout, platform.id),
+    gpu: parseGpuMetrics(gpuOut.stdout, platform.id),
     disk: disk ? {
       ...disk,
       total: formatBytes(disk.total_bytes),
