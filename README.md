@@ -21,28 +21,37 @@ Together they form a home-lab-native stack for running local models and agent wo
 
 ### Explore Memory
 
-Search memory, inspect graph relationships, review provenance, and keep nearby evidence visible while navigating AIKB-backed results.
+Search Memory Core, inspect AIKB-backed relationships, and work from a map-first interface where the graph stays in view while the evidence stream remains ranked and filterable.
 
 ![Explore Memory](assets/screenshots/memory-explorer.png)
 
 ### Review Proposals
 
-Harvest runtime memory proposals, review queue recommendations, and apply durable knowledge into AIKB with a cleaner operator workflow.
+Harvest runtime memory proposals, review recommendation cues, preview canonical updates, and apply durable knowledge into AIKB without leaving the console.
 
 ![Review Proposals](assets/screenshots/review-harvest.png)
 
 ### Model Stewardship
 
-Manage the model fleet on real hardware, inspect Hugging Face repos, choose GGUF quants, stage cleanup safely, and pull models directly into the selected platform.
+Manage the model fleet on real hardware, inspect Hugging Face repos, choose GGUF quants, compare platform fit, stage cleanup safely, and pull models directly into the selected target.
 
 ![Model Stewardship](assets/screenshots/models-stewardship.png)
 
+### Terminal + Code Adjacency
+
+Keep the embedded terminal proxy and code-server close to the operator console so search, review, and live repo edits can happen in one workspace.
+
+### Sessions Service
+
+Run persistent, tmux-backed Claude, Gemini, and Codex sessions through the companion FastAPI service for host-level continuity across devices.
+
 ## Core Capabilities
 
-- **Memory-First Operator Console:** Graph exploration, provenance, and review/apply flows.
-- **Model Stewardship:** Hugging Face search, repo inspection, quant-aware import prep, and Ollama pull workflows.
-- **Fleet Management:** Per-platform model inventory with notes, stages, cleanup cues, and loaded-state visibility.
-- **Operator Ergonomics:** Embedded terminal and code adjacency for fast operational edits.
+- **Map-Primary Memory Exploration:** Viewport-locked graph canvas, floating controls, topic-node filtering, evidence scoring, path tracing, file filters, and saved scenes in one surface.
+- **Proposal Review Workflow:** Harvest, triage, preview, approve, reject, save, and apply proposal candidates into AIKB from the same operator console.
+- **Model Stewardship:** Hugging Face search, repo inspection, quant-aware import prep, multi-platform fit context, and Ollama pull workflows.
+- **Fleet Management:** Per-platform model inventory with notes, stages, cleanup cues, loaded-state visibility, and remote host awareness.
+- **Operator Ergonomics:** Embedded terminal proxy and code-server adjacency for fast operational edits.
 - **Persistent Sessions:** Session inventory and tmux-backed orchestration through the sessions service.
 
 ## Repository Layout
@@ -73,27 +82,29 @@ Browser
   -> AI Hub Operator Console (:3001)
     -> Memory Core search + proposal APIs
     -> AIKB preview/apply flows
-    -> Hugging Face search + model fit estimation
-    -> Ollama platform inventory / pull / cleanup workflows
+    -> ranked evidence stream + topic graph filters
+    -> Hugging Face search + quant inspection + model fit estimation
+    -> per-platform Ollama inventory / pull / cleanup workflows
     -> ttyd terminal proxy
     -> code-server adjacency
 
 Browser
   -> AI Hub Sessions (:8090)
-    -> FastAPI + tmux-backed session orchestration
+    -> FastAPI + tmux-backed provider session orchestration
 ```
 
 ## Deployment Status
 
 - `apps/operator-console` is the primary AI Hub surface and active operator entrypoint.
-- `apps/sessions` is the repo-backed session service for persistent workflows.
+- `apps/operator-console` currently includes Explore Memory, Review Proposals, Model Stewardship, Terminal, and Code surfaces.
+- `apps/sessions` is the repo-backed session service for persistent Claude/Gemini/Codex workflows.
 - `apps/chat-wrapper` remains in-tree as a legacy fallback path, not the main product surface.
 - Operational deployment details live in AIKB and the companion Ansible repo.
 
 ## Near-Term Direction
 
 - Bring platform/device configuration into a first-class settings surface
-- Continue improving model grouping, visual hierarchy, and operator ergonomics
+- Continue improving the memory explorer's visual hierarchy, evidence controls, and operator ergonomics
 - Add stronger CI checks for JavaScript and Python services
 - Capture more product documentation and architecture notes directly in this repo
 
