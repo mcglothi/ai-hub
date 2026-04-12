@@ -2063,6 +2063,7 @@
       fileFilter: '',
       selectedNodeId: null,
       selectedEdgeId: null,
+      hoveredNodeId: null,
       selectedProposalId: null,
       reviewPreview: null,
       graph: { nodes: [], edges: [], raf: 0 },
@@ -3250,14 +3251,17 @@
       if (!nodes.length) return;
 
       let ticks = 0;
+      let alpha = 1.0;
       const width = graph.width;
       const height = graph.height;
+      const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
       const step = () => {
         ticks += 1;
         const motion = state.graphControls.motion;
         const springFactor = motion === 'calm' ? 0.42 : motion === 'pinned' ? 0.12 : 0.68;
         const damping = motion === 'calm' ? 0.82 : motion === 'pinned' ? 0.76 : 0.88;
+        alpha *= 0.96;
 
         for (let i = 0; i < nodes.length; i++) {
           const a = nodes[i];
@@ -3269,8 +3273,8 @@
             const b = nodes[j];
             const dx = a.x - b.x;
             const dy = a.y - b.y;
-            const d2 = Math.max(140, dx * dx + dy * dy);
-            const repulse = (1500 / d2) * springFactor;
+            const d2 = Math.max(900, dx * dx + dy * dy);
+            const repulse = (5000 / d2) * springFactor * alpha;
             const dist = Math.sqrt(d2);
             const fx = (dx / dist) * repulse;
             const fy = (dy / dist) * repulse;
@@ -3280,14 +3284,14 @@
         }
 
         edges.forEach((edge) => {
-          const from = nodes.find((node) => node.id === edge.from);
-          const to = nodes.find((node) => node.id === edge.to);
+          const from = nodeMap.get(edge.from);
+          const to = nodeMap.get(edge.to);
           if (!from || !to) return;
           const dx = to.x - from.x;
           const dy = to.y - from.y;
           const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-          const target = 132 - edge.weight * 12;
-          const spring = (dist - target) * 0.0052 * springFactor;
+          const target = 155 - edge.weight * 12;
+          const spring = (dist - target) * 0.006 * springFactor * alpha;
           const fx = (dx / dist) * spring;
           const fy = (dy / dist) * spring;
           if (!from.fixed) { from.vx += fx; from.vy += fy; }
@@ -3296,17 +3300,22 @@
 
         nodes.forEach((node) => {
           if (node.id === 'query') {
-            node.x += (width * 0.5 - node.x) * 0.045 * springFactor;
-            node.y += (height * 0.48 - node.y) * 0.045 * springFactor;
+            node.x += (width * 0.5 - node.x) * 0.055 * springFactor;
+            node.y += (height * 0.48 - node.y) * 0.055 * springFactor;
             return;
           }
           if (node.fixed) return;
-          node.x = clamp(node.x + node.vx, 32, width - 32);
-          node.y = clamp(node.y + node.vy, 32, height - 32);
+          node.x = clamp(node.x + node.vx, 36, width - 36);
+          node.y = clamp(node.y + node.vy, 36, height - 36);
         });
 
-        drawGraph();
-        if (motion !== 'pinned' && ticks < 140) state.graph.raf = requestAnimationFrame(step);
+        if (ticks % 2 === 0) drawGraph();
+        const shouldContinue = motion !== 'pinned' && alpha > 0.008 && ticks < 200;
+        if (shouldContinue) {
+          state.graph.raf = requestAnimationFrame(step);
+        } else {
+          if (ticks % 2 !== 0) drawGraph();
+        }
       };
 
       state.graph.raf = requestAnimationFrame(step);
@@ -3416,6 +3425,7 @@
       const svg = el.graphSvg;
       const ns = 'http://www.w3.org/2000/svg';
       const visualPreset = graphVisualPreset();
+      const vpScale = state.graphViewport.scale;
       svg.innerHTML = '';
 
       const defs = document.createElementNS(ns, 'defs');
@@ -3427,12 +3437,30 @@
             <feMergeNode in="SourceGraphic"></feMergeNode>
           </feMerge>
         </filter>
+        <filter id="node-glow-soft" x="-70%" y="-70%" width="240%" height="240%">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+        <filter id="node-glow-strong" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="7" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
       `;
       svg.appendChild(defs);
 
       const viewportGroup = document.createElementNS(ns, 'g');
       viewportGroup.setAttribute('transform', `translate(${state.graphViewport.panX} ${state.graphViewport.panY}) scale(${state.graphViewport.scale})`);
       svg.appendChild(viewportGroup);
+
+      const focusId = state.hoveredNodeId || state.selectedNodeId;
+      const focusNeighbors = focusId ? new Set(neighborIds(focusId)) : null;
+      const hasFocus = !!focusId;
 
       const activeEdgeIds = new Set();
       for (let i = 0; i < state.activePath.length - 1; i++) {
@@ -3444,6 +3472,10 @@
         const from = nodeById(edge.from);
         const to = nodeById(edge.to);
         if (!from || !to) return;
+
+        const isFocusedEdge = hasFocus && (edge.from === focusId || edge.to === focusId);
+        const edgeDimmed = hasFocus && !isFocusedEdge && !activeEdgeIds.has(edge.id);
+
         const gradient = document.createElementNS(ns, 'linearGradient');
         const gradientId = `edge-grad-${hashString(edge.id)}`;
         gradient.setAttribute('id', gradientId);
@@ -3453,21 +3485,33 @@
         gradient.setAttribute('x2', String(to.x));
         gradient.setAttribute('y2', String(to.y));
         gradient.innerHTML = `
-          <stop offset="0%" stop-color="${from.fill}" stop-opacity="0.18"></stop>
-          <stop offset="50%" stop-color="${blendHex(from.fill, to.fill, 0.5)}" stop-opacity="0.4"></stop>
-          <stop offset="100%" stop-color="${to.fill}" stop-opacity="0.2"></stop>
+          <stop offset="0%" stop-color="${from.fill}" stop-opacity="0.22"></stop>
+          <stop offset="50%" stop-color="${blendHex(from.fill, to.fill, 0.5)}" stop-opacity="0.48"></stop>
+          <stop offset="100%" stop-color="${to.fill}" stop-opacity="0.22"></stop>
         `;
         defs.appendChild(gradient);
+
         const path = document.createElementNS(ns, 'path');
         const curve = `M ${from.x} ${from.y} Q ${(from.x + to.x) / 2} ${((from.y + to.y) / 2) - 28} ${to.x} ${to.y}`;
         const pathActive = activeEdgeIds.has(`${edge.from}::${edge.to}`);
         const edgeSelected = state.selectedEdgeId === edge.id;
         path.setAttribute('d', curve);
         path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', edgeSelected ? 'rgba(198, 232, 255, 0.96)' : pathActive ? colorAlpha('#ffbc7b', visualPreset.edgeAccent) : state.selectedNodeId && (edge.from === state.selectedNodeId || edge.to === state.selectedNodeId) ? colorAlpha(from.fill, 0.58) : `url(#${gradientId})`);
-        path.setAttribute('stroke-width', String(edgeSelected ? edge.weight * 1.75 : pathActive ? edge.weight * 1.4 : Math.max(1.1, edge.weight * 0.82)));
+        path.setAttribute('stroke', edgeSelected
+          ? 'rgba(198, 232, 255, 0.96)'
+          : pathActive
+            ? colorAlpha('#ffbc7b', visualPreset.edgeAccent)
+            : isFocusedEdge
+              ? colorAlpha(from.fill, 0.72)
+              : `url(#${gradientId})`);
+        path.setAttribute('stroke-width', String(
+          edgeSelected ? edge.weight * 1.75
+            : pathActive ? edge.weight * 1.4
+              : isFocusedEdge ? Math.max(1.5, edge.weight * 1.1)
+                : Math.max(1.1, edge.weight * 0.82)
+        ));
         path.setAttribute('stroke-linecap', 'round');
-        path.setAttribute('opacity', edgeSelected ? '1' : pathActive ? '0.9' : String(visualPreset.edgeOpacity));
+        path.setAttribute('opacity', edgeSelected ? '1' : pathActive ? '0.9' : edgeDimmed ? '0.06' : isFocusedEdge ? '0.88' : String(visualPreset.edgeOpacity));
         path.style.cursor = 'pointer';
         path.addEventListener('click', (event) => {
           event.stopPropagation();
@@ -3481,45 +3525,104 @@
         group.style.cursor = 'pointer';
         const pathActive = state.activePath.includes(node.id);
         const renderRadius = renderRadiusForNode(node);
+        const isSelected = state.selectedNodeId === node.id;
+        const isHovered = state.hoveredNodeId === node.id;
+        const isFocal = node.id === focusId;
+        const isNeighbor = focusNeighbors && focusNeighbors.has(node.id);
+        const isDimmed = hasFocus && !isFocal && !isNeighbor;
+        const displayR = isHovered ? renderRadius * 1.14 : isSelected ? renderRadius * 1.08 : renderRadius;
+
+        group.setAttribute('opacity', isDimmed ? '0.16' : '1');
 
         const circle = document.createElementNS(ns, 'circle');
         circle.setAttribute('cx', String(node.x));
         circle.setAttribute('cy', String(node.y));
-        circle.setAttribute('r', String(renderRadius));
+        circle.setAttribute('r', String(displayR));
         circle.setAttribute('fill', node.fill);
-        circle.setAttribute('stroke', state.selectedNodeId === node.id ? '#f7fcff' : pathActive ? '#ffd7a4' : colorAlpha(node.fill, 0.35));
-        circle.setAttribute('stroke-width', state.selectedNodeId === node.id ? '2' : pathActive ? '1.45' : '0.9');
+        circle.setAttribute('stroke', isSelected || isHovered ? '#f7fcff' : pathActive ? '#ffd7a4' : colorAlpha(node.fill, 0.38));
+        circle.setAttribute('stroke-width', isSelected || isHovered ? '2.5' : pathActive ? '1.45' : '1.0');
+        circle.setAttribute('filter', node.kind === 'query' || isSelected || isHovered ? 'url(#node-glow-strong)' : 'url(#node-glow-soft)');
         group.appendChild(circle);
 
-        const core = document.createElementNS(ns, 'circle');
-        core.setAttribute('cx', String(node.x));
-        core.setAttribute('cy', String(node.y));
-        core.setAttribute('r', String(Math.max(1.8, renderRadius * 0.24)));
-        core.setAttribute('fill', blendHex(node.fill, '#ffffff', 0.48));
-        core.setAttribute('opacity', node.kind === 'query' ? '0.95' : '0.82');
-        group.appendChild(core);
+        // Specular highlight (replaces old bullseye core)
+        const spec = document.createElementNS(ns, 'circle');
+        spec.setAttribute('cx', String(node.x - displayR * 0.24));
+        spec.setAttribute('cy', String(node.y - displayR * 0.24));
+        spec.setAttribute('r', String(Math.max(1.2, displayR * 0.2)));
+        spec.setAttribute('fill', blendHex(node.fill, '#ffffff', 0.62));
+        spec.setAttribute('opacity', node.kind === 'query' ? '0.7' : '0.38');
+        spec.setAttribute('pointer-events', 'none');
+        group.appendChild(spec);
 
-        const labelWidth = Math.min(224, Math.max(86, node.label.length * 7.2 + 20));
-        const labelBg = document.createElementNS(ns, 'rect');
-        labelBg.setAttribute('x', String(node.x + renderRadius + 4));
-        labelBg.setAttribute('y', String(node.y - 12));
-        labelBg.setAttribute('width', String(labelWidth));
-        labelBg.setAttribute('height', '22');
-        labelBg.setAttribute('rx', '11');
-        labelBg.setAttribute('fill', `rgba(6, 11, 17, ${visualPreset.labelOpacity})`);
-        labelBg.setAttribute('stroke', colorAlpha(node.fill, 0.3));
-        labelBg.setAttribute('stroke-width', '0.8');
-        group.appendChild(labelBg);
+        // Label: below node, centered, zoom-dependent visibility
+        const showLabel = (
+          node.id === 'query' ||
+          isSelected ||
+          isHovered ||
+          vpScale >= 0.92 ||
+          (vpScale >= 0.74 && node.kind === 'topic' && (node.heat || 0) > 0.85) ||
+          (vpScale >= 0.82 && node.kind === 'topic')
+        );
 
-        const text = document.createElementNS(ns, 'text');
-        text.setAttribute('x', String(node.x + renderRadius + 8));
-        text.setAttribute('y', String(node.y + 4));
-        text.setAttribute('fill', '#eff7ff');
-        text.setAttribute('font-size', '11');
-        text.setAttribute('font-family', 'IBM Plex Mono, monospace');
-        text.setAttribute('filter', 'url(#text-glow)');
-        text.textContent = node.label.slice(0, 30);
-        group.appendChild(text);
+        if (showLabel) {
+          const truncLabel = node.label.slice(0, 24);
+          const labelWidth = Math.min(176, Math.max(48, truncLabel.length * 6.4 + 16));
+          const labelY = node.y + displayR + 5;
+
+          const labelBg = document.createElementNS(ns, 'rect');
+          labelBg.setAttribute('x', String(node.x - labelWidth / 2));
+          labelBg.setAttribute('y', String(labelY));
+          labelBg.setAttribute('width', String(labelWidth));
+          labelBg.setAttribute('height', '15');
+          labelBg.setAttribute('rx', '7.5');
+          labelBg.setAttribute('fill', isHovered || isSelected ? 'rgba(6, 11, 17, 0.9)' : `rgba(6, 11, 17, ${(visualPreset.labelOpacity + 0.22).toFixed(2)})`);
+          labelBg.setAttribute('stroke', colorAlpha(node.fill, isHovered || isSelected ? 0.62 : 0.28));
+          labelBg.setAttribute('stroke-width', isHovered || isSelected ? '1.0' : '0.7');
+          labelBg.setAttribute('pointer-events', 'none');
+          group.appendChild(labelBg);
+
+          const text = document.createElementNS(ns, 'text');
+          text.setAttribute('x', String(node.x));
+          text.setAttribute('y', String(labelY + 10.5));
+          text.setAttribute('fill', isHovered || isSelected ? '#ffffff' : '#eff7ff');
+          text.setAttribute('font-size', '10');
+          text.setAttribute('font-family', 'IBM Plex Mono, monospace');
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('filter', 'url(#text-glow)');
+          text.setAttribute('pointer-events', 'none');
+          text.textContent = truncLabel;
+          group.appendChild(text);
+
+          // Hover tooltip: secondary detail line
+          if (isHovered && node.detail) {
+            const tipText = String(node.detail || '').slice(0, 52);
+            const tipWidth = Math.min(210, Math.max(64, tipText.length * 5.6 + 16));
+            const tipY = labelY + 20;
+
+            const tipBg = document.createElementNS(ns, 'rect');
+            tipBg.setAttribute('x', String(node.x - tipWidth / 2));
+            tipBg.setAttribute('y', String(tipY));
+            tipBg.setAttribute('width', String(tipWidth));
+            tipBg.setAttribute('height', '14');
+            tipBg.setAttribute('rx', '7');
+            tipBg.setAttribute('fill', 'rgba(4, 8, 14, 0.92)');
+            tipBg.setAttribute('stroke', 'rgba(147,185,220,0.18)');
+            tipBg.setAttribute('stroke-width', '0.6');
+            tipBg.setAttribute('pointer-events', 'none');
+            group.appendChild(tipBg);
+
+            const tipTxt = document.createElementNS(ns, 'text');
+            tipTxt.setAttribute('x', String(node.x));
+            tipTxt.setAttribute('y', String(tipY + 9.5));
+            tipTxt.setAttribute('fill', '#7a94ad');
+            tipTxt.setAttribute('font-size', '9');
+            tipTxt.setAttribute('font-family', 'IBM Plex Mono, monospace');
+            tipTxt.setAttribute('text-anchor', 'middle');
+            tipTxt.setAttribute('pointer-events', 'none');
+            tipTxt.textContent = tipText;
+            group.appendChild(tipTxt);
+          }
+        }
 
         let dragging = false;
         group.addEventListener('pointerdown', (event) => {
@@ -5318,16 +5421,34 @@
         el.graphSvg.setPointerCapture(event.pointerId);
       });
       el.graphSvg.addEventListener('pointermove', (event) => {
-        if (!panning) return;
-        const dx = event.clientX - lastX;
-        const dy = event.clientY - lastY;
-        lastX = event.clientX;
-        lastY = event.clientY;
-        setViewport({
-          panX: state.graphViewport.panX + dx,
-          panY: state.graphViewport.panY + dy,
-        });
-        drawGraph();
+        if (panning) {
+          const dx = event.clientX - lastX;
+          const dy = event.clientY - lastY;
+          lastX = event.clientX;
+          lastY = event.clientY;
+          setViewport({
+            panX: state.graphViewport.panX + dx,
+            panY: state.graphViewport.panY + dy,
+          });
+          drawGraph();
+          return;
+        }
+        // Hover hit-test (not panning)
+        const rect = el.graphSvg.getBoundingClientRect();
+        const raw = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
+        const gx = (raw.x / rect.width) * (state.graph.width || 1200);
+        const gy = (raw.y / rect.height) * (state.graph.height || 760);
+        let hit = null;
+        for (const node of state.graph.nodes) {
+          const r = renderRadiusForNode(node) + 5;
+          const dx = gx - node.x;
+          const dy = gy - node.y;
+          if (dx * dx + dy * dy <= r * r) { hit = node.id; break; }
+        }
+        if (hit !== state.hoveredNodeId) {
+          state.hoveredNodeId = hit;
+          if (!state.graph.raf) drawGraph();
+        }
       });
       const stopPan = (event) => {
         if (!panning) return;
@@ -5338,6 +5459,12 @@
       };
       el.graphSvg.addEventListener('pointerup', stopPan);
       el.graphSvg.addEventListener('pointercancel', stopPan);
+      el.graphSvg.addEventListener('pointerleave', () => {
+        if (state.hoveredNodeId !== null) {
+          state.hoveredNodeId = null;
+          if (!state.graph.raf) drawGraph();
+        }
+      });
       el.miniMapSvg.addEventListener('click', (event) => {
         const rect = el.miniMapSvg.getBoundingClientRect();
         const x = ((event.clientX - rect.left) / rect.width) * (state.graph.width || 1200);
