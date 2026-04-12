@@ -474,7 +474,7 @@
     .metric-meter {
       height: 24px;
       min-width: 160px;
-      background: rgba(255, 255, 255, 0.05);
+      background: #060b11;
       border: 1px solid var(--line);
       border-radius: 8px;
       position: relative;
@@ -489,8 +489,8 @@
       left: 0;
       top: 0;
       height: 100%;
-      background: linear-gradient(90deg, #8ae6c2 0%, #ffbc7b 60%, #ff8b8b 90%);
-      opacity: 0.25;
+      background: linear-gradient(90deg, #4ade80 0%, #fbbf24 60%, #f87171 90%);
+      opacity: 0.8;
       transition: width 400ms ease;
       z-index: 1;
     }
@@ -5041,7 +5041,6 @@
         const value = meterEl.querySelector('.metric-value');
         if (fill) {
           fill.style.width = `${percent}%`;
-          fill.style.opacity = percent > 85 ? '0.6' : percent > 60 ? '0.45' : '0.25';
         }
         if (value) {
           const used = fmtBytes(data.used_bytes);
