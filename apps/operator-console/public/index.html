@@ -460,6 +460,17 @@
       border-color: #8ae6c2 !important;
     }
 
+    .model-load-btn.is-loaded {
+      background: rgba(255, 188, 123, 0.1) !important;
+      color: #ffbc7b !important;
+      border-color: rgba(255, 188, 123, 0.3) !important;
+    }
+
+    .model-load-btn.is-loaded:hover {
+      background: #ffbc7b !important;
+      color: #060b11 !important;
+    }
+
     .action-btn.secondary {
       background: rgba(255, 255, 255, 0.05);
     }
@@ -5049,7 +5060,7 @@
                   <label class="chip"><input type="checkbox" class="model-pin-input" data-model-name="${escapeHtml(model.name)}" ${pinned ? 'checked' : ''}> pinned</label>
                   <input class="text-input model-note-input" data-model-name="${escapeHtml(model.name)}" type="text" value="${escapeHtml(note)}" placeholder="note why this lane exists or what to remember">
                   <button class="action-btn secondary model-save-btn" data-model-name="${escapeHtml(model.name)}" type="button">Save Meta</button>
-                  <button class="action-btn secondary model-load-btn" data-model-name="${escapeHtml(model.name)}" type="button" ${model.loaded ? 'disabled' : ''}>Load</button>
+                  <button class="action-btn secondary model-load-btn ${model.loaded ? 'is-loaded' : ''}" data-model-name="${escapeHtml(model.name)}" data-loaded="${model.loaded}" type="button">${model.loaded ? 'Unload' : 'Load'}</button>
                   <button class="action-btn secondary model-remove-btn" data-model-name="${escapeHtml(model.name)}" type="button" ${model.loaded ? 'disabled' : ''}>Delete</button>
                 </div>
               </div>
@@ -5129,21 +5140,22 @@
       el.modelList.querySelectorAll('.model-load-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
           const name = btn.dataset.modelName;
+          const isLoaded = btn.dataset.loaded === 'true';
           const originalText = btn.textContent;
           btn.disabled = true;
-          btn.textContent = 'Loading...';
+          btn.textContent = isLoaded ? 'Unloading...' : 'Loading...';
 
           fetchJson(modelRoute('/load'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: name, keep_alive: '1h' }),
+            body: JSON.stringify({ model: name, keep_alive: isLoaded ? '0' : '1h' }),
           })
             .then(() => {
-              btn.textContent = 'Loaded!';
+              btn.textContent = isLoaded ? 'Unloaded!' : 'Loaded!';
               btn.classList.add('success');
               return refreshModels({ skipRender: true });
             })
-            .then(() => logTrace('model load', `${name} pre-loaded (1h keep-alive)`))
+            .then(() => logTrace('model load', isLoaded ? `${name} unloaded` : `${name} pre-loaded (1h keep-alive)`))
             .catch((err) => {
               btn.textContent = 'Error';
               logTrace('model load error', err.message);
