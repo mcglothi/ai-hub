@@ -453,8 +453,6 @@
       display: grid;
       grid-template-rows: auto auto auto 1fr;
       min-height: min-content;
-      position: sticky;
-      top: 0;
     }
 
     .legend {
@@ -923,6 +921,11 @@
       min-height: min-content;
       grid-template-rows: auto auto auto auto;
       align-content: start;
+      align-self: start;
+      position: sticky;
+      top: 14px;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
     }
 
     .side-grid {
@@ -1667,9 +1670,6 @@
                   <button id="graph-fit-btn" class="mini-btn" type="button">Fit</button>
                   <button id="graph-zoom-out-btn" class="mini-btn" type="button">−</button>
                   <button id="graph-zoom-in-btn" class="mini-btn" type="button">+</button>
-                </div>
-                <div class="mini-map">
-                  <svg id="mini-map-svg" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid meet"></svg>
                 </div>
                 <div id="graph-viewport-note" class="graph-note">zoom 1.00x · centered</div>
               </div>
@@ -3761,6 +3761,7 @@
 
     const drawMiniMap = () => {
       const svg = el.miniMapSvg;
+      if (!svg) return;
       const ns = 'http://www.w3.org/2000/svg';
       svg.innerHTML = '';
       state.graph.edges.forEach((edge) => {
@@ -3937,15 +3938,44 @@
       });
     };
 
+    const cleanSnippet = (text) => {
+      if (!text) return '';
+      const s = String(text).replace(/\s+/g, ' ').trim();
+      // Detect low-signal content: mostly punctuation/paths/JSON
+      const nonAlpha = (s.match(/[^a-zA-Z0-9 ]/g) || []).length;
+      if (nonAlpha > s.length * 0.55) return '';
+      // Strip leading JSON syntax
+      const cleaned = s.replace(/^[\[\]{},\s"']+/, '').replace(/[\[\]{},\s"']+$/, '').trim();
+      return cleaned.slice(0, 280);
+    };
+
+    const eventSignalScore = (event) => {
+      const summary = summarizeEvent(event);
+      if (!topicEligibleRecord(summary)) return -1;
+      const weight = topicWeightForRecord(summary);
+      const snippet = cleanSnippet(summary?.summary || event?.snippet || '');
+      // Penalise if cleaned snippet is empty (file reads, JSON dumps, etc.)
+      const snippetBonus = snippet.length > 30 ? 0.4 : snippet.length > 0 ? 0.1 : -0.6;
+      return weight + snippetBonus;
+    };
+
     const renderResults = () => {
-      const events = state.search?.events || [];
+      const allEvents = state.search?.events || [];
       const hits = state.search?.aikb || [];
       const hasFilters = state.topicFilters.size > 0;
 
-      const eventMatchesFilters = (event) => {
+      // Score and sort events: eligible ones first, sorted by signal quality
+      const scoredEvents = allEvents
+        .map((event, origIndex) => ({ event, origIndex, score: eventSignalScore(event) }))
+        .filter(({ score }) => score >= 0)
+        .sort((a, b) => b.score - a.score);
+
+      const lowSignalCount = allEvents.length - scoredEvents.length;
+
+      const eventMatchesFilters = ({ event }) => {
         if (!hasFilters) return true;
         const summary = summarizeEvent(event);
-        const text = `${summary?.title || ''} ${summary?.summary || ''} ${event?.snippet || ''} ${String(event?.source || '')} ${String(event?.metadata?.device || '')}`.toLowerCase();
+        const text = `${summary?.title || ''} ${summary?.summary || ''} ${event?.snippet || ''} ${String(event?.source || '')}`.toLowerCase();
         return [...state.topicFilters].every((term) => text.includes(term.toLowerCase()));
       };
 
@@ -3955,41 +3985,36 @@
         return [...state.topicFilters].every((term) => text.includes(term.toLowerCase()));
       };
 
-      const filteredEvents = events.filter(eventMatchesFilters);
+      const filteredEvents = scoredEvents.filter(eventMatchesFilters);
       const filteredHits = hits.filter(hitMatchesFilters);
-      const totalEvents = events.length;
-      const totalHits = hits.length;
-      const shownEvents = filteredEvents.length;
-      const shownHits = filteredHits.length;
 
       renderFilterBar();
 
       if (el.resultCountNote) {
-        if (hasFilters) {
-          const total = totalEvents + totalHits;
-          const shown = shownEvents + shownHits;
-          el.resultCountNote.textContent = `showing ${shown} of ${total} results`;
-        } else {
-          el.resultCountNote.textContent = '';
-        }
+        const parts = [];
+        if (hasFilters) parts.push(`showing ${filteredEvents.length} of ${scoredEvents.length} events`);
+        else parts.push(`${scoredEvents.length} events`);
+        if (filteredHits.length) parts.push(`${filteredHits.length} AIKB notes`);
+        if (lowSignalCount > 0) parts.push(`${lowSignalCount} low-signal filtered`);
+        el.resultCountNote.textContent = parts.join(' · ');
       }
 
       const rows = [];
 
-      filteredEvents.slice(0, 20).forEach((event, index) => {
-        const origIndex = events.indexOf(event);
+      filteredEvents.slice(0, 24).forEach(({ event, origIndex }) => {
         const id = `event-${origIndex}`;
         const summary = summarizeEvent(event);
         const tone = classifyResultTone(summary, 'tone-history');
+        const snippet = cleanSnippet(summary?.summary || event?.snippet || '');
         rows.push(`
           <div class="result-item ${tone} ${state.selectedNodeId === id ? 'active' : ''}" data-node-id="${escapeHtml(id)}">
             <div class="result-title">${escapeHtml(summary?.title || String(event?.title || relationLabel(event) || `event ${origIndex + 1}`))}</div>
             <div class="meta">${escapeHtml(fmtTime(event?.ts))} · ${escapeHtml(String(event?.metadata?.device || 'unknown'))} · ${escapeHtml(summary?.sourceRef || String(event?.source || 'unknown'))}</div>
             <div class="result-meta-row">
               <span class="chip">${escapeHtml(summary?.kind || relationLabel(event))}</span>
-              <span class="chip">${escapeHtml(String(event?.metadata?.provider || 'provider unknown'))}</span>
+              <span class="chip">${escapeHtml(String(event?.metadata?.provider || ''))}</span>
             </div>
-            <div class="result-copy">${escapeHtml(summary?.summary || event?.snippet || '(no snippet)')}</div>
+            ${snippet ? `<div class="result-copy">${escapeHtml(snippet)}</div>` : ''}
           </div>
         `);
       });
@@ -3997,16 +4022,20 @@
       filteredHits.slice(0, 12).forEach((hit, index) => {
         const origIndex = hits.indexOf(hit);
         const id = `aikb-${origIndex}`;
+        const snippet = cleanSnippet(hit?.snippet || '');
         rows.push(`
           <div class="result-item tone-aikb ${state.selectedNodeId === id ? 'active' : ''}" data-node-id="${escapeHtml(id)}">
             <div class="result-title">${escapeHtml((hit?.path || '').split('/').pop() || `AIKB ${origIndex + 1}`)}</div>
-            <div class="meta">${escapeHtml(hit?.path || 'AIKB')} : ${escapeHtml(String(hit?.line || '-'))}</div>
-            <div class="result-copy">${escapeHtml(hit?.snippet || '(no snippet)')}</div>
+            <div class="meta">${escapeHtml(hit?.path || 'AIKB')}${hit?.line ? ` : ${escapeHtml(String(hit.line))}` : ''}</div>
+            ${snippet ? `<div class="result-copy">${escapeHtml(snippet)}</div>` : ''}
           </div>
         `);
       });
 
-      el.resultList.innerHTML = rows.join('') || `<div class="info-card"><div class="value">${hasFilters ? 'No results match the active filters. Try removing one.' : 'No results yet.'}</div></div>`;
+      const emptyMsg = hasFilters
+        ? 'No results match the active filters — try removing one.'
+        : 'No high-signal results. Try a different query.';
+      el.resultList.innerHTML = rows.join('') || `<div class="info-card"><div class="value">${emptyMsg}</div></div>`;
       el.resultList.querySelectorAll('[data-node-id]').forEach((node) => {
         node.addEventListener('click', () => selectNode(node.dataset.nodeId));
       });
