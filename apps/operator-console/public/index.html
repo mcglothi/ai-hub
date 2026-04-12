@@ -454,6 +454,12 @@
       font-weight: 800;
     }
 
+    .action-btn.success {
+      background: #8ae6c2 !important;
+      color: #060b11 !important;
+      border-color: #8ae6c2 !important;
+    }
+
     .action-btn.secondary {
       background: rgba(255, 255, 255, 0.05);
     }
@@ -5082,14 +5088,40 @@
           const stage = root?.querySelector('.model-stage-input')?.value || 'testing';
           const pinned = root?.querySelector('.model-pin-input')?.checked === true;
           const note = root?.querySelector('.model-note-input')?.value || '';
+          
+          const originalText = btn.textContent;
+          btn.disabled = true;
+          btn.textContent = 'Saving...';
+          
           fetchJson(modelRoute('/metadata'), {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: name, stage, pinned, note }),
           })
-            .then(() => refreshModels())
+            .then(() => {
+              btn.textContent = 'Saved!';
+              btn.classList.add('success');
+              // We do NOT call renderModels() immediately here because it collapses the Edit Details view.
+              // Instead, we refresh the background state.
+              return refreshModels({ skipRender: true });
+            })
             .then(() => logTrace('model meta', `${name} saved as ${stage}${pinned ? ' pinned' : ''}`))
-            .catch((err) => logTrace('model meta error', err.message));
+            .catch((err) => {
+              btn.textContent = 'Error';
+              logTrace('model meta error', err.message);
+            })
+            .finally(() => {
+              window.setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = originalText;
+                btn.classList.remove('success');
+                // Finally re-render once the button is back to normal, 
+                // but only if this model is still the selected one
+                if (state.selectedModelName === name) {
+                  renderModels();
+                }
+              }, 1200);
+            });
         });
       });
 
@@ -5110,12 +5142,12 @@
       });
     };
 
-    const refreshModels = async () => {
+    const refreshModels = async ({ skipRender = false } = {}) => {
       const out = await fetchJson(modelRoute());
       state.models = out;
       refreshModelsSummary();
       renderCleanupCandidates();
-      renderModels();
+      if (!skipRender) renderModels();
       logOp('models', `${fmtNum(out.summary?.model_count)} models on ${currentPlatformLabel()} · ${out.disk?.available || 'unknown'} free`);
     };
 
