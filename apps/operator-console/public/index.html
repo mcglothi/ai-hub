@@ -5076,26 +5076,38 @@
       const summary = state.models?.summary || {};
       const disk = state.models?.disk || null;
       const platform = currentPlatform();
-      el.modelsInstalledMetric.textContent = fmtNum(summary.model_count);
-      el.modelsLoadedMetric.textContent = fmtNum(summary.loaded_count);
-      el.modelsPinnedMetric.textContent = fmtNum(summary.pinned_count);
-      el.modelsCleanupMetric.textContent = fmtBytes(summary.cleanup_candidate_bytes);
-      el.modelsHostChip.textContent = `${platform?.label || state.models?.platform_label || 'platform'} · ${(state.models?.host || 'pending')}`;
-      el.modelsDiskChip.textContent = disk ? `disk ${disk.available || 'unknown'} free` : 'disk unknown';
-      el.modelsSummaryChip.textContent = `models ${fmtNum(summary.model_count)} · loaded ${fmtNum(summary.loaded_count)}`;
+      const hasData = !!state.models;
+
+      el.modelsInstalledMetric.textContent = hasData ? fmtNum(summary.model_count) : 'N/A';
+      el.modelsLoadedMetric.textContent = hasData ? fmtNum(summary.loaded_count) : 'N/A';
+      el.modelsPinnedMetric.textContent = hasData ? fmtNum(summary.pinned_count) : 'N/A';
+      el.modelsCleanupMetric.textContent = hasData ? fmtBytes(summary.cleanup_candidate_bytes) : 'N/A';
+      
+      el.modelsHostChip.textContent = hasData 
+        ? `${platform?.label || state.models?.platform_label || 'platform'} · ${(state.models?.host || 'pending')}`
+        : `${platform?.label || 'platform'} · offline`;
+        
+      el.modelsDiskChip.textContent = hasData && disk 
+        ? `disk ${disk.available || 'unknown'} free` 
+        : 'disk N/A';
+        
+      el.modelsSummaryChip.textContent = hasData 
+        ? `models ${fmtNum(summary.model_count)} · loaded ${fmtNum(summary.loaded_count)}`
+        : 'models N/A';
+
       el.modelsPlatformIdentity.innerHTML = platform
         ? `<strong>${escapeHtml(platform.label)}</strong> · ${escapeHtml(platform.profile || 'device profile not set')} · ${escapeHtml(platform.memory_label || platform.speed_label || 'memory profile pending')}`
         : 'Selected device profile pending.';
       renderMeters();
 
       const containers = state.models?.containers || [];
-      el.modelsLiveContext.innerHTML = [
+      el.modelsLiveContext.innerHTML = hasData ? [
         `<div class="info-card"><div class="label">Platform</div><div class="value">${escapeHtml(platform?.label || state.models?.platform_label || 'Platform')}</div></div>`,
         `<div class="info-card"><div class="label">Target</div><div class="value">${escapeHtml(state.models?.target || platform?.host || 'unknown')}</div></div>`,
         `<div class="info-card"><div class="label">Ollama Container</div><div class="value">${escapeHtml(state.models?.ollama_container || 'ollama')}</div></div>`,
         `<div class="info-card"><div class="label">Model Store</div><div class="value">${escapeHtml(state.models?.model_data_path || '/opt/containers/ollama/data')}</div></div>`,
         `<div class="info-card"><div class="label">Docker Workloads</div><div class="value">${escapeHtml(containers.map((item) => item.name || item.image).join('\n') || 'none detected')}</div></div>`,
-      ].join('');
+      ].join('') : '<div class="info-card"><div class="value">Platform offline or unreachable. Inventory and live metrics unavailable.</div></div>';
     };
 
     const renderCleanupCandidates = () => {
@@ -5110,6 +5122,13 @@
 
     const renderModels = () => {
       const models = filteredModels();
+      const hasData = !!state.models;
+
+      if (!hasData) {
+        el.modelList.innerHTML = '<div class="info-card"><div class="value">Platform offline or unreachable. Inventory unavailable.</div></div>';
+        return;
+      }
+
       const renderModelCard = (model) => {
         const note = model?.metadata?.note || '';
         const stage = model?.metadata?.stage || 'testing';
@@ -5308,12 +5327,27 @@
     };
 
     const refreshModels = async ({ skipRender = false } = {}) => {
-      const out = await fetchJson(modelRoute());
-      state.models = out;
-      refreshModelsSummary();
-      renderCleanupCandidates();
-      if (!skipRender) renderModels();
-      logOp('models', `${fmtNum(out.summary?.model_count)} models on ${currentPlatformLabel()} · ${out.disk?.available || 'unknown'} free`);
+      // Clear or show pending state immediately
+      if (!skipRender) {
+        refreshModelsSummary();
+        renderCleanupCandidates();
+        renderModels();
+      }
+      
+      try {
+        const out = await fetchJson(modelRoute());
+        state.models = out;
+        refreshModelsSummary();
+        renderCleanupCandidates();
+        if (!skipRender) renderModels();
+        logOp('models', `${fmtNum(out.summary?.model_count)} models on ${currentPlatformLabel()} · ${out.disk?.available || 'unknown'} free`);
+      } catch (err) {
+        state.models = null;
+        refreshModelsSummary();
+        renderCleanupCandidates();
+        if (!skipRender) renderModels();
+        throw err;
+      }
     };
 
     const buildHuggingFaceImportRef = () => {
