@@ -33,9 +33,8 @@
     }
 
     html, body {
-      min-height: 100%;
-      overflow-x: hidden;
-      overflow-y: auto;
+      height: 100dvh;
+      overflow: hidden;
       font-family: 'Manrope', sans-serif;
       color: var(--text);
       background:
@@ -84,7 +83,9 @@
       z-index: 1;
       display: grid;
       grid-template-columns: 280px minmax(0, 1fr);
-      min-height: 100dvh;
+      height: 100dvh;
+      min-height: 0;
+      overflow: hidden;
       gap: 14px;
       padding: 14px;
     }
@@ -260,7 +261,9 @@
       border-radius: calc(var(--radius-xl) + 4px);
       display: grid;
       grid-template-rows: auto auto 1fr;
-      overflow: auto;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
     }
 
     .topbar {
@@ -375,18 +378,21 @@
     }
 
     #memory-view {
-      grid-template-columns: minmax(0, 1fr) 460px;
-      gap: 14px;
-      padding: 14px;
-      overflow: auto;
-      align-content: start;
+      grid-template-columns: minmax(0, 1fr) 380px;
+      gap: 0;
+      padding: 0;
+      overflow: hidden;
+      min-height: 0;
     }
 
     .stack {
-      display: grid;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      padding: 14px 8px 14px 14px;
       gap: 14px;
-      min-height: min-content;
-      align-content: start;
+      overflow: hidden;
     }
 
     .card {
@@ -450,9 +456,10 @@
     }
 
     .graph-card {
-      display: grid;
-      grid-template-rows: auto auto auto 1fr;
-      min-height: min-content;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
     }
 
     .legend {
@@ -506,7 +513,8 @@
 
     .graph-stage {
       position: relative;
-      min-height: 460px;
+      flex: 1;
+      min-height: 0;
       border-radius: 20px;
       overflow: hidden;
       border: 1px solid rgba(140, 196, 245, 0.18);
@@ -553,6 +561,8 @@
       height: 100%;
       display: block;
       touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     .graph-hud {
@@ -613,6 +623,79 @@
       font-size: 11px;
       color: var(--muted);
       font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .graph-card.card {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .graph-legend-hud {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      max-width: calc(100% - 160px);
+      z-index: 2;
+    }
+
+    .legend-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .graph-status-hud {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      gap: 6px;
+      z-index: 2;
+    }
+
+    .graph-controls-panel {
+      position: absolute;
+      right: 14px;
+      bottom: 72px;
+      z-index: 10;
+      background: rgba(8, 14, 22, 0.94);
+      border: 1px solid var(--line-strong);
+      border-radius: 18px;
+      padding: 14px 16px;
+      display: grid;
+      gap: 12px;
+      min-width: 200px;
+      backdrop-filter: blur(22px);
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.4);
+    }
+
+    .controls-panel-title {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 800;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .controls-panel-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .controls-panel-actions .action-btn {
+      font-size: 12px;
+      padding: 8px 12px;
+      flex: 1;
+    }
+
+    .mini-btn.active {
+      border-color: rgba(138, 230, 194, 0.5);
+      background: rgba(138, 230, 194, 0.12);
+      color: var(--accent);
     }
 
     .filter-bar {
@@ -918,14 +1001,12 @@
     .side-stack {
       display: grid;
       gap: 14px;
-      min-height: min-content;
-      grid-template-rows: auto auto auto auto;
       align-content: start;
-      align-self: start;
-      position: sticky;
-      top: 14px;
-      max-height: calc(100vh - 120px);
+      height: 100%;
+      min-height: 0;
       overflow-y: auto;
+      padding: 14px 14px 14px 6px;
+      border-left: 1px solid var(--line);
     }
 
     .side-grid {
@@ -1594,6 +1675,70 @@
 
       <section id="memory-view" class="view active">
         <div class="stack">
+          <div class="card graph-card">
+            <div class="graph-stage">
+              <div class="graph-hud">
+                <span id="hud-mode" class="hud-pill">mode: transparent</span>
+                <span id="hud-query" class="hud-pill">query: memory</span>
+                <span id="hud-selection" class="hud-pill">focus: none</span>
+              </div>
+              <div class="graph-status-hud">
+                <span id="graph-chip" class="hud-pill">graph idle</span>
+                <span id="node-chip" class="hud-pill">0 nodes</span>
+                <span id="edge-chip" class="hud-pill">0 edges</span>
+              </div>
+              <div class="graph-legend-hud">
+                <span class="hud-pill legend-pill"><span class="dot" style="background:#8ae6c2;box-shadow:0 0 6px #8ae6c2"></span>query</span>
+                <span class="hud-pill legend-pill"><span class="dot" style="background:#ffd36e;box-shadow:0 0 6px #ffd36e"></span>topic</span>
+                <span class="hud-pill legend-pill"><span class="dot" style="background:#6ec7ff;box-shadow:0 0 6px #6ec7ff"></span>AIKB</span>
+                <span class="hud-pill legend-pill"><span class="dot" style="background:#ffbc7b;box-shadow:0 0 6px #ffbc7b"></span>event</span>
+              </div>
+              <div id="graph-controls-panel" class="graph-controls-panel hidden">
+                <div class="controls-panel-title">Map Controls</div>
+                <div class="control-group">
+                  <label for="layout-filter">Layout</label>
+                  <select id="layout-filter" class="select-input">
+                    <option value="organic" selected>Organic</option>
+                    <option value="constellation">Constellation</option>
+                    <option value="radial">Radial</option>
+                  </select>
+                </div>
+                <div class="control-group">
+                  <label for="motion-filter">Motion</label>
+                  <select id="motion-filter" class="select-input">
+                    <option value="calm" selected>Calm</option>
+                    <option value="live">Live</option>
+                    <option value="pinned">Pinned</option>
+                  </select>
+                </div>
+                <div class="control-group">
+                  <label for="visual-filter">Style</label>
+                  <select id="visual-filter" class="select-input">
+                    <option value="analytic" selected>Analytic</option>
+                    <option value="cinematic">Cinematic</option>
+                    <option value="presentation">Present</option>
+                  </select>
+                </div>
+                <div class="controls-panel-actions">
+                  <button id="save-scene-btn" class="action-btn secondary" type="button">Save Scene</button>
+                  <button id="reset-scene-btn" class="action-btn secondary" type="button">Reset</button>
+                </div>
+              </div>
+              <div class="graph-toolbar">
+                <div class="graph-zoom-stack">
+                  <button id="graph-controls-toggle" class="mini-btn" type="button" title="Toggle map controls">⚙</button>
+                  <button id="graph-fit-btn" class="mini-btn" type="button">Fit</button>
+                  <button id="graph-zoom-out-btn" class="mini-btn" type="button">−</button>
+                  <button id="graph-zoom-in-btn" class="mini-btn" type="button">+</button>
+                </div>
+                <div id="graph-viewport-note" class="graph-note">zoom 1.00x · centered</div>
+              </div>
+              <svg id="graph-svg" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-stack">
           <div class="card">
             <div class="card-head">
               <div class="card-title">
@@ -1609,72 +1754,6 @@
             <div id="filter-bar" class="filter-bar"></div>
             <div id="result-count-note" class="result-count-note"></div>
             <div id="result-list" class="result-list"></div>
-          </div>
-        </div>
-
-        <div class="side-stack">
-          <div class="card graph-card">
-            <div class="card-head">
-              <div class="card-title">
-                <h2>Topic Filter Map</h2>
-                <p>Click topics to filter the evidence list. Click again to remove.</p>
-              </div>
-              <div class="chip-row">
-                <span id="graph-chip" class="chip mono">graph idle</span>
-                <span id="node-chip" class="chip mono">0 nodes</span>
-                <span id="edge-chip" class="chip mono">0 edges</span>
-              </div>
-            </div>
-            <div class="legend">
-              <span class="legend-item"><span class="dot" style="background:#8ae6c2"></span>query</span>
-              <span class="legend-item"><span class="dot" style="background:#ffd36e"></span>topic · click to filter</span>
-              <span class="legend-item"><span class="dot" style="background:#6ec7ff"></span>AIKB hit</span>
-              <span class="legend-item"><span class="dot" style="background:#ffbc7b"></span>event</span>
-            </div>
-            <div class="graph-controls">
-              <div class="control-group">
-                <label for="layout-filter">Layout</label>
-                <select id="layout-filter" class="select-input">
-                  <option value="organic" selected>Organic</option>
-                  <option value="constellation">Constellation</option>
-                  <option value="radial">Radial</option>
-                </select>
-              </div>
-              <div class="control-group">
-                <label for="motion-filter">Motion</label>
-                <select id="motion-filter" class="select-input">
-                  <option value="calm" selected>Calm</option>
-                  <option value="live">Live</option>
-                  <option value="pinned">Pinned</option>
-                </select>
-              </div>
-              <div class="control-group">
-                <label for="visual-filter">Style</label>
-                <select id="visual-filter" class="select-input">
-                  <option value="analytic" selected>Analytic</option>
-                  <option value="cinematic">Cinematic</option>
-                  <option value="presentation">Present</option>
-                </select>
-              </div>
-              <button id="save-scene-btn" class="action-btn secondary" type="button">Save</button>
-              <button id="reset-scene-btn" class="action-btn secondary" type="button">Reset</button>
-            </div>
-            <div class="graph-stage">
-              <div class="graph-hud">
-                <span id="hud-mode" class="hud-pill">mode: transparent</span>
-                <span id="hud-query" class="hud-pill">query: memory</span>
-                <span id="hud-selection" class="hud-pill">focus: none</span>
-              </div>
-              <div class="graph-toolbar">
-                <div class="graph-zoom-stack">
-                  <button id="graph-fit-btn" class="mini-btn" type="button">Fit</button>
-                  <button id="graph-zoom-out-btn" class="mini-btn" type="button">−</button>
-                  <button id="graph-zoom-in-btn" class="mini-btn" type="button">+</button>
-                </div>
-                <div id="graph-viewport-note" class="graph-note">zoom 1.00x · centered</div>
-              </div>
-              <svg id="graph-svg" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid meet"></svg>
-            </div>
           </div>
 
           <div class="card">
@@ -2243,6 +2322,8 @@
       visualFilter: document.getElementById('visual-filter'),
       saveSceneBtn: document.getElementById('save-scene-btn'),
       resetSceneBtn: document.getElementById('reset-scene-btn'),
+      graphControlsToggle: document.getElementById('graph-controls-toggle'),
+      graphControlsPanel: document.getElementById('graph-controls-panel'),
       graphFitBtn: document.getElementById('graph-fit-btn'),
       graphZoomOutBtn: document.getElementById('graph-zoom-out-btn'),
       graphZoomInBtn: document.getElementById('graph-zoom-in-btn'),
@@ -5383,6 +5464,11 @@
         drawGraph();
         runForce();
       }
+    });
+
+    el.graphControlsToggle.addEventListener('click', () => {
+      const open = el.graphControlsPanel.classList.toggle('hidden') === false;
+      el.graphControlsToggle.classList.toggle('active', open);
     });
 
     el.graphFitBtn.addEventListener('click', fitGraph);
