@@ -33,7 +33,7 @@ Harvest runtime memory proposals, review recommendation cues, preview canonical 
 
 ### Model Stewardship
 
-Manage the model fleet on real hardware, inspect Hugging Face repos, choose GGUF quants, compare platform fit, stage cleanup safely, and pull models directly into the selected target.
+Manage the model fleet on real hardware, inspect Hugging Face repos, choose GGUF quants, compare platform fit, stage cleanup safely, and pull/load models directly into the selected target.
 
 ![Model Stewardship](assets/screenshots/models-stewardship.png)
 
@@ -49,8 +49,9 @@ Run persistent, tmux-backed Claude, Gemini, and Codex sessions through the compa
 
 - **Map-Primary Memory Exploration:** Viewport-locked graph canvas, floating controls, topic-node filtering, evidence scoring, path tracing, file filters, and saved scenes in one surface.
 - **Proposal Review Workflow:** Harvest, triage, preview, approve, reject, save, and apply proposal candidates into AIKB from the same operator console.
-- **Model Stewardship:** Hugging Face search, repo inspection, quant-aware import prep, multi-platform fit context, and Ollama pull workflows.
-- **Fleet Management:** Per-platform model inventory with notes, stages, cleanup cues, loaded-state visibility, and remote host awareness.
+- **Model Stewardship:** Hugging Face search, repo inspection, quant-aware import prep, multi-platform fit context, and Ollama pull/load workflows.
+- **Fleet Management:** Per-platform model inventory with notes, stages, cleanup cues, loaded-state visibility, and manual load/unload orchestration.
+- **Live Platform Metrics:** Monochromatic topbar meters for GPU utilization, VRAM usage, and disk space with platform-specific context.
 - **Operator Ergonomics:** Embedded terminal proxy and code-server adjacency for fast operational edits.
 - **Persistent Sessions:** Session inventory and tmux-backed orchestration through the sessions service.
 
@@ -84,7 +85,8 @@ Browser
     -> AIKB preview/apply flows
     -> ranked evidence stream + topic graph filters
     -> Hugging Face search + quant inspection + model fit estimation
-    -> per-platform Ollama inventory / pull / cleanup workflows
+    -> per-platform Ollama inventory / pull / load / cleanup workflows
+    -> live GPU / VRAM / Disk metrics
     -> ttyd terminal proxy
     -> code-server adjacency
 
