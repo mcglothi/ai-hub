@@ -375,7 +375,7 @@
     }
 
     #memory-view {
-      grid-template-columns: minmax(0, 1.6fr) 380px;
+      grid-template-columns: minmax(0, 1fr) 460px;
       gap: 14px;
       padding: 14px;
       overflow: auto;
@@ -453,6 +453,8 @@
       display: grid;
       grid-template-rows: auto auto auto 1fr;
       min-height: min-content;
+      position: sticky;
+      top: 0;
     }
 
     .legend {
@@ -506,7 +508,7 @@
 
     .graph-stage {
       position: relative;
-      min-height: 760px;
+      min-height: 460px;
       border-radius: 20px;
       overflow: hidden;
       border: 1px solid rgba(140, 196, 245, 0.18);
@@ -613,6 +615,68 @@
       font-size: 11px;
       color: var(--muted);
       font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      padding: 8px 0 4px;
+      min-height: 0;
+    }
+
+    .filter-bar:empty {
+      display: none;
+    }
+
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 999px;
+      padding: 4px 10px 4px 10px;
+      border: 1px solid rgba(255, 211, 110, 0.5);
+      background: rgba(255, 211, 110, 0.12);
+      color: #ffd36e;
+      font-size: 11px;
+      font-family: 'IBM Plex Mono', monospace;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+
+    .filter-chip:hover {
+      background: rgba(255, 211, 110, 0.22);
+    }
+
+    .filter-chip-x {
+      font-size: 13px;
+      line-height: 1;
+      opacity: 0.7;
+    }
+
+    .filter-clear-btn {
+      font-size: 11px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .filter-clear-btn:hover {
+      color: var(--text);
+    }
+
+    .result-count-note {
+      font-size: 11px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--muted);
+      padding: 2px 0 6px;
     }
 
     .trace-list,
@@ -1530,43 +1594,27 @@
           <div class="card">
             <div class="card-head">
               <div class="card-title">
-                <h2>Live Signal Field</h2>
-                <p>Health, counts, and machine coverage stay in view so you always know what the graph is built from.</p>
+                <h2>Evidence Stream</h2>
+                <p>Ranked results from memory events and AIKB notes. Click a topic in the graph to filter.</p>
               </div>
               <div class="chip-row">
+                <span id="search-summary-inner" class="chip mono">idle</span>
                 <span id="source-chip" class="chip mono">source pending</span>
                 <span id="latency-chip" class="chip mono">latency pending</span>
               </div>
             </div>
-            <div class="metric-grid">
-              <div class="metric">
-                <div class="label">Memory Health</div>
-                <div id="metric-health" class="value">-</div>
-                <div class="note">Reachability to Memory Core</div>
-              </div>
-              <div class="metric">
-                <div class="label">Event Volume</div>
-                <div id="metric-events" class="value">-</div>
-                <div class="note">Total ingested signals</div>
-              </div>
-              <div class="metric">
-                <div class="label">New Proposals</div>
-                <div id="metric-proposals" class="value">-</div>
-                <div class="note">Review queue load</div>
-              </div>
-              <div class="metric">
-                <div class="label">Machines</div>
-                <div id="metric-machines" class="value">-</div>
-                <div class="note">Observer heartbeat coverage</div>
-              </div>
-            </div>
+            <div id="filter-bar" class="filter-bar"></div>
+            <div id="result-count-note" class="result-count-note"></div>
+            <div id="result-list" class="result-list"></div>
           </div>
+        </div>
 
+        <div class="side-stack">
           <div class="card graph-card">
             <div class="card-head">
               <div class="card-title">
-                <h2>Topic Neighborhood View</h2>
-                <p>Results cluster around adjacent concepts instead of noisy provenance labels, so the graph shows what your search is actually about before you drill into where each memory came from.</p>
+                <h2>Topic Filter Map</h2>
+                <p>Click topics to filter the evidence list. Click again to remove.</p>
               </div>
               <div class="chip-row">
                 <span id="graph-chip" class="chip mono">graph idle</span>
@@ -1576,18 +1624,17 @@
             </div>
             <div class="legend">
               <span class="legend-item"><span class="dot" style="background:#8ae6c2"></span>query</span>
-              <span class="legend-item"><span class="dot" style="background:#ffd36e"></span>adjacent topic</span>
+              <span class="legend-item"><span class="dot" style="background:#ffd36e"></span>topic · click to filter</span>
               <span class="legend-item"><span class="dot" style="background:#6ec7ff"></span>AIKB hit</span>
-              <span class="legend-item"><span class="dot" style="background:#ffbc7b"></span>event evidence</span>
-              <span class="legend-item"><span class="dot" style="background:#d7a1ff"></span>proposal</span>
+              <span class="legend-item"><span class="dot" style="background:#ffbc7b"></span>event</span>
             </div>
             <div class="graph-controls">
               <div class="control-group">
-                <label for="layout-filter">Layout Mood</label>
+                <label for="layout-filter">Layout</label>
                 <select id="layout-filter" class="select-input">
                   <option value="organic" selected>Organic</option>
                   <option value="constellation">Constellation</option>
-                  <option value="radial">Radial Focus</option>
+                  <option value="radial">Radial</option>
                 </select>
               </div>
               <div class="control-group">
@@ -1599,15 +1646,15 @@
                 </select>
               </div>
               <div class="control-group">
-                <label for="visual-filter">Visual Mode</label>
+                <label for="visual-filter">Style</label>
                 <select id="visual-filter" class="select-input">
                   <option value="analytic" selected>Analytic</option>
                   <option value="cinematic">Cinematic</option>
-                  <option value="presentation">Presentation</option>
+                  <option value="presentation">Present</option>
                 </select>
               </div>
-              <button id="save-scene-btn" class="action-btn secondary" type="button">Save Scene</button>
-              <button id="reset-scene-btn" class="action-btn secondary" type="button">Reset Scene</button>
+              <button id="save-scene-btn" class="action-btn secondary" type="button">Save</button>
+              <button id="reset-scene-btn" class="action-btn secondary" type="button">Reset</button>
             </div>
             <div class="graph-stage">
               <div class="graph-hud">
@@ -1618,8 +1665,8 @@
               <div class="graph-toolbar">
                 <div class="graph-zoom-stack">
                   <button id="graph-fit-btn" class="mini-btn" type="button">Fit</button>
-                  <button id="graph-zoom-out-btn" class="mini-btn" type="button">Zoom Out</button>
-                  <button id="graph-zoom-in-btn" class="mini-btn" type="button">Zoom In</button>
+                  <button id="graph-zoom-out-btn" class="mini-btn" type="button">−</button>
+                  <button id="graph-zoom-in-btn" class="mini-btn" type="button">+</button>
                 </div>
                 <div class="mini-map">
                   <svg id="mini-map-svg" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid meet"></svg>
@@ -1633,41 +1680,8 @@
           <div class="card">
             <div class="card-head">
               <div class="card-title">
-                <h2>Evidence Stream</h2>
-                <p>List view stays synchronized with the graph so you can review concrete snippets, not just pretty nodes.</p>
-              </div>
-            </div>
-            <div id="result-list" class="result-list"></div>
-          </div>
-        </div>
-
-        <div class="side-stack">
-          <div class="side-grid">
-            <div class="info-card">
-              <div class="label">Data Path</div>
-              <div id="info-data-path" class="value">Waiting for first refresh.</div>
-            </div>
-            <div class="info-card">
-              <div class="label">Query Reasoning</div>
-              <div id="info-query-reasoning" class="value">Graph neighborhoods are built from topic co-occurrence across matching events and AIKB notes, with provenance available in the inspector instead of dominating the graph.</div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-head">
-              <div class="card-title">
-                <h2>Saved Scenes</h2>
-                <p>Keep promising explorations around as reusable graph views instead of rediscovering them from scratch.</p>
-              </div>
-            </div>
-            <div id="saved-scenes" class="trace-list"></div>
-          </div>
-
-          <div class="card">
-            <div class="card-head">
-              <div class="card-title">
                 <h2>Relationship Inspector</h2>
-                <p>Click a node or list item to see what it is, why it appeared, and what it connects to.</p>
+                <p>Click any node to see provenance, neighbors, and metadata.</p>
               </div>
             </div>
             <div id="node-detail" class="node-detail">
@@ -1696,12 +1710,12 @@
               <div class="value">When the backing file is available to the server, nearby lines will appear here.</div>
             </div>
             <div class="chip-row">
-              <button id="expand-node-btn" class="action-btn secondary" type="button">Expand Neighborhood</button>
+              <button id="expand-node-btn" class="action-btn secondary" type="button">Expand</button>
               <button id="collapse-node-btn" class="action-btn secondary" type="button">Collapse</button>
               <button id="pin-node-btn" class="action-btn secondary" type="button">Pin Node</button>
               <button id="trace-path-btn" class="action-btn secondary" type="button">Trace Path</button>
-              <button id="show-context-btn" class="action-btn secondary" type="button">Show Nearby Lines</button>
-              <button id="filter-file-btn" class="action-btn secondary" type="button">Filter This File</button>
+              <button id="show-context-btn" class="action-btn secondary" type="button">Nearby Lines</button>
+              <button id="filter-file-btn" class="action-btn secondary" type="button">Filter File</button>
             </div>
           </div>
 
@@ -1709,10 +1723,49 @@
             <div class="card-head">
               <div class="card-title">
                 <h2>Operational Trace</h2>
-                <p>Every action writes a compact trace line so the interface feels trustworthy instead of magical.</p>
+                <p>Every action writes a compact trace line.</p>
               </div>
             </div>
             <div id="trace-list" class="trace-list"></div>
+          </div>
+
+          <div class="side-grid">
+            <div class="info-card">
+              <div class="label">Machines</div>
+              <div id="metric-machines" class="value">-</div>
+            </div>
+            <div class="info-card">
+              <div class="label">Events</div>
+              <div id="metric-events" class="value">-</div>
+            </div>
+            <div class="info-card">
+              <div class="label">Proposals</div>
+              <div id="metric-proposals" class="value">-</div>
+            </div>
+            <div class="info-card">
+              <div class="label">Health</div>
+              <div id="metric-health" class="value">-</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <h2>Saved Scenes</h2>
+              </div>
+            </div>
+            <div id="saved-scenes" class="trace-list"></div>
+          </div>
+
+          <div class="side-grid">
+            <div class="info-card">
+              <div class="label">Data Path</div>
+              <div id="info-data-path" class="value">Waiting for first refresh.</div>
+            </div>
+            <div class="info-card">
+              <div class="label">Query Reasoning</div>
+              <div id="info-query-reasoning" class="value">Topic nodes filter evidence when clicked.</div>
+            </div>
           </div>
         </div>
       </section>
@@ -2064,6 +2117,7 @@
       selectedNodeId: null,
       selectedEdgeId: null,
       hoveredNodeId: null,
+      topicFilters: new Set(),
       selectedProposalId: null,
       reviewPreview: null,
       graph: { nodes: [], edges: [], raf: 0 },
@@ -2202,6 +2256,8 @@
       hudQuery: document.getElementById('hud-query'),
       hudSelection: document.getElementById('hud-selection'),
       resultList: document.getElementById('result-list'),
+      filterBar: document.getElementById('filter-bar'),
+      resultCountNote: document.getElementById('result-count-note'),
       proposalList: document.getElementById('proposal-list'),
       reviewSelectionPill: document.getElementById('review-selection-pill'),
       proposalDetailEmpty: document.getElementById('proposal-detail-empty'),
@@ -3544,6 +3600,21 @@
         circle.setAttribute('filter', node.kind === 'query' || isSelected || isHovered ? 'url(#node-glow-strong)' : 'url(#node-glow-soft)');
         group.appendChild(circle);
 
+        // Active filter ring for topic nodes
+        if (node.kind === 'topic' && node.queryTerm && state.topicFilters.has(node.queryTerm)) {
+          const filterRing = document.createElementNS(ns, 'circle');
+          filterRing.setAttribute('cx', String(node.x));
+          filterRing.setAttribute('cy', String(node.y));
+          filterRing.setAttribute('r', String(displayR + 4));
+          filterRing.setAttribute('fill', 'none');
+          filterRing.setAttribute('stroke', '#ffd36e');
+          filterRing.setAttribute('stroke-width', '2');
+          filterRing.setAttribute('stroke-dasharray', '4 3');
+          filterRing.setAttribute('opacity', '0.9');
+          filterRing.setAttribute('pointer-events', 'none');
+          group.insertBefore(filterRing, circle);
+        }
+
         // Specular highlight (replaces old bullseye core)
         const spec = document.createElementNS(ns, 'circle');
         spec.setAttribute('cx', String(node.x - displayR * 0.24));
@@ -3653,7 +3724,15 @@
         });
         group.addEventListener('click', () => {
           if (node.kind === 'topic' && node.queryTerm) {
-            refreshSearch(node.queryTerm, { scrollToResults: true }).catch((err) => logTrace('topic drill error', err.message));
+            if (state.topicFilters.has(node.queryTerm)) {
+              state.topicFilters.delete(node.queryTerm);
+              logTrace('filter', `Removed topic filter: ${node.queryTerm}`);
+            } else {
+              state.topicFilters.add(node.queryTerm);
+              logTrace('filter', `Added topic filter: ${node.queryTerm}`);
+            }
+            renderResults();
+            drawGraph();
             return;
           }
           selectNode(node.id);
@@ -3831,18 +3910,80 @@
       });
     };
 
+    const renderFilterBar = () => {
+      if (!el.filterBar) return;
+      if (state.topicFilters.size === 0) {
+        el.filterBar.innerHTML = '';
+        return;
+      }
+      const chips = [...state.topicFilters].map((term) => `
+        <span class="filter-chip" data-filter-term="${escapeHtml(term)}">
+          ${escapeHtml(term)}<span class="filter-chip-x">×</span>
+        </span>
+      `).join('');
+      el.filterBar.innerHTML = chips + `<button class="filter-clear-btn" id="filter-clear-btn">clear all</button>`;
+      el.filterBar.querySelectorAll('[data-filter-term]').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          state.topicFilters.delete(chip.dataset.filterTerm);
+          renderResults();
+          drawGraph();
+        });
+      });
+      const clearBtn = document.getElementById('filter-clear-btn');
+      if (clearBtn) clearBtn.addEventListener('click', () => {
+        state.topicFilters.clear();
+        renderResults();
+        drawGraph();
+      });
+    };
+
     const renderResults = () => {
-      const rows = [];
       const events = state.search?.events || [];
       const hits = state.search?.aikb || [];
+      const hasFilters = state.topicFilters.size > 0;
 
-      events.slice(0, 14).forEach((event, index) => {
-        const id = `event-${index}`;
+      const eventMatchesFilters = (event) => {
+        if (!hasFilters) return true;
+        const summary = summarizeEvent(event);
+        const text = `${summary?.title || ''} ${summary?.summary || ''} ${event?.snippet || ''} ${String(event?.source || '')} ${String(event?.metadata?.device || '')}`.toLowerCase();
+        return [...state.topicFilters].every((term) => text.includes(term.toLowerCase()));
+      };
+
+      const hitMatchesFilters = (hit) => {
+        if (!hasFilters) return true;
+        const text = `${hit?.path || ''} ${hit?.snippet || ''}`.toLowerCase();
+        return [...state.topicFilters].every((term) => text.includes(term.toLowerCase()));
+      };
+
+      const filteredEvents = events.filter(eventMatchesFilters);
+      const filteredHits = hits.filter(hitMatchesFilters);
+      const totalEvents = events.length;
+      const totalHits = hits.length;
+      const shownEvents = filteredEvents.length;
+      const shownHits = filteredHits.length;
+
+      renderFilterBar();
+
+      if (el.resultCountNote) {
+        if (hasFilters) {
+          const total = totalEvents + totalHits;
+          const shown = shownEvents + shownHits;
+          el.resultCountNote.textContent = `showing ${shown} of ${total} results`;
+        } else {
+          el.resultCountNote.textContent = '';
+        }
+      }
+
+      const rows = [];
+
+      filteredEvents.slice(0, 20).forEach((event, index) => {
+        const origIndex = events.indexOf(event);
+        const id = `event-${origIndex}`;
         const summary = summarizeEvent(event);
         const tone = classifyResultTone(summary, 'tone-history');
         rows.push(`
           <div class="result-item ${tone} ${state.selectedNodeId === id ? 'active' : ''}" data-node-id="${escapeHtml(id)}">
-            <div class="result-title">${escapeHtml(summary?.title || String(event?.title || relationLabel(event) || `event ${index + 1}`))}</div>
+            <div class="result-title">${escapeHtml(summary?.title || String(event?.title || relationLabel(event) || `event ${origIndex + 1}`))}</div>
             <div class="meta">${escapeHtml(fmtTime(event?.ts))} · ${escapeHtml(String(event?.metadata?.device || 'unknown'))} · ${escapeHtml(summary?.sourceRef || String(event?.source || 'unknown'))}</div>
             <div class="result-meta-row">
               <span class="chip">${escapeHtml(summary?.kind || relationLabel(event))}</span>
@@ -3853,18 +3994,19 @@
         `);
       });
 
-      hits.slice(0, 10).forEach((hit, index) => {
-        const id = `aikb-${index}`;
+      filteredHits.slice(0, 12).forEach((hit, index) => {
+        const origIndex = hits.indexOf(hit);
+        const id = `aikb-${origIndex}`;
         rows.push(`
           <div class="result-item tone-aikb ${state.selectedNodeId === id ? 'active' : ''}" data-node-id="${escapeHtml(id)}">
-            <div class="result-title">${escapeHtml((hit?.path || '').split('/').pop() || `AIKB ${index + 1}`)}</div>
+            <div class="result-title">${escapeHtml((hit?.path || '').split('/').pop() || `AIKB ${origIndex + 1}`)}</div>
             <div class="meta">${escapeHtml(hit?.path || 'AIKB')} : ${escapeHtml(String(hit?.line || '-'))}</div>
             <div class="result-copy">${escapeHtml(hit?.snippet || '(no snippet)')}</div>
           </div>
         `);
       });
 
-      el.resultList.innerHTML = rows.join('') || '<div class="info-card"><div class="value">No results yet.</div></div>';
+      el.resultList.innerHTML = rows.join('') || `<div class="info-card"><div class="value">${hasFilters ? 'No results match the active filters. Try removing one.' : 'No results yet.'}</div></div>`;
       el.resultList.querySelectorAll('[data-node-id]').forEach((node) => {
         node.addEventListener('click', () => selectNode(node.dataset.nodeId));
       });
@@ -4958,6 +5100,7 @@
     const refreshSearch = async (query = el.queryInput.value.trim() || 'memory', options = {}) => {
       const started = performance.now();
       const { scrollToResults = false } = options;
+      state.topicFilters.clear();
       el.queryInput.value = query;
       el.hudQuery.textContent = `query: ${query}`;
       const search = await fetchJson(`/memory/search?q=${encodeURIComponent(query)}&limit=40`);
