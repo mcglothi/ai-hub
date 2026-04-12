@@ -1894,6 +1894,37 @@ app.post(['/models/hopper/pull', '/models/:platform/pull'], async (req, res) => 
   }
 });
 
+app.post(['/models/hopper/load', '/models/:platform/load'], async (req, res) => {
+  try {
+    const platform = getPlatformConfig(req.params.platform || 'hopper');
+    const model = ensureSafeModelName(req.body?.model);
+    const keepAlive = String(req.body?.keep_alive || '1h');
+    
+    // Use 'ollama run --keepalive <duration> <model> ""' to trigger a load without producing output
+    await runPlatformDocker(platform, [
+      'exec', 
+      platform.ollamaContainer, 
+      'ollama', 
+      'run', 
+      '--keepalive', 
+      keepAlive, 
+      model, 
+      ''
+    ], { timeoutMs: 60000 });
+    
+    const refreshed = await getPlatformModelInventory(platform);
+    res.json({
+      ok: true,
+      platform: platform.id,
+      loaded: model,
+      keep_alive: keepAlive,
+      summary: refreshed.summary,
+    });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 app.get(['/models/hopper/huggingface/search', '/models/:platform/huggingface/search'], async (req, res) => {
   try {
     const platform = getPlatformConfig(req.params.platform || 'hopper');

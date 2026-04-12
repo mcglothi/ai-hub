@@ -5049,6 +5049,7 @@
                   <label class="chip"><input type="checkbox" class="model-pin-input" data-model-name="${escapeHtml(model.name)}" ${pinned ? 'checked' : ''}> pinned</label>
                   <input class="text-input model-note-input" data-model-name="${escapeHtml(model.name)}" type="text" value="${escapeHtml(note)}" placeholder="note why this lane exists or what to remember">
                   <button class="action-btn secondary model-save-btn" data-model-name="${escapeHtml(model.name)}" type="button">Save Meta</button>
+                  <button class="action-btn secondary model-load-btn" data-model-name="${escapeHtml(model.name)}" type="button" ${model.loaded ? 'disabled' : ''}>Load</button>
                   <button class="action-btn secondary model-remove-btn" data-model-name="${escapeHtml(model.name)}" type="button" ${model.loaded ? 'disabled' : ''}>Delete</button>
                 </div>
               </div>
@@ -5117,6 +5118,41 @@
                 btn.classList.remove('success');
                 // Finally re-render once the button is back to normal, 
                 // but only if this model is still the selected one
+                if (state.selectedModelName === name) {
+                  renderModels();
+                }
+              }, 1200);
+            });
+        });
+      });
+
+      el.modelList.querySelectorAll('.model-load-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const name = btn.dataset.modelName;
+          const originalText = btn.textContent;
+          btn.disabled = true;
+          btn.textContent = 'Loading...';
+
+          fetchJson(modelRoute('/load'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: name, keep_alive: '1h' }),
+          })
+            .then(() => {
+              btn.textContent = 'Loaded!';
+              btn.classList.add('success');
+              return refreshModels({ skipRender: true });
+            })
+            .then(() => logTrace('model load', `${name} pre-loaded (1h keep-alive)`))
+            .catch((err) => {
+              btn.textContent = 'Error';
+              logTrace('model load error', err.message);
+            })
+            .finally(() => {
+              window.setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = originalText;
+                btn.classList.remove('success');
                 if (state.selectedModelName === name) {
                   renderModels();
                 }
