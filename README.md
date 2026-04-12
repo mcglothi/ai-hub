@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/hero-graphic.png" alt="AI Hub" width="1000" />
+  <img src="assets/hero-graphic-v2.png" alt="AI Hub" width="1000" />
 </p>
 
 <p align="center">
