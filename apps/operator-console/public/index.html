@@ -474,7 +474,7 @@
     .metric-meter {
       height: 24px;
       min-width: 160px;
-      background: #060b11;
+      background: rgba(0, 0, 0, 0.25);
       border: 1px solid var(--line);
       border-radius: 8px;
       position: relative;
@@ -489,8 +489,8 @@
       left: 0;
       top: 0;
       height: 100%;
-      background: linear-gradient(90deg, #4ade80 0%, #fbbf24 60%, #f87171 90%);
-      opacity: 0.8;
+      background: rgba(110, 199, 255, 0.25);
+      border-right: 1px solid rgba(110, 199, 255, 0.4);
       transition: width 400ms ease;
       z-index: 1;
     }
@@ -507,6 +507,7 @@
       justify-content: space-between;
       gap: 8px;
       white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
     }
 
     .metric-label {
@@ -1852,7 +1853,7 @@
           <div id="memory-meter" class="metric-meter hidden">
             <div class="metric-fill"></div>
             <div class="metric-content">
-              <span class="metric-label">mem</span>
+              <span class="metric-label">vram</span>
               <span class="metric-value">-</span>
             </div>
           </div>
@@ -5043,18 +5044,26 @@
           fill.style.width = `${percent}%`;
         }
         if (value) {
-          const used = fmtBytes(data.used_bytes);
-          const total = fmtBytes(data.total_bytes);
-          if (label === 'gpu' && typeof data.utilization_percent === 'number') {
-            value.textContent = `${data.utilization_percent}% util · ${used} / ${total} vram`;
+          if (label === 'gpu') {
+            value.textContent = `${data.used_bytes}% util`;
           } else {
+            const used = fmtBytes(data.used_bytes);
+            const total = fmtBytes(data.total_bytes);
+            const percent = Math.max(0, Math.min(100, Math.round((data.used_bytes / data.total_bytes) * 100)));
             value.textContent = `${percent}% · ${used} / ${total}`;
           }
         }
       };
 
-      updateMeter(el.gpuMeter, out.gpu, 'gpu');
-      updateMeter(el.memoryMeter, out.host_memory, 'mem');
+      updateMeter(el.gpuMeter, out.gpu ? { 
+        used_bytes: out.gpu.utilization_percent, 
+        total_bytes: 100 
+      } : null, 'gpu');
+      
+      updateMeter(el.memoryMeter, out.gpu ? {
+        used_bytes: out.gpu.used_bytes,
+        total_bytes: out.gpu.total_bytes
+      } : null, 'vram');
       
       const diskData = out.disk ? {
         used_bytes: out.disk.used_bytes,
