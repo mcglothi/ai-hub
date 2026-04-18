@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Hub — Self-Hosted Operator Console</title>
+<meta name="description" content="Unified browser console for local AI infrastructure. Chat, terminal, VS Code, and model management for your GB10 fleet.">
+<style>
+:root {
+  --bg:#08090d; --surface:#0f1117; --card:#141720; --border:#1e2130;
+  --border2:#252a3a; --text:#d4d8e8; --muted:#5a607a; --dim:#3a4060;
+  --blue:#4d9fff; --blue-d:#0d1e38; --green:#3dd68c; --green-d:#0f2e20;
+  --amber:#f0b429; --red:#f25c54; --purple:#a78bfa; --purple-d:#1e1535;
+  --cyan:#38c8f8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px;line-height:1.6}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+
+nav{position:sticky;top:0;z-index:100;background:rgba(8,9,13,0.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 2rem;height:56px}
+.nav-back{font-size:0.82rem;color:var(--muted)}
+.nav-back:hover{color:var(--text);text-decoration:none}
+.nav-brand{font-size:1rem;font-weight:800;letter-spacing:-0.02em;background:linear-gradient(135deg,#38c8f8 0%,#a78bfa 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:1.25rem}
+.nav-links a{font-size:0.82rem;color:var(--muted)}
+.nav-links a:hover{color:var(--text);text-decoration:none}
+
+.hero{max-width:760px;margin:0 auto;padding:5.5rem 2rem 4rem;text-align:center}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:0.5rem;margin-bottom:1.25rem;font-size:0.72rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--purple);background:var(--purple-d);border:1px solid rgba(167,139,250,0.2);padding:0.3rem 0.85rem;border-radius:20px}
+.hero h1{font-size:clamp(2rem,5vw,3.25rem);font-weight:800;letter-spacing:-0.03em;line-height:1.1;color:#fff;margin-bottom:1.25rem}
+.hero h1 em{font-style:normal;background:linear-gradient(135deg,#38c8f8,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:1.05rem;color:var(--muted);max-width:520px;margin:0 auto 2.25rem;line-height:1.7}
+.hero-actions{display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap}
+.btn-primary{display:inline-block;padding:0.65rem 1.4rem;background:linear-gradient(135deg,#38c8f8,#a78bfa);color:#000;font-size:0.88rem;font-weight:700;border-radius:7px;transition:opacity .15s}
+.btn-primary:hover{opacity:.85;text-decoration:none;color:#000}
+.btn-ghost{display:inline-block;padding:0.65rem 1.4rem;background:none;color:var(--text);font-size:0.88rem;font-weight:600;border-radius:7px;border:1px solid var(--border2);transition:border-color .15s}
+.btn-ghost:hover{border-color:var(--purple);color:var(--purple);text-decoration:none}
+
+section{max-width:900px;margin:0 auto;padding:3.5rem 2rem}
+.section-label{font-size:0.7rem;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem}
+.section-title{font-size:1.5rem;font-weight:800;color:#fff;letter-spacing:-0.02em;margin-bottom:0.65rem}
+.section-sub{font-size:0.9rem;color:var(--muted);line-height:1.65;margin-bottom:2rem;max-width:540px}
+
+.surface-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.75rem}
+.surface-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.2rem}
+.surface-icon{font-size:1.3rem;margin-bottom:0.6rem}
+.surface-name{font-size:0.9rem;font-weight:700;color:#fff;margin-bottom:0.3rem}
+.surface-desc{font-size:0.8rem;color:var(--muted);line-height:1.5}
+.surface-tag{display:inline-block;margin-top:0.5rem;font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:0.18rem 0.45rem;border-radius:3px}
+.tag-live{background:var(--green-d);color:var(--green);border:1px solid rgba(61,214,140,.2)}
+.tag-models{background:var(--blue-d);color:var(--blue);border:1px solid rgba(77,159,255,.2)}
+
+.stack-table{width:100%;border-collapse:collapse;font-size:0.83rem}
+.stack-table th{text-align:left;padding:0.6rem 0.75rem;font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.stack-table td{padding:0.65rem 0.75rem;border-bottom:1px solid var(--border)}
+.stack-table tr:last-child td{border-bottom:none}
+.stack-table td:first-child{font-family:monospace;color:var(--text);white-space:nowrap}
+.stack-table td:last-child{color:var(--muted)}
+
+.install-block{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.install-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface)}
+.install-tab{padding:0.55rem 1rem;font-size:0.78rem;font-weight:600;color:var(--muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s}
+.install-tab.active{color:var(--purple);border-bottom-color:var(--purple)}
+.install-panel{display:none;padding:1.1rem 1.25rem}
+.install-panel.active{display:block}
+.install-cmd{font-family:monospace;font-size:0.83rem;color:var(--green);white-space:pre;overflow-x:auto}
+.install-meta{display:flex;align-items:center;justify-content:space-between;margin-top:0.75rem;flex-wrap:wrap;gap:0.5rem}
+.install-note{font-size:0.72rem;color:var(--dim)}
+.copy-btn{padding:0.35rem 0.7rem;background:none;border:1px solid var(--border2);border-radius:5px;color:var(--muted);font-size:0.72rem;cursor:pointer;transition:border-color .12s,color .12s}
+.copy-btn:hover{border-color:var(--purple);color:var(--purple)}
+.copy-btn.copied{border-color:var(--green);color:var(--green)}
+
+.divider{border:none;border-top:1px solid var(--border)}
+footer{border-top:1px solid var(--border);padding:2rem;text-align:center;font-size:0.72rem;color:var(--dim);line-height:2}
+footer a{color:var(--dim)}
+footer a:hover{color:var(--muted)}
+@media(max-width:600px){nav{padding:0 1rem}.hero{padding-left:1.25rem;padding-right:1.25rem}section{padding:2.5rem 1.25rem}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-back" href="https://mcglothi.github.io">← All projects</a>
+  <span class="nav-brand">AI Hub</span>
+  <div class="nav-links">
+    <a href="#surfaces">Surfaces</a>
+    <a href="#install">Deploy</a>
+    <a href="https://github.com/mcglothi/ai-hub" target="_blank">GitHub</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <span class="hero-eyebrow">🖥 Self-hosted · Port 3001 · GB10 fleet</span>
+  <h1>One tab for your<br><em>entire AI stack</em></h1>
+  <p class="hero-sub">
+    Self-hosted operator console for local AI infrastructure.
+    Unified chat, web terminal, VS Code, AIKB memory search,
+    and Ollama model management — all in a single browser tab.
+  </p>
+  <div class="hero-actions">
+    <a href="#install" class="btn-primary">Deploy</a>
+    <a href="https://github.com/mcglothi/ai-hub" class="btn-ghost" target="_blank">GitHub →</a>
+  </div>
+</div>
+
+<hr class="divider">
+
+<section id="surfaces">
+  <div class="section-label">Surfaces</div>
+  <div class="section-title">What's inside</div>
+  <p class="section-sub">Each surface is a tab in the browser. No separate apps, no context switching.</p>
+  <div class="surface-grid">
+    <div class="surface-card">
+      <div class="surface-icon">💬</div>
+      <div class="surface-name">Chat</div>
+      <div class="surface-desc">Unified chat interface across Claude, Gemini, and Codex. Switch models without leaving the tab.</div>
+      <span class="surface-tag tag-live">Live</span>
+    </div>
+    <div class="surface-card">
+      <div class="surface-icon">⬛</div>
+      <div class="surface-name">Terminal</div>
+      <div class="surface-desc">Full web terminal via ttyd. SSH directly into your GB10 units from the browser.</div>
+      <span class="surface-tag tag-live">Live</span>
+    </div>
+    <div class="surface-card">
+      <div class="surface-icon">📝</div>
+      <div class="surface-name">VS Code</div>
+      <div class="surface-desc">code-server running on the target machine. Full editor, extensions, git — browser-native.</div>
+      <span class="surface-tag tag-live">Live</span>
+    </div>
+    <div class="surface-card">
+      <div class="surface-icon">🤖</div>
+      <div class="surface-name">Model Manager</div>
+      <div class="surface-desc">Pull, inspect, and remove Ollama models across your GB10 fleet. GPU metrics and HuggingFace search built in.</div>
+      <span class="surface-tag tag-models">GB10</span>
+    </div>
+    <div class="surface-card">
+      <div class="surface-icon">🧠</div>
+      <div class="surface-name">Memory</div>
+      <div class="surface-desc">AIKB search and proposal review lane — surface what your AI agents have learned across sessions.</div>
+      <span class="surface-tag tag-live">Live</span>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<section>
+  <div class="section-label">Stack</div>
+  <div class="section-title">What's under the hood</div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+    <table class="stack-table">
+      <thead><tr><th>Component</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td>Node.js / Express</td><td>Backend proxy and API layer</td></tr>
+        <tr><td>ttyd</td><td>Web terminal — exposes a shell over WebSocket</td></tr>
+        <tr><td>code-server</td><td>VS Code in the browser, runs on the target host</td></tr>
+        <tr><td>Ollama API</td><td>Model pull, list, delete — local inference on GB10</td></tr>
+        <tr><td>AIKB runtime events</td><td>Memory search and proposal promotion</td></tr>
+        <tr><td>Nginx</td><td>Reverse proxy — all surfaces under one domain/port</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<hr class="divider">
+
+<section id="install">
+  <div class="section-label">Deploy</div>
+  <div class="section-title">Get AI Hub running</div>
+  <p class="section-sub">Designed to run on a dedicated VM or any always-on Linux host on your local network.</p>
+  <div class="install-block">
+    <div class="install-tabs">
+      <button class="install-tab active" onclick="showTab('docker',this)">Docker Compose</button>
+      <button class="install-tab" onclick="showTab('manual',this)">Manual</button>
+    </div>
+    <div class="install-panel active" id="tab-docker">
+      <div class="install-cmd" id="cmd-docker">git clone https://github.com/mcglothi/ai-hub.git
+cd ai-hub && docker compose up -d</div>
+      <div class="install-meta">
+        <span class="install-note">Web UI at http://&lt;host&gt;:3001 after startup</span>
+        <button class="copy-btn" onclick="copyCmd('cmd-docker',this)">Copy</button>
+      </div>
+    </div>
+    <div class="install-panel" id="tab-manual">
+      <div class="install-cmd" id="cmd-manual">git clone https://github.com/mcglothi/ai-hub.git
+cd ai-hub && npm install
+cp .env.example .env  # edit API keys
+npm start</div>
+      <div class="install-meta">
+        <span class="install-note">Requires Node.js 18+, ttyd, and code-server on PATH</span>
+        <button class="copy-btn" onclick="copyCmd('cmd-manual',this)">Copy</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>Part of the <a href="https://mcglothi.github.io">AI Ops Toolkit</a> &nbsp;·&nbsp; <a href="https://github.com/mcglothi/ai-hub" target="_blank">github.com/mcglothi/ai-hub</a> &nbsp;·&nbsp; MIT License</div>
+</footer>
+
+<script>
+function showTab(id,btn){document.querySelectorAll('.install-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.install-tab').forEach(b=>b.classList.remove('active'));document.getElementById('tab-'+id).classList.add('active');btn.classList.add('active')}
+function copyCmd(id,btn){navigator.clipboard.writeText(document.getElementById(id).textContent).then(()=>{btn.textContent='Copied!';btn.classList.add('copied');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied')},2000)})}
+</script>
+</body>
+</html>
