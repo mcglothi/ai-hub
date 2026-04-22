@@ -58,6 +58,7 @@ const AIKB_MAX_SNIPPETS = Math.max(1, Math.min(6, parseInt(process.env.AIKB_MAX_
 const MEMORY_CORE_URL = (process.env.MEMORY_CORE_URL || 'https://memory.home.timmcg.net').replace(/\/+$/, '');
 const MEMORY_CORE_API_KEY = process.env.MEMORY_CORE_API_KEY || '';
 const MEMORY_CORE_TIMEOUT_MS = Math.max(1000, parseInt(process.env.MEMORY_CORE_TIMEOUT_MS || '20000', 10));
+const MEMORY_HARVEST_MAX_EVENTS = Math.max(1, Math.min(2000, parseInt(process.env.MEMORY_HARVEST_MAX_EVENTS || '2000', 10)));
 const HUGGING_FACE_TIMEOUT_MS = Math.max(1000, parseInt(process.env.HUGGING_FACE_TIMEOUT_MS || '15000', 10));
 const SSH_BIN = process.env.SSH_BIN || '/usr/bin/ssh';
 const DEFAULT_PLATFORM_ID = process.env.DEFAULT_MODEL_PLATFORM || 'hopper';
@@ -1690,13 +1691,20 @@ app.get('/memory/source-context', async (req, res) => {
 
 app.post('/memory/harvest', async (req, res) => {
   try {
+    const requestedMaxEvents = Number(req.body.max_events || MEMORY_HARVEST_MAX_EVENTS);
+    const maxEvents = Math.max(1, Math.min(2000, Number.isFinite(requestedMaxEvents) ? requestedMaxEvents : MEMORY_HARVEST_MAX_EVENTS));
     const out = await memoryRequest('POST', '/api/v1/proposals/harvest', {
       body: {
-        max_events: Number(req.body.max_events || 250),
+        max_events: maxEvents,
         state_name: String(req.body.state_name || 'default'),
       },
     });
-    res.json(out);
+    const cursorTs = Number(out?.cursor?.last_event_ts || 0);
+    res.json({
+      ...out,
+      max_events: maxEvents,
+      cursor_iso: cursorTs ? new Date(cursorTs * 1000).toISOString() : null,
+    });
   } catch (err) {
     res.status(502).json({ error: err.message });
   }

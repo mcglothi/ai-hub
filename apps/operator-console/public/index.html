@@ -2098,6 +2098,7 @@
               </div>
               <div class="chip-row">
                 <span class="chip mono">queue <span id="review-queue-pill">pending</span></span>
+                <span class="chip mono">cursor <span id="harvest-cursor-pill">unknown</span></span>
               </div>
             </div>
             <div class="control-row">
@@ -2108,7 +2109,7 @@
                 <option value="applied">Applied proposals</option>
                 <option value="">All proposals</option>
               </select>
-              <button id="harvest-btn" class="action-btn primary" type="button" title="Scan recent memory events and generate any new proposal candidates that match the current harvester rules.">Harvest</button>
+              <button id="harvest-btn" class="action-btn primary" type="button" title="Scan the next Memory Core harvest batch and show cursor progress.">Harvest</button>
               <button id="review-refresh-btn" class="action-btn secondary" type="button" title="Reload the current proposal queue and recompute the recommendation summary without running a new harvest.">Refresh Queue</button>
               <button id="review-auto-btn" class="action-btn secondary" type="button" title="Apply the current recommendation engine to visible proposals. Obvious noise is rejected, obvious keepers are approved, and ambiguous items are left for manual review.">Apply Recommendations</button>
             </div>
@@ -2447,6 +2448,7 @@
       build: null,
       health: null,
       stats: null,
+      harvest: null,
       models: null,
       modelPlatforms: [],
       defaultPlatformId: 'hopper',
@@ -2554,6 +2556,7 @@
       memoryHealthPill: document.getElementById('memory-health-pill'),
       searchSummary: document.getElementById('search-summary'),
       proposalSummary: document.getElementById('proposal-summary'),
+      harvestCursorPill: document.getElementById('harvest-cursor-pill'),
       selectionPill: document.getElementById('selection-pill'),
       gpuMeter: document.getElementById('gpu-meter'),
       memoryMeter: document.getElementById('memory-meter'),
@@ -2696,6 +2699,12 @@
       const n = Number(value || 0);
       if (!Number.isFinite(n) || !n) return 'unknown';
       return new Date(n * 1000).toLocaleString();
+    };
+
+    const fmtHarvestCursor = (harvest) => {
+      const ts = Number(harvest?.cursor?.last_event_ts || 0);
+      if (!Number.isFinite(ts) || !ts) return 'unknown';
+      return fmtTime(ts);
     };
 
     const fmtBytes = (value) => {
@@ -5665,6 +5674,7 @@
       el.memoryHealthPill.textContent = `memory ${health.status || 'unknown'}`;
       el.memoryHealthPill.className = `status-pill ${health.status === 'ok' ? 'good' : 'warn'}`;
       el.sourceChip.textContent = `source ${fmtNum(stats.events_total)} events`;
+      if (el.harvestCursorPill && !state.harvest) el.harvestCursorPill.textContent = 'run harvest';
       logTrace('memory stats', `${fmtNum(stats.events_total)} events, ${fmtNum(stats.proposals_new)} new proposals`);
     };
 
@@ -5719,15 +5729,23 @@
     };
 
     const harvest = async () => {
-      logTrace('harvest', 'Running proposal harvester with default state.');
-      const out = await fetchJson('/memory/harvest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ max_events: 250, state_name: 'default' }),
-      });
-      logOp('harvest', `scanned ${out.scanned || 0}, created ${out.created || 0}`);
-      await refreshStats();
-      await refreshReview();
+      logTrace('harvest', 'Running proposal harvester with default state and 2,000-event batch.');
+      el.harvestBtn.disabled = true;
+      try {
+        const out = await fetchJson('/memory/harvest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ max_events: 2000, state_name: 'default' }),
+        });
+        state.harvest = out;
+        const cursorLabel = fmtHarvestCursor(out);
+        if (el.harvestCursorPill) el.harvestCursorPill.textContent = cursorLabel;
+        logOp('harvest', `scanned ${fmtNum(out.scanned || 0)}, created ${fmtNum(out.created || 0)}, cursor ${cursorLabel}`);
+        await refreshStats();
+        await refreshReview();
+      } finally {
+        el.harvestBtn.disabled = false;
+      }
     };
 
     const applyTerminalAppearance = () => {
