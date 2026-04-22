@@ -1817,6 +1817,9 @@
           <button class="nav-btn" data-view="code">
             <span class="nav-title">Code</span>
           </button>
+          <button class="nav-btn" data-view="orchestrator">
+            <span class="nav-title">Orchestrator</span>
+          </button>
         </div>
       </div>
 
@@ -2432,6 +2435,36 @@
           </details>
         </div>
       </section>
+
+      <section id="orchestrator-view" class="view code-wrap">
+        <iframe id="orchestrator-frame" class="surface-frame" src="https://mcp.home.timmcg.net" title="MCP Command Center" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        <div class="card toolbar-block">
+          <div class="card-head">
+            <div class="card-title">
+              <h2>MCP Orchestrator</h2>
+              <p>Central gateway for all agent toolsets and homelab integrations.</p>
+            </div>
+            <div class="chip-row">
+              <span id="mcp-hub-status" class="chip mono">hub: mcp.home.timmcg.net</span>
+            </div>
+          </div>
+          <details class="compact-disclosure">
+            <summary>
+              <div class="status-summary-text">
+                <strong>Hub Actions</strong>
+                <span>Direct dashboard management and documentation links.</span>
+              </div>
+              <span class="status-chevron" aria-hidden="true">more</span>
+            </summary>
+            <div class="compact-disclosure-body">
+              <div class="control-row">
+                <button id="mcp-popout" class="action-btn secondary" type="button">Open Fullscreen</button>
+                <a href="https://github.com/mcglothi/AIKB/blob/main/home-lab/infrastructure/mcp-management.md" target="_blank" class="action-btn secondary" style="text-decoration: none; text-align: center;">View Docs</a>
+              </div>
+            </div>
+          </details>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -2535,6 +2568,10 @@
         title: 'Embedded Code Surface',
         copy: '',
       },
+      orchestrator: {
+        title: 'MCP Orchestrator',
+        copy: 'Manage centralized Model Context Protocol tools and homelab integrations.',
+      },
     };
 
     const el = {
@@ -2545,6 +2582,7 @@
         models: document.getElementById('models-view'),
         terminal: document.getElementById('terminal-view'),
         code: document.getElementById('code-view'),
+        orchestrator: document.getElementById('orchestrator-view'),
       },
       viewTitle: document.getElementById('view-title'),
       viewCopy: document.getElementById('view-copy'),
@@ -2673,6 +2711,7 @@
       terminalReload: document.getElementById('terminal-reload'),
       terminalPopout: document.getElementById('terminal-popout'),
       codePopout: document.getElementById('code-popout'),
+      mcpPopout: document.getElementById('mcp-popout'),
       opsPanel: document.getElementById('ops-panel'),
       opsSummaryTitle: document.getElementById('ops-summary-title'),
       opsSummaryCopy: document.getElementById('ops-summary-copy'),
@@ -6112,6 +6151,27 @@
     });
     el.terminalPopout.addEventListener('click', () => window.open('/terminal/', '_blank', 'noopener'));
     el.codePopout.addEventListener('click', () => window.open('https://code.home.timmcg.net', '_blank', 'noopener'));
+    el.mcpPopout.addEventListener('click', () => window.open('https://mcp.home.timmcg.net', '_blank', 'noopener'));
+    const mcpPopoutAlt = document.getElementById('mcp-popout-alt');
+    if (mcpPopoutAlt) {
+      mcpPopoutAlt.addEventListener('click', () => window.open('https://github.com/mcglothi/AIKB/blob/main/home-lab/infrastructure/mcp-management.md', '_blank', 'noopener'));
+    }
+
+    const refreshMcpStatus = async () => {
+      const pill = document.getElementById('mcp-hub-status');
+      if (!pill) return;
+      try {
+        // SSE endpoint is usually not suitable for a simple fetch, 
+        // but we can check the root for a 200 OK via the proxy.
+        const resp = await fetch('https://mcp.home.timmcg.net', { mode: 'no-cors' });
+        pill.textContent = 'hub: mcp.home.timmcg.net (online)';
+        pill.className = 'chip mono good';
+      } catch (err) {
+        pill.textContent = 'hub: mcp.home.timmcg.net (unreachable)';
+        pill.className = 'chip mono warn';
+      }
+    };
+
     el.terminalFrame.addEventListener('load', () => {
       applyTerminalAppearance();
       el.terminalStatus.textContent = `terminal ${state.terminalTheme}`;
@@ -6230,6 +6290,9 @@
         refreshReview().catch((err) => {
           logTrace('review bootstrap error', err.message);
           throw err;
+        }),
+        refreshMcpStatus().catch((err) => {
+          logTrace('mcp bootstrap error', err.message);
         }),
       ]);
     };
