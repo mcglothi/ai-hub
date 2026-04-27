@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Turing Desktop v2.0</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,12 +24,26 @@
       --header-h: 60px;
       --sidebar-w: 260px;
       --cmd-h: 70px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; font-family: 'Sora', sans-serif; background: var(--bg-0); color: var(--text); overflow: hidden; }
 
-    #app { display: flex; height: 100dvh; }
+    #app {
+      display: flex;
+      height: 100vh;
+      height: 100dvh;
+      min-height: 100svh;
+      padding:
+        var(--safe-top)
+        var(--safe-right)
+        var(--safe-bottom)
+        var(--safe-left);
+    }
 
     aside#sidebar {
       width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border);
@@ -51,9 +65,13 @@
     header#main-header {
       height: var(--header-h); background: var(--surface); border-bottom: 1px solid var(--border);
       display: flex; align-items: center; padding: 0 15px; gap: 10px; flex-shrink: 0;
+      min-width: 0;
     }
 
-    .facet-tabs { display: flex; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 10px; flex-shrink: 0; }
+    .facet-tabs {
+      display: flex; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 10px; flex-shrink: 0;
+      min-width: 0;
+    }
     .facet-btn { 
       padding: 6px 12px; border-radius: 8px; border: 0; background: transparent; 
       color: var(--text-dim); font-weight: 600; font-size: 0.8rem; cursor: pointer;
@@ -156,6 +174,7 @@
     #command-bar {
       height: var(--cmd-h); background: var(--surface); border-top: 1px solid var(--border);
       display: flex; align-items: center; padding: 0 15px; gap: 15px; flex-shrink: 0;
+      min-width: 0;
     }
     #cmd-input {
       flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px;
@@ -197,6 +216,69 @@
       .memory-card { grid-column: span 12; }
       .memory-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .memory-proposals-layout { grid-template-columns: 1fr; }
+      header#main-header {
+        height: auto;
+        min-height: var(--header-h);
+        padding: 10px 12px;
+        flex-wrap: wrap;
+        align-content: flex-start;
+      }
+      .facet-tabs {
+        order: 2;
+        width: 100%;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .facet-tabs::-webkit-scrollbar { display: none; }
+      .facet-btn { flex: 0 0 auto; }
+      #add-session-btn {
+        margin-left: auto;
+        flex-shrink: 0;
+      }
+      #assist-view, #memory-view { padding: 12px; }
+      .msg {
+        max-width: 100%;
+        font-size: 0.88rem;
+      }
+      #command-bar {
+        height: auto;
+        min-height: var(--cmd-h);
+        padding: 10px 12px;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      #cmd-input {
+        order: 3;
+        width: 100%;
+        min-width: 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      :root {
+        --header-h: 56px;
+        --cmd-h: 64px;
+      }
+      .sidebar-header { padding: 14px 16px; }
+      .workspace-list { padding: 8px; }
+      .facet-btn {
+        padding: 8px 10px;
+        font-size: 0.76rem;
+      }
+      .cmd-btn {
+        width: 42px;
+        height: 42px;
+      }
+      #cmd-input {
+        padding: 12px 14px;
+        font-size: 16px;
+      }
+      .modal-overlay { padding: 12px; }
+      .modal {
+        padding: 18px;
+        max-height: calc(100svh - 24px);
+        overflow-y: auto;
+      }
     }
     .sidebar-toggle { display: none; }
     .hidden { display: none; }
@@ -411,6 +493,7 @@
 
     const closeModal = (id) => document.getElementById(id).classList.remove('active');
     const openModal = (id) => document.getElementById(id).classList.add('active');
+    const isMobileViewport = () => window.matchMedia('(max-width: 768px)').matches;
 
     const initTerm = () => {
       if (state.term) return;
@@ -518,6 +601,9 @@
       connectWS(s.session_id);
       loadHistory(s.session_id);
       el.cmdInput.placeholder = `Message ${s.provider}...`;
+      if (isMobileViewport()) {
+        el.sidebar.classList.remove('open');
+      }
     };
 
     const loadHistory = async (id) => {
@@ -937,7 +1023,19 @@
       }
     });
 
-    window.addEventListener('resize', () => { if (state.fit) state.fit.fit(); });
+    document.addEventListener('click', (event) => {
+      if (!isMobileViewport()) return;
+      if (!el.sidebar.classList.contains('open')) return;
+      if (el.sidebar.contains(event.target) || el.menuBtn.contains(event.target)) return;
+      el.sidebar.classList.remove('open');
+    });
+
+    window.addEventListener('resize', () => {
+      if (state.fit) state.fit.fit();
+      if (!isMobileViewport()) {
+        el.sidebar.classList.remove('open');
+      }
+    });
     loadWorkspaces();
   </script>
 </body>
