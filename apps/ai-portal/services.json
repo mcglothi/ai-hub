@@ -1,0 +1,14 @@
+[
+  {"id":"chat","name":"Chat","desc":"Open WebUI — conversational interface to Hopper models","url":"https://chat.home.timmcg.net","health_url":"https://chat.home.timmcg.net","icon":"message-square","category":"AI","node":"turing"},
+  {"id":"hermes","name":"Hermes","desc":"Agent gateway — persistent memory, tools, multi-model routing","url":"https://hermes.home.timmcg.net","health_url":"https://hermes.home.timmcg.net/health","icon":"cpu","category":"AI","node":"turing"},
+  {"id":"openshell","name":"OpenShell","desc":"NemoClaw agent sandbox — autonomous task execution","url":"https://shell.home.timmcg.net","health_url":"https://shell.home.timmcg.net","icon":"terminal","category":"AI","node":"turing"},
+  {"id":"memory","name":"Memory Core","desc":"AIKB hybrid memory — search, proposals, context retrieval","url":"https://memory.home.timmcg.net","health_url":"https://memory.home.timmcg.net/health","icon":"database","category":"AI","node":"babbage"},
+  {"id":"mcp","name":"Homelab MCP","desc":"MCP server — tool surface for AI agents across the lab","url":"https://mcp.home.timmcg.net","health_url":"https://mcp.home.timmcg.net","icon":"share-2","category":"AI","node":"babbage"},
+  {"id":"comfyui","name":"ComfyUI","desc":"Image generation — Stable Diffusion workflows on M5 Max","url":"http://newton.home.timmcg.net:8188","health_url":"http://newton.home.timmcg.net:8188","icon":"image","category":"AI","node":"newton"},
+  {"id":"ops","name":"Ops Console","desc":"AI Hub operator — model stewardship, memory review, metrics","url":"https://ops.home.timmcg.net","health_url":"https://ops.home.timmcg.net/healthz","icon":"sliders","category":"AI","node":"turing"},
+  {"id":"terminal","name":"Terminal","desc":"Web terminal — bash with Claude and Gemini CLIs","url":"https://terminal.home.timmcg.net","health_url":"https://terminal.home.timmcg.net","icon":"terminal","category":"Tools","node":"turing"},
+  {"id":"code","name":"Code","desc":"VS Code in browser — code-server on Turing","url":"https://code.home.timmcg.net","health_url":"https://code.home.timmcg.net","icon":"code","category":"Tools","node":"turing"},
+  {"id":"grafana","name":"Grafana","desc":"Observability — dashboards for all lab nodes including Hopper AI metrics","url":"https://grafana.home.timmcg.net","health_url":"https://grafana.home.timmcg.net/api/health","icon":"bar-chart-2","category":"Observe","node":"babbage"},
+  {"id":"ansible","name":"Semaphore","desc":"Ansible automation — infrastructure playbooks and scheduled jobs","url":"https://ansible.home.timmcg.net","health_url":"https://ansible.home.timmcg.net/api/ping","icon":"play","category":"Infra","node":"babbage"},
+  {"id":"vault","name":"Vault","desc":"Vaultwarden — secrets manager for all lab credentials","url":"https://vault.home.timmcg.net","health_url":"https://vault.home.timmcg.net","icon":"lock","category":"Infra","node":"babbage"}
+]
